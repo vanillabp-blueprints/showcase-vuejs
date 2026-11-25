@@ -151,3 +151,12 @@ Date: 2026-11-25
 
 The task page scrolls in its own area (`height: calc(100vh - var(--v-layout-top))`); the case page does not exist yet, so TF-008 is proven on the task page only. The react test module names the three areas only for a task of the process `areas`; any other task still gets `all`. An external task opens through the link of the list (`target=_blank`); opening it does not mark it as read, and the address `/tasks/<id>` of an external task still shows `cannot open here` (ASK-021). The note is saved on Enter and when the field loses focus; a note typed and then overwritten by an update of the task from another tab is replaced only after the save. `leavePage` drops the kept messages when the task page unmounts; a full reload of the browser tab drops them with the page. TF-023 is built for `Q-NOTES` = yes only.
 Answer: open
+
+## ASK-023 Task page: what S45 left open
+
+Story: S45 (TF-025, TF-026, TF-027, TF-029, TF-039, TF-040)
+Date: 2026-11-25
+
+The cockpit was a page per address; for TF-039 (no entry loaded twice, no second manifest read) App.vue now opens a link to a task, the back button and the `navigate` action in the same page with `history.pushState` (list pages and other links still load the page). The note of a task page does not name the entry for a failed data entry beyond `UserTaskForm`; ASK-021 is closed by the notes and retry on the page (EXT-035 and EXT-037 are now also on the page). Not built: the case page (WP-010 uses the same steps). Whether the other links of the cockpit should also open in the page is open.
+Answer: open
+

@@ -17,8 +17,20 @@ import TaskPage from './tasks/TaskPage.vue';
 const props = defineProps<{ title: string; user: User }>();
 
 const menuOpen = ref(false);
-const page = pageOf(window.location.pathname);
-const taskId = taskIdOf(window.location.pathname);
+// A link to a task opens it in this page, so what the loader kept is used again (TF-039); the back button and the actions of the modules use the same way.
+const path = ref(window.location.pathname);
+const page = computed(() => pageOf(path.value));
+const taskId = computed(() => taskIdOf(path.value));
+window.addEventListener('popstate', () => { path.value = window.location.pathname; });
+window.addEventListener('click', (event) => {
+  const link = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+  const plain = event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
+  if (!link || !plain || event.defaultPrevented || (link.target && link.target !== '_self') || link.origin !== window.location.origin) return;
+  if (taskIdOf(link.pathname) === undefined) return;
+  event.preventDefault();
+  window.history.pushState({}, '', link.pathname + link.search);
+  path.value = link.pathname;
+});
 // the page says which language it is in
 watchEffect(() => { document.documentElement.lang = language.value; });
 const shortForm = computed(() => props.user.displayShort ?? props.user.display ?? props.user.id);
@@ -87,7 +99,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
     <v-main>
       <task-list v-if="page === 'allTasks'" :own="false" :current-user-id="user.id" />
       <task-list v-else-if="page === 'myTasks'" :own="true" :current-user-id="user.id" />
-      <task-page v-else-if="page === 'task' && taskId" :id="taskId" />
+      <task-page v-else-if="page === 'task' && taskId" :id="taskId" :key="taskId" />
     </v-main>
   </v-app>
 </template>

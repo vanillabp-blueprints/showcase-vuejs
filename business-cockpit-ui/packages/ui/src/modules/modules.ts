@@ -81,11 +81,12 @@ export const leaveFormOf = (container: Element): void => host.leavePage(containe
 /**
  * Draws the form of the module of a task into `container`. Answers `unknown` when the cockpit cannot open the task,
  * else the areas drawn (none when the module names no form for it).
+ * `onLoadingVisual` is called when the visual entry has to be loaded.
  */
-export async function drawFormOf(task: RowOfModule, container: Element): Promise<'unknown' | string[]> {
+export async function drawFormOf(task: RowOfModule, container: Element, onLoadingVisual?: (entry: string) => void): Promise<'unknown' | string[]> {
   const opening = await registry.opening(task);
   if (opening.kind !== 'parts') return 'unknown';
   const { workflowModuleId, webPath } = opening.module;
   if (!(await host.names(workflowModuleId, webPath, USER_TASK_FORM))) return [];
-  return Object.keys(await host.drawPage(workflowModuleId, webPath, USER_TASK_FORM, task, taskPageAreas, container));
+  return Object.keys(await host.drawPage(workflowModuleId, webPath, USER_TASK_FORM, task, taskPageAreas, container, onLoadingVisual));
 }

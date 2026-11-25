@@ -18,6 +18,8 @@ const en = {
   taskNotLoaded: "The task could not be loaded.",
   columnsNotLoaded: "Not loaded",
   columnNeedsType: "This column needs a type.",
+  noFormForTask: "This module has no form for the task.",
+  taskLoading: { task: "Loading the task…", form: "Loading the form…", visual: "Loading the view of the form…" },
   partNotes: {
     askFailed: 'The part {entry} of module {module} could not be loaded.',
     loadFailed: 'The visual part {entry} of module {module} could not be loaded.',

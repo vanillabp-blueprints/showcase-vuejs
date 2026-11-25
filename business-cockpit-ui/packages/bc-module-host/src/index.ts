@@ -320,12 +320,14 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
      * The page of a user task or a case: the areas of the cockpit which the module names are drawn and the others are ignored;
      * when none is left, or the cockpit has none, the web component of `all` is drawn. Returns what was drawn by area.
      */
-    async drawPage(workflowModuleId: string, webPath: string, entry: DataEntry, data: unknown, cockpitAreas: readonly string[], container: Element): Promise<Record<string, HTMLElement>> {
+    async drawPage(workflowModuleId: string, webPath: string, entry: DataEntry, data: unknown, cockpitAreas: readonly string[], container: Element, onLoadingVisual?: (entry: string) => void): Promise<Record<string, HTMLElement>> {
       const parts = await this.ask(workflowModuleId, webPath, entry, data, AREA_ALL);
       if (!isPageParts(parts)) return {};
       const named: Record<string, string> = typeof parts.element === 'string' ? { [AREA_ALL]: parts.element } : parts.element;
       const known = cockpitAreas.filter((area) => Object.hasOwn(named, area));
       const areas = known.length ? known : Object.hasOwn(named, AREA_ALL) ? [AREA_ALL] : [];
+      // web components defined already are drawn at once, so only a page which has to load its visual entry says so
+      if (!this.isDefined({ entry: parts.entry, element: Object.fromEntries(areas.map((area) => [area, named[area]])) })) onLoadingVisual?.(parts.entry);
       const drawn: Record<string, HTMLElement> = {};
       const page = createPage();
       pages.set(container, page);

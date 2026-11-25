@@ -1,35 +1,21 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue';
-import { BcManifestError, elementPrefix, type BcElementDescriptor } from '@acme/bc-module-kit';
-import { ElementCreateFailed, ElementNotDefined, ModuleNameError, ModuleUpdated, type DataEntry, type ModuleRef } from '@acme/bc-module-host';
+import type { BcElementDescriptor } from '@acme/bc-module-kit';
+import type { DataEntry, ModuleRef } from '@acme/bc-module-host';
 import { text } from '../i18n/messages';
 import { host, onNewBuild } from './modules';
+import { noteOf, type NoteKind, type Step } from './partNote';
 
 // One part of a module in a page: ask, load and draw, each with its own state and its own error.
 const props = defineProps<{ module: ModuleRef; entry: DataEntry; args?: unknown[]; properties?: Record<string, unknown>; asksAgainOnNewBuild?: boolean }>();
 
-type Step = 'ask' | 'load' | 'draw';
-type Kind = 'ask-failed' | 'load-failed' | 'not-defined' | 'create-failed' | 'name-refused' | 'module-updated' | 'manifest-refused';
 // `none`: the module has nothing for this entry, which is no error
 const state = ref<'asking' | 'loading' | 'drawn' | 'none' | 'failed'>('asking');
-const note = ref<{ kind: Kind; message: string }>();
+const note = ref<{ kind: NoteKind; message: string }>();
 const retried = ref(false);
 const container = ref<HTMLElement>();
 
 const isDescriptor = (answer: unknown): answer is BcElementDescriptor => typeof (answer as BcElementDescriptor | undefined)?.element === 'string';
-
-function noteOf(error: unknown, step: Step, entry: string): { kind: Kind; message: string } {
-  const { workflowModuleId } = props.module;
-  const notes = text().partNotes;
-  const fill = (template: string, element = '') => template
-    .replace('{module}', workflowModuleId).replace('{entry}', entry).replace('{element}', element).replace('{prefix}', elementPrefix(workflowModuleId));
-  if (error instanceof ModuleNameError) return { kind: 'name-refused', message: fill(notes.nameRefused, error.element) };
-  if (error instanceof ModuleUpdated) return { kind: 'module-updated', message: fill(notes.moduleUpdated, error.element) };
-  if (error instanceof BcManifestError) return { kind: 'manifest-refused', message: fill(notes.manifestRefused) };
-  if (error instanceof ElementNotDefined) return { kind: 'not-defined', message: fill(notes.notDefined, error.element) };
-  if (error instanceof ElementCreateFailed) return { kind: 'create-failed', message: fill(notes.createFailed, error.element) };
-  return step === 'ask' ? { kind: 'ask-failed', message: fill(notes.askFailed) } : { kind: 'load-failed', message: fill(notes.loadFailed) };
-}
 
 async function run(): Promise<void> {
   const { workflowModuleId, webPath } = props.module;
@@ -52,7 +38,7 @@ async function run(): Promise<void> {
     state.value = 'drawn';
   } catch (error) {
     console.error(error instanceof Error ? error.message : error, error);
-    note.value = noteOf(error, step, entry);
+    note.value = noteOf(error, step, props.module.workflowModuleId, entry);
     state.value = 'failed';
   }
 }

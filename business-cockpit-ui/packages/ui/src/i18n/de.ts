@@ -18,6 +18,8 @@ const de: Messages = {
   taskNotLoaded: "Die Aufgabe konnte nicht geladen werden.",
   columnsNotLoaded: "Nicht geladen",
   columnNeedsType: "Diese Spalte braucht einen Typ.",
+  noFormForTask: "Dieses Modul hat kein Formular für die Aufgabe.",
+  taskLoading: { task: "Die Aufgabe wird geladen…", form: "Das Formular wird geladen…", visual: "Die Ansicht des Formulars wird geladen…" },
   partNotes: {
     askFailed: 'Der Teil {entry} des Moduls {module} konnte nicht geladen werden.',
     loadFailed: 'Der sichtbare Teil {entry} des Moduls {module} konnte nicht geladen werden.',

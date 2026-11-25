@@ -18,6 +18,8 @@ const fr: Messages = {
   taskNotLoaded: "La tâche n'a pas pu être chargée.",
   columnsNotLoaded: "Non chargé",
   columnNeedsType: "Cette colonne a besoin d'un type.",
+  noFormForTask: "Ce module n'a pas de formulaire pour la tâche.",
+  taskLoading: { task: "Chargement de la tâche…", form: "Chargement du formulaire…", visual: "Chargement de la vue du formulaire…" },
   partNotes: {
     askFailed: 'La partie {entry} du module {module} n’a pas pu être chargée.',
     loadFailed: 'La partie visible {entry} du module {module} n’a pas pu être chargée.',
