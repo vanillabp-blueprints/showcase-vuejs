@@ -47,3 +47,11 @@ Date: 2026-11-25
 Default taken: nothing; the application handles `AsyncRequestNotUsableException` at `DEBUG`, but `UpdateStreams` of the library 0.9.0-SNAPSHOT still logs a WARN "Could not SSE send confirmation, client might stuck" when a tab closes.
 Why this default: the line comes from the library, not from a handler the application can replace; lowering its logger would hide other warnings (backend.md forbids that).
 Answer: open
+
+## ASK-007 Leaving the list is a page load, so SRCH-018 cannot see a leak of the list component
+
+Story: S27 (SRCH-018)
+Date: 2026-11-25
+Default taken: the test opens `/tasks`, goes to `/cases` and back by address; heap and DOM nodes after the second leaving are within 10 % of the first. The list component is never unmounted inside a running page because the menu links reload the page.
+Why this default: the interview gives no in-app routing; adding a router is outside this story.
+Answer: open
