@@ -1,7 +1,9 @@
-import { createModuleHost, createModuleRegistry, type ModuleRef, type RowOfModule } from '@acme/bc-module-host';
+import { createModuleHost, createModuleRegistry, type ModuleHost, type ModuleRef, type RowOfModule } from '@acme/bc-module-host';
 import { HEADER } from '@acme/bc-module-kit';
 import { OfficialWorkflowModulesApi } from '../generated/official-gui-api';
 import { FailedCall } from '../api/clients';
+import { language } from '../i18n/messages';
+import { cockpitActions } from './actions';
 
 // The one registry and the one loader of the cockpit: no component of the user interface imports a part of a module itself.
 const api = new OfficialWorkflowModulesApi();
@@ -15,7 +17,13 @@ const registry = createModuleRegistry({
   },
 });
 const newBuildListeners = new Set<(workflowModuleId: string) => void>();
-export const host = createModuleHost({
+let user: unknown;
+/** The user who is logged in; every part gets it as `currentUser`. */
+export const setCurrentUser = (value: unknown): void => { user = value; };
+
+export const host: ModuleHost = createModuleHost({
+  actions: cockpitActions(() => host),
+  context: () => ({ language: language.value, currentUser: user }),
   moduleIds: () => registry.ids(),
   onNewBuild: (workflowModuleId) => newBuildListeners.forEach((listener) => listener(workflowModuleId)),
 });

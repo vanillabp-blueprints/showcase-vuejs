@@ -4,3 +4,4 @@ export * from './element-names.js';
 export * from './manifest.js';
 export * from './protocol.js';
 export * from './define-element.js';
+export * from './functions.js';

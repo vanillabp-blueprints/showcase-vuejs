@@ -7,7 +7,7 @@ import App from './App.vue';
 import { configureGuiApiClients } from './api/clients';
 import { LoginApi } from './generated/cockpit-gui-api';
 import { keepCountsCurrent } from './counts/counts';
-import { startModules } from './modules/modules';
+import { setCurrentUser, startModules } from './modules/modules';
 import { currentUser, sendToLoginOnUnauthorized } from './session/session';
 
 installTheme();
@@ -17,6 +17,7 @@ sendToLoginOnUnauthorized();
 async function start(): Promise<void> {
   const user = await currentUser();
   if (!user) return;
+  setCurrentUser(user);
   const info = await new LoginApi().appInformation();
   keepCountsCurrent();
   await startModules();

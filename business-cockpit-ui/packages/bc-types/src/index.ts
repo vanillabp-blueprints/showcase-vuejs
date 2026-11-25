@@ -58,6 +58,7 @@ export const MANIFEST_VERSION = 1;
 
 export const ACTIONS = {
   openDialog: 'cockpit.openDialog',
+  closeDialog: 'cockpit.closeDialog',
   showNotification: 'cockpit.showNotification',
   claim: 'userTask.claim',
   sendTo: 'page.sendTo',
@@ -66,7 +67,7 @@ export const ACTIONS = {
 } as const;
 export const ACTIONS_WITHOUT_TIMEOUT: readonly string[] = [ACTIONS.openDialog];
 
-export const ERROR_CODES = { DISCONNECTED: 'DISCONNECTED', TIMEOUT: 'TIMEOUT', REFUSED: 'REFUSED', UNKNOWN_ACTION: 'UNKNOWN_ACTION', FAILED: 'FAILED' } as const;
+export const ERROR_CODES = { DISCONNECTED: 'DISCONNECTED', TIMEOUT: 'TIMEOUT', REFUSED: 'REFUSED', UNKNOWN_ACTION: 'UNKNOWN_ACTION', FAILED: 'FAILED', NO_TARGET: 'NO_TARGET' } as const;
 
 export interface BcRequestDetail { requestId: string; action: string; args?: unknown }
 export type BcResponseDetail =
@@ -83,3 +84,14 @@ export interface BcManifest {
 
 /** What a data entry answers: the web component to draw and the visual entry that defines it. */
 export interface BcElementDescriptor { element: string; entry: string }
+
+/** What the host sends to the web component of an area for each message of `page.sendTo`. */
+export interface BcMessageDetail { subscriptionId: string; from: string; message: unknown }
+
+/** What `showNotification` shows as a toast; `text` is in the language the part got as `language`. */
+export interface BcNotification {
+  level: 'info' | 'success' | 'warning' | 'error';
+  text: string;
+  /** `true`: the toast stays until the user clicks it away. */
+  sticky?: boolean;
+}

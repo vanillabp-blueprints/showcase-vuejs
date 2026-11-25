@@ -1,7 +1,9 @@
 // The simulator of the UI repository: stands in for the cockpit backend in the end-to-end tests.
 // It answers the GUI API, the BPMS API and what the dev shells need, in memory only.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import type { AppInformation } from '../../packages/ui/src/generated/cockpit-gui-api/types.gen.ts';
 import type { Person, User, UserTask, WorkflowModule, WorkflowModules } from '../../packages/ui/src/generated/official-gui-api/types.gen.ts';
@@ -28,6 +30,23 @@ const users: SimulatedUser[] = [
 export interface Simulator {
   port: number;
   stop(): Promise<void>;
+}
+
+/** What the web server of a module answers for a file: an ETag, Last-Modified, gzip on request and 304 for a file which did not change. */
+function moduleAnswer(file: string, type: string, asked: IncomingMessage['headers']): { status: number; headers: Record<string, string>; body: Buffer } {
+  const content = readFileSync(file);
+  const etag = `"${createHash('sha1').update(content).digest('hex')}"`;
+  const lastModified = statSync(file).mtime.toUTCString();
+  // The manifest has a fixed name, so it is never cached without asking again.
+  const headers: Record<string, string> = { 'content-type': type, etag, 'last-modified': lastModified, ...(file.endsWith('bc-manifest.json') ? { 'cache-control': 'no-cache' } : {}) };
+  const unchanged = asked['if-none-match'] !== undefined
+    ? asked['if-none-match'] === etag
+    : asked['if-modified-since'] !== undefined && Date.parse(asked['if-modified-since']) >= Date.parse(lastModified);
+  if (unchanged) return { status: 304, headers, body: Buffer.alloc(0) };
+  if (/\bgzip\b/.test(String(asked['accept-encoding'] ?? '')) && type !== 'application/octet-stream') {
+    return { status: 200, headers: { ...headers, 'content-encoding': 'gzip', vary: 'Accept-Encoding' }, body: gzipSync(content) };
+  }
+  return { status: 200, headers, body: content };
 }
 
 export async function startSimulator(options: { port: number }): Promise<Simulator> {
@@ -560,10 +579,12 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (modulePart && testModules.includes(modulePart[1])) {
       const file = join(modulesFolder, modulePart[1], 'dist', modulePart[2]);
       if (!file.includes('..') && existsSync(file)) {
-        // The manifest has a fixed name, so it is never cached.
+        // The module is the upstream and this is the proxy: it passes Cache-Control, ETag, Last-Modified and Content-Encoding on
+        // unchanged and passes a conditional request on, so a manifest which did not change is a 304 (EXT-059).
         const type = file.endsWith('.js') ? 'text/javascript' : file.endsWith('.json') ? 'application/json' : 'application/octet-stream';
-        res.writeHead(200, { 'content-type': type, ...(file.endsWith('bc-manifest.json') ? { 'cache-control': 'no-cache' } : {}) });
-        return void res.end(readFileSync(file));
+        const upstream = moduleAnswer(file, type, req.headers);
+        res.writeHead(upstream.status, upstream.headers);
+        return void res.end(upstream.body);
       }
     }
 

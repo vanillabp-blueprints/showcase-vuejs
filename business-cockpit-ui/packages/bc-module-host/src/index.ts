@@ -1,7 +1,8 @@
+import { ActionFailed, createPage, type Page } from './page.js';
 import {
   ERROR_CODES, REQUEST_EVENT, RESPONSE_EVENT, USER_TASK_FORM, USER_TASK_LIST, WORKFLOW_LIST, WORKFLOW_PAGE,
   type BcRequestDetail, type BcResponseDetail,
-  AREA_ALL, EXPORT_NAMES, MANIFEST_FILE_NAME, UI_URI_TYPE_ES_MODULES, elementPrefix, entryUrl, readManifest,
+  AREA_ALL, EXPORT_NAMES, ACTIONS, functionsOf, MANIFEST_FILE_NAME, UI_URI_TYPE_ES_MODULES, elementPrefix, entryUrl, readManifest,
   type BcElementDescriptor, type BcManifest,
 } from '@acme/bc-module-kit';
 
@@ -27,7 +28,12 @@ export interface ModuleHostOptions {
   moduleIds?: () => readonly string[];
   /** Called when the manifest of a module differs from the one read before, so that its users ask again. */
   onNewBuild?: (workflowModuleId: string, manifest: BcManifest, previous: BcManifest) => void;
+  /** The language the cockpit shows and the user who is logged in; every part gets both as properties. */
+  context?: () => { language: string; currentUser: unknown };
 }
+
+export * from './page.js';
+export * from './minimum-actions.js';
 
 /** After this time the loader reads the manifest of a module again before it asks a part of it. */
 export const MANIFEST_RECHECK_MS = 60_000;
@@ -73,10 +79,15 @@ export const ROW_ENTRIES: readonly string[] = [USER_TASK_LIST, WORKFLOW_LIST, US
 export interface ModuleRef { workflowModuleId: string; webPath: string }
 
 const errorOf = (error: unknown): { code: string; status?: number; message?: string } => {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (typeof code === 'string' && error instanceof ActionFailed) return { code, message: error.message };
   const status = (error as { status?: unknown } | null)?.status;
   const message = error instanceof Error ? error.message : String(error);
   return typeof status === 'number' ? { code: ERROR_CODES.REFUSED, status, message } : { code: ERROR_CODES.FAILED, message };
 };
+
+/** The property a page gets its data in: `userTask` on the page of a user task, `workflow` on the page of a case. */
+const dataNameOf = (entry: DataEntry) => (entry === USER_TASK_FORM ? 'userTask' : 'workflow');
 
 /** What a page function answers: one web component name, or one for each area. */
 interface PageParts { entry: string; element: string | Record<string, string> }
@@ -110,6 +121,7 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
   const files = new Map<string, Promise<Exports>>();
   const definedWithinMs = options.definedWithinMs ?? DEFINED_WITHIN_MS;
   const failures = new Map<string, number>();
+  const placed = new WeakMap<HTMLElement, ModuleRef>();
 
   /** A failure is not kept: the next call reads the manifest again and calls `import()` again. */
   const keepUnlessFailed = <T>(cache: Map<string, Promise<T>>, key: string, make: () => Promise<T>): Promise<T> => {
@@ -194,11 +206,16 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
   };
 
   /** Answers every `bc-request` of the element with exactly one `bc-response`. */
-  const answerRequests = (element: HTMLElement) => {
+  const answerRequests = (element: HTMLElement, page: Page) => {
+    const ofPage: Record<string, ActionHandler> = {
+      [ACTIONS.sendTo]: (args) => page.send(element, (args as { target: string }).target, (args as { message: unknown }).message),
+      [ACTIONS.subscribe]: () => ({ subscriptionId: page.subscribe(element) }),
+      [ACTIONS.unsubscribe]: (args) => page.unsubscribe((args as { subscriptionId: string }).subscriptionId),
+    };
     const respond = (detail: BcResponseDetail) => element.dispatchEvent(new CustomEvent(RESPONSE_EVENT, { detail }));
     element.addEventListener(REQUEST_EVENT, async (event) => {
       const { requestId, action, args } = (event as CustomEvent<BcRequestDetail>).detail;
-      const handler = Object.hasOwn(actions, action) ? actions[action] : undefined;
+      const handler = Object.hasOwn(ofPage, action) ? ofPage[action] : Object.hasOwn(actions, action) ? actions[action] : undefined;
       if (!handler) {
         return respond({ requestId, ok: false, error: { code: ERROR_CODES.UNKNOWN_ACTION, message: `the cockpit does not know ${action}` } });
       }
@@ -259,16 +276,23 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
       definedIn.set(descriptor.element, generation);
     },
     /** Steps 2 and 3: loads the visual entry and puts the web component into the container. */
-    async draw(workflowModuleId: string, webPath: string, descriptor: BcElementDescriptor, container: Element, properties: Record<string, unknown> = {}): Promise<HTMLElement> {
+    async draw(
+      workflowModuleId: string, webPath: string, descriptor: BcElementDescriptor, container: Element,
+      properties: Record<string, unknown> = {}, page: Page = createPage(),
+    ): Promise<HTMLElement> {
       await this.loadVisual(workflowModuleId, webPath, descriptor);
       let element: HTMLElement;
       try {
         element = document.createElement(descriptor.element);
         // a constructor which throws leaves the browser with a plain element instead of the web component
         if (!(element instanceof customElements.get(descriptor.element)!)) throw new Error('the constructor of the web component failed');
-        Object.assign(element, properties);
+        // every part gets the language, the user and the functions; a part which belongs to no task and no case also gets its module
+        const ofPart = 'userTask' in properties || 'workflow' in properties ? {} : { workflowModule: { id: workflowModuleId, uri: webPath } };
+        Object.assign(element, functionsOf(element), options.context?.() ?? {}, ofPart, properties);
+        placed.set(element, { workflowModuleId, webPath });
+        if (typeof properties.area === 'string') page.register(properties.area, element);
       } catch (error) { throw new ElementCreateFailed(workflowModuleId, descriptor.element, error); }
-      answerRequests(element);
+      answerRequests(element, page);
       container.append(element);
       return element;
     },
@@ -302,25 +326,31 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
       const known = cockpitAreas.filter((area) => Object.hasOwn(named, area));
       const areas = known.length ? known : Object.hasOwn(named, AREA_ALL) ? [AREA_ALL] : [];
       const drawn: Record<string, HTMLElement> = {};
+      const page = createPage();
       for (const area of areas) {
         const slot = container.appendChild(document.createElement('div'));
         slot.dataset.area = area;
-        drawn[area] = await this.draw(workflowModuleId, webPath, { element: named[area], entry: parts.entry }, slot, { userTask: data, workflow: data, area });
+        drawn[area] = await this.draw(workflowModuleId, webPath, { element: named[area], entry: parts.entry }, slot, { [dataNameOf(entry)]: data, area }, page);
       }
       return drawn;
     },
     /** Asks the entry once for each area (the areas of the interview, or `all`) and draws what is answered. */
     async drawAreas(workflowModuleId: string, webPath: string, entry: DataEntry, data: unknown, areas: readonly string[], container: Element): Promise<Record<string, HTMLElement>> {
       const drawn: Record<string, HTMLElement> = {};
+      const page = createPage();
       for (const area of areas.length ? areas : [AREA_ALL]) {
         const descriptor = await this.ask(workflowModuleId, webPath, entry, data, area);
         if (!isDescriptor(descriptor)) continue;
         const slot = container.appendChild(document.createElement('div'));
         slot.dataset.area = area;
-        drawn[area] = await this.draw(workflowModuleId, webPath, descriptor, slot, { userTask: data, workflow: data, area });
+        drawn[area] = await this.draw(workflowModuleId, webPath, descriptor, slot, { [dataNameOf(entry)]: data, area }, page);
       }
       return drawn;
     },
+    /** The module a web component of this host belongs to. */
+    moduleOf: (element: HTMLElement): ModuleRef | undefined => placed.get(element),
   };
 }
 export * from './registry.js';
+
+export type ModuleHost = ReturnType<typeof createModuleHost>;
