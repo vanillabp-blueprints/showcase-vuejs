@@ -62,7 +62,8 @@ test('TL-028 the status line is a footer below the rows: it does not scroll with
   await page.setViewportSize({ width: 1280, height: 500 });
   await seed(page, many);
   await page.goto('/tasks');
-  await expect(page.getByTestId('task-row')).toHaveCount(20);
+  // the list is virtual, so only the rows near the visible area exist (SRCH-010)
+  await expect(page.getByTestId('task-row').first()).toBeVisible();
   const viewport = page.viewportSize()!;
   const place = async () => {
     const list = (await page.getByTestId('task-list').boundingBox())!;

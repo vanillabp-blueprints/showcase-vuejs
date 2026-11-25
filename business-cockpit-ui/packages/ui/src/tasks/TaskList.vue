@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { VBtn, VCard, VCardActions, VCardText, VDialog, VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
 import { mdiAccount, mdiAccountMultiple, mdiArrowDown, mdiArrowUp, mdiCalendarClock, mdiClose, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
@@ -16,6 +16,7 @@ import StatusLine from './StatusLine.vue';
 import SearchBar from './SearchBar.vue';
 import { fullText, searchQueriesOf, type Suggestion } from './search';
 import { isSortable, nextSort, sortPathOf, sortsByLanguage, type Sort } from './sorting';
+import { drawnAround, listLength, pageOf, pageSize, pagesOfRows, rowHeight, scrollPauseMs, visibleRows, windowPages } from './paging';
 import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsEnded, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
 const props = defineProps<{ own: boolean; currentUserId: string }>();
@@ -34,7 +35,35 @@ const paths: Record<(typeof allColumns)[number], string> = {
   candidateUsers: 'candidateUsers', note: 'note', followUpDate: 'followUpDate', endedAt: 'endedAt',
 };
 
-const tasks = ref<UserTask[]>([]);
+// the window of pages the list holds, by page number; the rows of other pages are not kept (SRCH-010)
+const pages = shallowRef(new Map<number, UserTask[]>());
+const total = ref(0);
+const pending = ref(0);
+// bumped when the list starts again, so the answers of the old list are thrown away
+let generation = 0;
+const tableRef = ref<{ $el: HTMLElement }>();
+const scrollTop = ref(0);
+const areaHeight = ref(0);
+const headHeight = ref(0);
+let scrollArea: HTMLElement | undefined;
+let pause: ReturnType<typeof setTimeout> | undefined;
+const length = computed(() => listLength(total.value));
+const visible = computed(() => visibleRows(scrollTop.value, areaHeight.value, headHeight.value, length.value));
+const windowNumbers = (): number[] => windowPages(visible.value.first, visible.value.last, length.value);
+const loadedTasks = (): UserTask[] => [...pages.value.entries()].sort(([a], [b]) => a - b).flatMap(([, rows]) => rows);
+const windowRows = computed(() => [...pages.value.values()].reduce((sum, rows) => sum + rows.length, 0));
+// the rows drawn: the visible ones and a few around them, the others are the height of two spacers
+const drawnFirst = computed(() => Math.max(0, visible.value.first - drawnAround));
+const drawnLast = computed(() => Math.min(length.value - 1, visible.value.last + drawnAround));
+const drawn = computed(() =>
+  Array.from({ length: Math.max(0, drawnLast.value - drawnFirst.value + 1) }, (_, offset) => {
+    const index = drawnFirst.value + offset;
+    const task = pages.value.get(pageOf(index))?.[index % pageSize];
+    return { key: task?.id ?? `placeholder-${index}`, task };
+  }),
+);
+const spaceAbove = computed(() => drawnFirst.value * rowHeight);
+const spaceBelow = computed(() => Math.max(0, length.value - 1 - drawnLast.value) * rowHeight);
 // the moment the user started to look at this list; a new sort, a new search and opening the list start it again (SRCH-027)
 const startedAt = ref<string>();
 const sort = ref<Sort>();
@@ -102,20 +131,106 @@ async function askCounts(filters: PrimaryFilter[]): Promise<void> {
   }
 }
 
+const sortParameters = () => (sort.value ? { sort: sortPathOf(sort.value.column, language.value), sortAscending: sort.value.ascending } : {});
+
+async function askPage(pageNumber: number): Promise<{ rows: UserTask[]; total: number }> {
+  const answer = await new OfficialTasklistApi().getUserTasks(
+    { initialTimestamp: startedAt.value, userTasksRequest: { pageSize, pageNumber, mode: filter.value, searchQueries: searchQueriesOf(searches), ...sortParameters() } },
+    { baseUrl: baseUrl() },
+  );
+  startedAt.value ??= answer.serverTimestamp;
+  // the count of the chosen primary filter comes with the rows
+  if (filter.value !== countedOnMouseOver || counts[countedOnMouseOver] !== undefined) counts[filter.value] = answer.page.totalElements;
+  return { rows: answer.userTasks, total: answer.page.totalElements };
+}
+
+// the pages on their way, so none is asked twice (the key holds what makes a request the same request)
+const onTheWay = new Set<string>();
+const keyOf = (pageNumber: number): string =>
+  [pageNumber, pageSize, filter.value, JSON.stringify(sort.value), JSON.stringify(searchQueriesOf(searches)), startedAt.value].join('|');
+
+function keepOnly(numbers: number[]): void {
+  const kept = new Map([...pages.value].filter(([number]) => numbers.includes(number)));
+  if (kept.size !== pages.value.size) pages.value = kept;
+}
+
+async function loadPage(pageNumber: number): Promise<void> {
+  const key = keyOf(pageNumber);
+  if (pages.value.has(pageNumber) || onTheWay.has(key)) return;
+  onTheWay.add(key);
+  pending.value++;
+  const startedIn = generation;
+  try {
+    const answer = await askPage(pageNumber);
+    // an answer of a list that started again, or of a page the window has left, is dropped
+    if (startedIn !== generation || !windowNumbers().includes(pageNumber)) return;
+    total.value = answer.total;
+    pages.value = new Map(pages.value).set(pageNumber, answer.rows);
+  } catch {
+    // a page which cannot be read stays a placeholder; the next scroll asks for it again
+  } finally {
+    onTheWay.delete(key);
+    if (startedIn === generation) pending.value--;
+  }
+}
+
+// loads the pages of the window and lets go of the others
+function fillWindow(): void {
+  // the first answer gives the timestamp every other request sends
+  if (startedAt.value === undefined) return;
+  const numbers = windowNumbers();
+  keepOnly(numbers);
+  for (const number of numbers) void loadPage(number);
+}
+
+function measure(): void {
+  if (!scrollArea) return;
+  areaHeight.value = scrollArea.clientHeight;
+  headHeight.value = scrollArea.querySelector('thead')?.offsetHeight ?? 0;
+  scrollTop.value = scrollArea.scrollTop;
+}
+
+// a scroll draws other rows at once; the pages follow at once when every visible page is there (only the page ahead is missing),
+// else when the scrolling pauses, so a drag over the whole list does not ask for the pages it passes
+function scrolled(): void {
+  measure();
+  clearTimeout(pause);
+  const present = pagesOfRows(visible.value.first, visible.value.last).every((number) => pages.value.has(number));
+  if (present) fillWindow();
+  else pause = setTimeout(fillWindow, scrollPauseMs);
+}
+
+// no rows are held and none is on its way; the list is at its top
+function clearWindow(): void {
+  generation++;
+  clearTimeout(pause);
+  pages.value = new Map();
+  total.value = 0;
+  onTheWay.clear();
+  pending.value = 0;
+  if (scrollArea) scrollArea.scrollTop = 0;
+  measure();
+}
+
 async function load(startAgain = false): Promise<void> {
-  if (startAgain) startedAt.value = undefined;
+  if (startAgain) {
+    startedAt.value = undefined;
+    clearWindow();
+  }
   refusedSort.value = undefined;
   try {
-    const sorted = sort.value ? { sort: sortPathOf(sort.value.column, language.value), sortAscending: sort.value.ascending } : {};
-    const answer = await new OfficialTasklistApi().getUserTasks(
-      { initialTimestamp: startedAt.value, userTasksRequest: { pageSize: 20, mode: filter.value, searchQueries: searchQueriesOf(searches), ...sorted } },
-      { baseUrl: baseUrl() },
-    );
-    startedAt.value ??= answer.serverTimestamp;
-    // the count of the chosen primary filter comes with the rows
-    if (filter.value !== countedOnMouseOver || counts[countedOnMouseOver] !== undefined) counts[filter.value] = answer.page.totalElements;
-    tasks.value = answer.userTasks;
+    // the first page tells the total, which sizes the scroll bar, and gives the timestamp the other pages ask with;
+    // a list read again asks the pages of its window, with the same timestamp, so the rows show what the server answers now
+    const numbers = startAgain || pages.value.size === 0 ? [0] : [...pages.value.keys()];
+    const [firstNumber, ...otherNumbers] = numbers;
+    const first = await askPage(firstNumber!);
+    const others = await Promise.all(otherNumbers.map(async (number) => [number, (await askPage(number)).rows] as const));
+    total.value = first.total;
     failed.value = false;
+    pages.value = new Map([[firstNumber!, first.rows], ...others]);
+    await nextTick();
+    measure();
+    fillWindow();
   } catch (error) {
     if (sort.value && error instanceof FailedCall && error.status === 400 && error.answer) {
       // the list falls back to its default order, and no column carries the sort mark
@@ -125,7 +240,8 @@ async function load(startAgain = false): Promise<void> {
       return;
     }
     // no rows, the toolbar stays, and the toast says it without a status code (TL-033)
-    tasks.value = [];
+    pages.value = new Map();
+    total.value = 0;
     failed.value = true;
   }
 }
@@ -143,6 +259,7 @@ function choose(chosen: PrimaryFilter): void {
   if (chosen === filter.value) return;
   filter.value = chosen;
   settings.write(filterSetting(), chosen);
+  clearWindow();
   void load();
 }
 
@@ -168,7 +285,7 @@ async function act(call: () => Promise<unknown>, about?: { task: UserTask; uncla
   await load();
   if (!about || !actionFailed.value) return;
   if (status === 409) {
-    const reread = tasks.value.find((candidate) => candidate.id === about.task.id);
+    const reread = loadedTasks().find((candidate) => candidate.id === about.task.id);
     failure.value = reread?.suspendedAt && !reread.endedAt ? 'suspendedNow' : 'ended';
   } else if (status === 400 && about.unclaim) failure.value = 'heldByOther';
 }
@@ -198,7 +315,26 @@ const workedOn = (task: UserTask): boolean => Boolean(task.endedAt || task.suspe
 // an update of a task may show it activated again, so the rows are read again without a reload (ACT-017)
 const updates = new EventSource(updateStreamUrl());
 updates.addEventListener('UserTask', () => void load());
-onBeforeUnmount(() => updates.close());
+onBeforeUnmount(() => {
+  updates.close();
+  clearTimeout(pause);
+  resizing?.disconnect();
+  scrollArea?.removeEventListener('scroll', scrolled);
+});
+
+let resizing: ResizeObserver | undefined;
+onMounted(() => {
+  scrollArea = tableRef.value?.$el.querySelector<HTMLElement>('.v-table__wrapper') ?? undefined;
+  if (!scrollArea) return;
+  scrollArea.addEventListener('scroll', scrolled, { passive: true });
+  // a taller area draws more rows and holds more pages
+  resizing = new ResizeObserver(() => {
+    measure();
+    fillWindow();
+  });
+  resizing.observe(scrollArea);
+  measure();
+});
 
 const candidatesOpenOf = ref<string>();
 const proposals = ref<Person[]>([]);
@@ -255,7 +391,16 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 
 <template>
   <search-bar :applied="searches[fullText] ?? ''" :suggest="suggest" @apply="search(fullText, $event)" @reset="resetSearches" />
-  <v-table data-testid="task-list" class="task-list ma-4" fixed-header height="calc(100vh - 192px)">
+  <v-table
+    ref="tableRef"
+    data-testid="task-list"
+    class="task-list ma-4"
+    fixed-header
+    height="calc(100vh - 192px)"
+    :data-window-pages="[...pages.keys()].sort((a, b) => a - b).join(',')"
+    :data-window-rows="windowRows"
+    :data-pending="pending"
+  >
     <thead>
       <tr>
         <th
@@ -301,7 +446,10 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       </tr>
     </thead>
     <tbody>
-      <tr v-for="task in tasks" :key="task.id" data-testid="task-row" :data-state="stateOf(task)" :class="['task-row', stateOf(task), { unread: !task.read }]">
+      <tr v-if="spaceAbove > 0" class="space" aria-hidden="true"><td :colspan="columns.length + 1" :style="{ height: `${spaceAbove}px` }" /></tr>
+      <template v-for="{ key, task } in drawn" :key="key">
+      <tr v-if="!task" data-testid="task-placeholder" class="task-row placeholder"><td :colspan="columns.length + 1" /></tr>
+      <tr v-else data-testid="task-row" :data-state="stateOf(task)" :class="['task-row', stateOf(task), { unread: !task.read }]">
         <td data-testid="cell-id">{{ task.id }}</td>
         <td data-testid="cell-businessId">{{ task.businessId }}</td>
         <td data-testid="cell-caseKind">{{ pickTranslation(task.workflowTitle ?? {}, language) }}</td>
@@ -441,9 +589,11 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
           </div>
         </td>
       </tr>
+      </template>
+      <tr v-if="spaceBelow > 0" class="space" aria-hidden="true"><td :colspan="columns.length + 1" :style="{ height: `${spaceBelow}px` }" /></tr>
     </tbody>
   </v-table>
-  <p v-if="tasks.length === 0 && !failed" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
+  <p v-if="total === 0 && !failed" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
   <status-line :selected="filter" :counts="counts" @choose="choose" @ask-count="askCounts([$event])" />
    <v-snackbar :model-value="actionFailed" data-testid="action-toast" timeout="4000" color="error" @update:model-value="actionFailed = false">{{ text().actions[failure] }}</v-snackbar>
   <v-dialog :model-value="Boolean(claimAskedOf)" max-width="420" @update:model-value="claimAskedOf = undefined">
@@ -464,9 +614,11 @@ th.sortable { cursor: pointer; user-select: none; }
 .column-filter { width: 100%; border: 1px solid #bdbdbd; border-radius: 4px; padding: 2px 24px 2px 6px; font-size: 0.85em; }
 .filter-cell .v-btn { position: absolute; right: 6px; top: 6px; }
 /* both scroll bars are always there, so the list does not draw itself again when one appears (COL-018) */
-.task-list :deep(.v-table__wrapper) { overflow: scroll; }
+.task-list :deep(.v-table__wrapper) { overflow: scroll; overflow-anchor: none; }
 .task-list :deep(table) { min-width: 1100px; }
 /* white, partly transparent, so the background shows through, blurred where the browser can (TL-032) */
+.task-row > td { height: 46px; box-sizing: border-box; white-space: nowrap; }
+.space > td { padding: 0 !important; border: 0 !important; }
 .task-list { background-color: rgba(255, 255, 255, 0.85); color: #212121; backdrop-filter: blur(8px); }
 .bar-slot { display: inline-block; width: 6px; margin-right: 6px; height: 1.2em; vertical-align: middle; }
 .bar { display: block; width: 3px; height: 100%; background-color: rgb(var(--v-theme-primary)); }

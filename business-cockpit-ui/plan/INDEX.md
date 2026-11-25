@@ -32,7 +32,7 @@ Started: 2026-11-25
 | S24 | A clerk searches, filters and sorts a list (1 of 2) | done | SRCH-001, SRCH-002, SRCH-003, SRCH-004, SRCH-005, SRCH-006 | `sh plan/checks/S24.sh` |
 | S25 | A clerk searches, filters and sorts a list (2 of 2) | done | SRCH-007, SRCH-008, SRCH-009, SRCH-026, SRCH-027, SRCH-033 | `sh plan/checks/S25.sh` |
 | S25b | A clerk searches, filters and sorts a list (2b) | done | SRCH-034 | `sh plan/checks/S25b.sh` |
-| S26 | A clerk scrolls through very many tasks (1 of 4) | open | I18N-007, SRCH-010, SRCH-011, SRCH-012, SRCH-013, SRCH-014 | `sh plan/checks/S26.sh` |
+| S26 | A clerk scrolls through very many tasks (1 of 4) | done | I18N-007, SRCH-010, SRCH-011, SRCH-012, SRCH-013, SRCH-014 | `sh plan/checks/S26.sh` |
 | S27 | A clerk scrolls through very many tasks (2 of 4) | open | SRCH-015, SRCH-016, SRCH-017, SRCH-018, SRCH-019, SRCH-020 | `sh plan/checks/S27.sh` |
 | S28 | A clerk scrolls through very many tasks (3 of 4) | open | SRCH-021, SRCH-022, SRCH-023, SRCH-024, SRCH-025, SRCH-028 | `sh plan/checks/S28.sh` |
 | S29 | A clerk scrolls through very many tasks (4 of 4) | open | SRCH-029, SRCH-030, SRCH-031, SRCH-032 | `sh plan/checks/S29.sh` |

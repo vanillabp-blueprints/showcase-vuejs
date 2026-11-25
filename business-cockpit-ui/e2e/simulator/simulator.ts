@@ -314,6 +314,28 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       userTasks = ((await readBody(req)).userTasks ?? []) as UserTask[];
       return send(res, 200);
     }
+    // Many tasks of several modules at once, made here so a test need not post tens of thousands of them;
+    // every `closedEvery`-th task has ended, every 7th one is put aside
+    if (path === '/simulator-api/generate-user-tasks' && method === 'POST') {
+      const { count = 0, modules: moduleCount = 3, closedEvery = 4 } = (await readBody(req)) as { count?: number; modules?: number; closedEvery?: number };
+      userTasks = Array.from({ length: count }, (_, index) => {
+        const id = `t${String(index).padStart(6, '0')}`;
+        const closed = index % closedEvery === closedEvery - 1;
+        return {
+          id,
+          workflowModuleId: `module-${index % moduleCount}`,
+          bpmnProcessId: 'process',
+          createdAt: '2026-11-20T08:00:00Z',
+          updatedAt: '2026-11-20T08:00:00Z',
+          businessId: `B-${id}`,
+          title: { en: `Check ${id}`, de: `Prüfe ${id}` },
+          workflowTitle: { en: `Kind ${index % moduleCount}`, de: `Art ${index % moduleCount}` },
+          ...(closed ? { endedAt: '2026-11-21T08:00:00Z' } : {}),
+          ...(!closed && index % 7 === 0 ? { followUpDate: '2099-01-01T08:00:00Z' } : {}),
+        } as UserTask;
+      });
+      return send(res, 200);
+    }
     if (path === `${guiApiPath}/usertasks`) {
       return userOf(req) ? send(res, 200, { userTasks: [] }) : send(res, 401);
     }
