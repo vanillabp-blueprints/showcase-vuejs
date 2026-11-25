@@ -29,7 +29,7 @@ Started: 2026-11-25
 | S21 | A clerk claims, proposes, marks and puts aside a task in the list (1 of 3) | done | TL-014, TL-017, TL-025, ACT-001, ACT-003, ACT-004 | `sh plan/checks/S21.sh` |
 | S22 | A clerk claims, proposes, marks and puts aside a task in the list (2 of 3) | done | ACT-005, ACT-006, ACT-007, ACT-008, ACT-009, ACT-010 | `sh plan/checks/S22.sh` |
 | S23 | A clerk claims, proposes, marks and puts aside a task in the list (3 of 3) | done | ACT-012, ACT-013, ACT-015, ACT-016, ACT-017 | `sh plan/checks/S23.sh` |
-| S24 | A clerk searches, filters and sorts a list (1 of 2) | open | SRCH-001, SRCH-002, SRCH-003, SRCH-004, SRCH-005, SRCH-006 | `sh plan/checks/S24.sh` |
+| S24 | A clerk searches, filters and sorts a list (1 of 2) | done | SRCH-001, SRCH-002, SRCH-003, SRCH-004, SRCH-005, SRCH-006 | `sh plan/checks/S24.sh` |
 | S25 | A clerk searches, filters and sorts a list (2 of 2) | open | SRCH-007, SRCH-008, SRCH-009, SRCH-026, SRCH-027, SRCH-033 | `sh plan/checks/S25.sh` |
 | S25b | A clerk searches, filters and sorts a list (2b) | open | SRCH-034 | `sh plan/checks/S25b.sh` |
 | S26 | A clerk scrolls through very many tasks (1 of 4) | open | I18N-007, SRCH-010, SRCH-011, SRCH-012, SRCH-013, SRCH-014 | `sh plan/checks/S26.sh` |

@@ -48,6 +48,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let userTasks: UserTask[] = [];
   let listsFail = false;
   let listRequests: { path: string; body: Record<string, unknown> }[] = [];
+  let suggestionRequests: { query: string; path?: string; at: number }[] = [];
   // the settings of each user, as the cockpit keeps them in customSettings, and the requests which touched them
   let settingsOfUsers = new Map<string, Map<string, unknown>>();
   let settingRequests: { method: string; key: string; body?: unknown }[] = [];
@@ -89,6 +90,32 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (mode === 'OpenTasksWithoutFollowUp') return open && !putAside;
     if (mode === 'OpenTaskOnlyFollowUp') return open && putAside;
     throw new Error(`unknown mode ${mode}`);
+  };
+
+  // what a filter looks at: the field of its path, a translatable text as all its languages; without a path the reported
+  // full text and the note, the only two fields the server searches
+  type Query = { path?: string; query: string; caseInsensitive?: boolean };
+  const valueAt = (task: UserTask, path: string | undefined): string => {
+    if (!path) return `${(task as Record<string, unknown>).detailsFulltextSearch ?? ''} ${task.note ?? ''}`;
+    const value = (task as Record<string, unknown>)[path];
+    if (value && typeof value === 'object') return Object.values(value).join(' ');
+    return String(value ?? '');
+  };
+  // the query is plain text, so a dot or a parenthesis is only itself
+  const matches = (task: UserTask, search: Query): boolean => {
+    const value = valueAt(task, search.path);
+    return search.caseInsensitive ? value.toLowerCase().includes(search.query.toLowerCase()) : value.includes(search.query);
+  };
+  // the words that contain the query with their counts: the most frequent first, then alphabetical, 21 at most
+  const suggestionsFor = (tasks: UserTask[], query: string, path: string | undefined): { item: string; count: number }[] => {
+    if (query.length < 3) return [];
+    const counted = new Map<string, number>();
+    for (const task of tasks) {
+      for (const word of valueAt(task, path).split(/\s+/).filter(Boolean)) {
+        if (word.toLowerCase().includes(query.toLowerCase())) counted.set(word, (counted.get(word) ?? 0) + 1);
+      }
+    }
+    return [...counted].map(([item, count]) => ({ item, count })).sort((a, b) => b.count - a.count || (a.item < b.item ? -1 : a.item > b.item ? 1 : 0)).slice(0, 21);
   };
 
   const publish = (eventName: string, elements: object[]) => {
@@ -159,9 +186,20 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       const body = await readBody(req);
       listRequests.push({ path, body });
       // sort and filter paths are fields of the list, else the cockpit answers 400
-      const paths = [...String(body.sort ?? '').split(',').filter(Boolean), ...((body.filters ?? []) as { key: string }[]).map((filter) => filter.key)];
+      const searches = (body.searchQueries ?? []) as Query[];
+      const paths = [
+        ...String(body.sort ?? '').split(',').filter(Boolean),
+        ...((body.filters ?? []) as { key: string }[]).map((filter) => filter.key),
+        ...searches.flatMap((search) => (search.path ? [search.path] : [])),
+      ];
+      // two entries with the same path answer 500, as the server does today
+      const searchPaths = searches.map((search) => search.path ?? '');
+      if (new Set(searchPaths).size !== searchPaths.length) return send(res, 500);
       if (paths.some((path) => !/^[A-Za-z0-9_]+(\.[A-Za-z0-9_-]+)*$/.test(path) || (!path.startsWith('details.') && !userTaskFields.includes(path.split('.')[0]!)))) return send(res, 400);
-      const shown = userTasks.filter((task) => (list[1] ? task.assignee?.id === user.id : true)).filter((task) => inMode(task, body.mode as string | undefined));
+      const shown = userTasks
+        .filter((task) => (list[1] ? task.assignee?.id === user.id : true))
+        .filter((task) => inMode(task, body.mode as string | undefined))
+        .filter((task) => searches.every((search) => matches(task, search)));
       const size = Number(body.pageSize ?? 20);
       const number = Number(body.pageNumber ?? 0);
       return send(res, 200, {
@@ -170,6 +208,18 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
         userTasks: shown.slice(number * size, (number + 1) * size),
       });
     }
+    // The suggestions of a search field, like OPTIONS /usertask: over open tasks, not over the primary filter.
+    if (list && method === 'OPTIONS') {
+      const user = userOf(req);
+      if (!user) return send(res, 401);
+      const query = url.searchParams.get('query') ?? '';
+      const searchPath = url.searchParams.get('path') ?? undefined;
+      suggestionRequests.push({ query, path: searchPath, at: Date.now() });
+      const searches = (((await readBody(req)).searchQueries ?? []) as Query[]);
+      const open = userTasks.filter((task) => (list[1] ? task.assignee?.id === user.id : true)).filter((task) => !task.endedAt && searches.every((search) => matches(task, search)));
+      return send(res, 200, { result: suggestionsFor(open, query, searchPath) });
+    }
+    if (path === '/simulator-api/suggestion-requests') return send(res, 200, suggestionRequests);
     // Put a task on follow-up, or clear the date, like PATCH /usertask/{id}/follow-up-date of the cockpit.
     const followUp = /^\/gui\/api\/v1\/usertask\/([^/]+)\/follow-up-date$/.exec(path);
     if (followUp && method === 'PATCH') {
@@ -390,6 +440,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       countRequests = [];
       userTasks = [];
       listRequests = [];
+      suggestionRequests = [];
       listsFail = false;
       settingsOfUsers = new Map();
       settingRequests = [];

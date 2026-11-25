@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { VBtn, VCard, VCardActions, VCardText, VDialog, VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
-import { mdiAccount, mdiAccountMultiple, mdiCalendarClock, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
+import { mdiAccount, mdiAccountMultiple, mdiCalendarClock, mdiClose, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
 import { FailedCall, updateStreamUrl } from '../api/clients';
 import { guiApiBasePath, myTasksBasePath } from '../config';
@@ -13,6 +13,8 @@ import { settingKey, settings } from '../settings/settings';
 import { stateOf } from './taskState';
 import { dayOf, startOfDay } from './followUp';
 import StatusLine from './StatusLine.vue';
+import SearchBar from './SearchBar.vue';
+import { fullText, searchQueriesOf, type Suggestion } from './search';
 import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsEnded, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
 const props = defineProps<{ own: boolean; currentUserId: string }>();
@@ -36,6 +38,36 @@ const failed = ref(false);
 const filter = ref<PrimaryFilter>(defaultPrimaryFilter);
 const counts = reactive<Partial<Record<PrimaryFilter, number>>>({});
 
+// the searches by path, one entry per path (SRCH-005); the full-text search has the empty path (SRCH-001)
+const searches = reactive<Record<string, string>>({});
+const columnDrafts = reactive<Record<string, string>>({});
+// the columns the user can set a filter on (COL-021)
+const filterable: (typeof allColumns)[number][] = ['id', 'businessId', 'caseKind', 'title', 'note'];
+
+function search(path: string, query: string): void {
+  if (query === '') delete searches[path];
+  else searches[path] = query;
+  void load();
+}
+const setColumnFilter = (column: (typeof allColumns)[number]) => search(paths[column], (columnDrafts[column] ?? '').trim());
+function clearColumnFilter(column: (typeof allColumns)[number]): void {
+  columnDrafts[column] = '';
+  setColumnFilter(column);
+}
+function resetSearches(): void {
+  for (const path of Object.keys(searches)) delete searches[path];
+  for (const column of Object.keys(columnDrafts)) delete columnDrafts[column];
+  void load();
+}
+async function suggest(query: string): Promise<Suggestion[]> {
+  const others = searchQueriesOf({ ...searches, [fullText]: '' });
+  try {
+    return (await new OfficialTasklistApi().getUserTaskKwicResults({ query, kwicRequest: { searchQueries: others } }, { baseUrl: baseUrl() })).result;
+  } catch {
+    return [];
+  }
+}
+
 const baseUrl = (): string => (props.own ? myTasksBasePath : guiApiBasePath);
 // each list keeps the primary filter its user chose last (TL-005)
 const filterSetting = (): string => settingKey('tasks', props.own ? 'own' : 'all', 'primaryFilter');
@@ -54,7 +86,7 @@ async function askCounts(filters: PrimaryFilter[]): Promise<void> {
 
 async function load(): Promise<void> {
   try {
-    const answer = await new OfficialTasklistApi().getUserTasks({ userTasksRequest: { pageSize: 20, mode: filter.value } }, { baseUrl: baseUrl() });
+    const answer = await new OfficialTasklistApi().getUserTasks({ userTasksRequest: { pageSize: 20, mode: filter.value, searchQueries: searchQueriesOf(searches) } }, { baseUrl: baseUrl() });
     // the count of the chosen primary filter comes with the rows
     if (filter.value !== countedOnMouseOver || counts[countedOnMouseOver] !== undefined) counts[filter.value] = answer.page.totalElements;
     tasks.value = answer.userTasks;
@@ -190,7 +222,8 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 </script>
 
 <template>
-  <v-table data-testid="task-list" class="task-list ma-4" fixed-header height="calc(100vh - 144px)">
+  <search-bar :applied="searches[fullText] ?? ''" :suggest="suggest" @apply="search(fullText, $event)" @reset="resetSearches" />
+  <v-table data-testid="task-list" class="task-list ma-4" fixed-header height="calc(100vh - 192px)">
     <thead>
       <tr>
         <th
@@ -205,6 +238,30 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
           <template v-else>{{ text().columns[column] }}</template>
         </th>
         <th data-testid="column-header-tools" class="tools-header" :aria-label="text().actions.tools" />
+      </tr>
+      <tr class="filter-row">
+        <th v-for="column in columns" :key="column" class="filter-cell">
+          <template v-if="filterable.includes(column)">
+            <input
+              v-model="columnDrafts[column]"
+              :data-testid="`column-filter-${column}`"
+              class="column-filter"
+              type="text"
+              :aria-label="`${text().search.filterBy} ${text().columns[column]}`"
+              @change="setColumnFilter(column)"
+            />
+            <v-btn
+              v-if="columnDrafts[column]"
+              :data-testid="`column-filter-clear-${column}`"
+              variant="text"
+              size="x-small"
+              icon
+              :aria-label="text().search.clear"
+              @click="clearColumnFilter(column)"
+            ><v-icon :icon="mdiClose" /></v-btn>
+          </template>
+        </th>
+        <th class="filter-cell" />
       </tr>
     </thead>
     <tbody>
@@ -366,6 +423,9 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 </template>
 
 <style scoped>
+.filter-cell { position: sticky; top: 56px; z-index: 2; padding: 0 4px !important; height: 36px !important; }
+.column-filter { width: 100%; border: 1px solid #bdbdbd; border-radius: 4px; padding: 2px 24px 2px 6px; font-size: 0.85em; }
+.filter-cell .v-btn { position: absolute; right: 6px; top: 6px; }
 /* both scroll bars are always there, so the list does not draw itself again when one appears (COL-018) */
 .task-list :deep(.v-table__wrapper) { overflow: scroll; }
 .task-list :deep(table) { min-width: 1100px; }
