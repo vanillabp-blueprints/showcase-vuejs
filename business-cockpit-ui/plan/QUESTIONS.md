@@ -39,3 +39,11 @@ Date: 2026-11-25
 Default taken: S06 proves the bundle layout (index.html at the root, all else below `/assets/`). The header `Cache-Control: no-cache` is set by the nginx configuration, so it is proven where the nginx image is built (PKG-012, PKG-025), not in S06.
 Why this default: with `Q-HOSTING` `behind` the backend serves no file itself and no nginx image exists yet.
 Answer: open
+
+## ASK-006 The library warns when an update stream's client is gone
+
+Story: S10 (BE-034)
+Date: 2026-11-25
+Default taken: nothing; the application handles `AsyncRequestNotUsableException` at `DEBUG`, but `UpdateStreams` of the library 0.9.0-SNAPSHOT still logs a WARN "Could not SSE send confirmation, client might stuck" when a tab closes.
+Why this default: the line comes from the library, not from a handler the application can replace; lowering its logger would hide other warnings (backend.md forbids that).
+Answer: open
