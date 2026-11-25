@@ -1,9 +1,9 @@
+import { maxListEntries } from './maxListEntries';
+
 // Q-PAGE-SIZE: rows per page
 export const pageSize = 20;
 // every row of the list is this high, so the scroll bar can be sized from the number of entries
 export const rowHeight = 46;
-// Q-MAX-LIST-ENTRIES: a list shows no more entries than this (Firefox stops at 17.9 million pixels, which is 389,000 rows of this height)
-export const maxListEntries = 100_000;
 // a scroll that leaves the window waits this long for the scrolling to pause before it loads
 export const scrollPauseMs = 100;
 // rows drawn above and below the visible ones, so a small scroll shows no gap

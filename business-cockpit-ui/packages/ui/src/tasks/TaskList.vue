@@ -17,7 +17,8 @@ import StatusLine from './StatusLine.vue';
 import SearchBar from './SearchBar.vue';
 import { fullText, searchQueriesOf, type Suggestion } from './search';
 import { isSortable, nextSort, sortPathOf, sortsByLanguage, type Sort } from './sorting';
-import { drawnAround, listLength, maxListEntries, pageOf, pageSize, pagesOfRows, rowHeight, scrollPauseMs, visibleRows, windowPages } from './paging';
+import { drawnAround, listLength, pageOf, pageSize, pagesOfRows, rowHeight, scrollPauseMs, visibleRows, windowPages } from './paging';
+import { maxListEntries } from './maxListEntries';
 import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsEnded, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
 const props = defineProps<{ own: boolean; currentUserId: string }>();

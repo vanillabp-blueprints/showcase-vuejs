@@ -1,6 +1,6 @@
 import { formatNumber } from '../i18n/format';
 import { language, text } from '../i18n/messages';
-import { maxListEntries } from './paging';
+import { maxListEntries } from './maxListEntries';
 
 /** The sentence that says a list shows only its first entries, in the language of the page. */
 export const cappedNotice = (): string => text().cappedNotice.replace('{limit}', formatNumber(maxListEntries, language.value));
