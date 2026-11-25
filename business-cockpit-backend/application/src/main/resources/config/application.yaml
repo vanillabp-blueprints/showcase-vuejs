@@ -1,0 +1,25 @@
+mongodb:
+  write-concern: majority
+  write-concern-journal: true
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017/business-cockpit}
+
+bpms-api:
+  realm-name: BPMS-API
+  username: ${BPMS_API_USERNAME}
+  password: ${BPMS_API_PASSWORD}
+
+business-cockpit:
+  title-short: Cockpit
+  title-long: Business Cockpit
+  application-uri: ${COCKPIT_URI}
+  default-locale: en
+  additional-properties:
+    languages: en,de,fr,es
+  jwt:
+    hmacSHA256-base64: ${COCKPIT_JWT_KEY}
