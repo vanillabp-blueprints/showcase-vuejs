@@ -176,9 +176,19 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       if (!userOf(req)) return send(res, 401);
       const found = userTasks.find((candidate) => candidate.id === decodeURIComponent(followUp[1]!));
       if (!found) return send(res, 404);
+      if (found.endedAt) return send(res, 409);
       const timestamp = (await readBody(req)).timestamp as string | undefined;
       found.followUpDate = timestamp ?? undefined;
       return send(res, 200, found);
+    }
+    // Mark as read, or as unread (?unread=true); allowed for an ended task too.
+    const markRead = /^\/gui\/api\/v1\/usertask\/([^/]+)\/mark-as-read$/.exec(path);
+    if (markRead && method === 'PATCH') {
+      if (!userOf(req)) return send(res, 401);
+      const found = userTasks.find((candidate) => candidate.id === decodeURIComponent(markRead[1]!));
+      if (!found) return send(res, 404);
+      found.read = url.searchParams.get('unread') !== 'true';
+      return send(res, 200);
     }
     // Claim or give back (?unclaim=true), assign or unassign (?userId=) and the note of one task, like the cockpit does it.
     const taskAction = /^\/gui\/api\/v1(?:\/current-user)?\/usertask\/([^/]+)\/(claim|assign|note)$/.exec(path);

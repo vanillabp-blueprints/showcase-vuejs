@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import { VBtn, VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
-import { mdiAccount, mdiAccountMultiple, mdiDelete, mdiNoteEditOutline } from '@mdi/js';
+import { mdiAccount, mdiAccountMultiple, mdiCalendarClock, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
 import { guiApiBasePath, myTasksBasePath } from '../config';
 import { dateCellDetails, dateCellText } from '../i18n/format';
@@ -10,6 +10,7 @@ import { pickTranslation } from '../i18n/translatable';
 import { taskAddress } from '../routing';
 import { settingKey, settings } from '../settings/settings';
 import { stateOf } from './taskState';
+import { dayOf, startOfDay } from './followUp';
 import StatusLine from './StatusLine.vue';
 import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsEnded, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
@@ -98,7 +99,7 @@ async function act(call: () => Promise<unknown>): Promise<void> {
 const claim = (task: UserTask, unclaim: boolean) =>
   act(() => new OfficialTasklistApi().claimTask({ userTaskId: task.id, unclaim }, { baseUrl: baseUrl() }));
 // a task can be claimed while nobody holds it, and given back by the one who holds it
-const claimable = (task: UserTask): boolean => !task.endedAt && (!task.assignee || task.assignee.id === props.currentUserId);
+const claimable = (task: UserTask): boolean => !task.assignee || task.assignee.id === props.currentUserId;
 
 const candidatesOpenOf = ref<string>();
 const proposals = ref<Person[]>([]);
@@ -133,6 +134,23 @@ async function saveNote(task: UserTask): Promise<void> {
   await act(() => new OfficialTasklistApi().setUserTaskNote({ userTaskId: task.id, noteRequest: { text: noteDraft.value } }, { baseUrl: baseUrl() }));
 }
 
+const markAsRead = (task: UserTask, unread: boolean) =>
+  act(() => new OfficialTasklistApi().markTaskAsRead({ userTaskId: task.id, unread }, { baseUrl: baseUrl() }));
+
+const followUpOpenOf = ref<string>();
+const followUpDraft = ref('');
+function editFollowUp(task: UserTask): void {
+  followUpDraft.value = task.followUpDate ? dayOf(task.followUpDate) : '';
+  followUpOpenOf.value = task.id;
+}
+async function setFollowUp(task: UserTask, day: string | undefined): Promise<void> {
+  followUpOpenOf.value = undefined;
+  await act(() => new OfficialTasklistApi().setFollowUpDate(
+    { userTaskId: task.id, followUpDateRequest: day ? { timestamp: startOfDay(day) } : {} },
+    { baseUrl: baseUrl() },
+  ));
+}
+
 const shortForm = (person: Person): string => person.displayShort ?? person.display ?? person.id;
 </script>
 
@@ -151,6 +169,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
           <v-icon v-if="column === 'candidateUsers'" data-testid="candidate-header-icon" :icon="mdiAccountMultiple" />
           <template v-else>{{ text().columns[column] }}</template>
         </th>
+        <th data-testid="column-header-tools" class="tools-header" :aria-label="text().actions.tools" />
       </tr>
     </thead>
     <tbody>
@@ -177,6 +196,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
             data-testid="claim-checkbox"
             :aria-label="task.assignee ? text().actions.unclaim : text().actions.claim"
             :checked="Boolean(task.assignee)"
+            :disabled="Boolean(task.endedAt)"
             @change="claim(task, Boolean(task.assignee))"
           />
           <template v-if="task.assignee">
@@ -216,19 +236,18 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
                 @click="removeCandidate(task, person)"
               ><v-icon :icon="mdiDelete" /></v-btn>
             </div>
-            <template v-if="!task.endedAt">
-              <input
-                data-testid="propose-search"
-                class="propose-search"
-                type="search"
-                :placeholder="text().actions.proposeTo + ': ' + text().actions.searchPerson"
-                @input="searchPersons(($event.target as HTMLInputElement).value)"
-              />
-              <button v-for="person in proposals" :key="person.id" type="button" data-testid="propose-result" class="propose-result" @click="propose(task, person)">
-                {{ person.display ?? person.id }}
-              </button>
-              <div v-if="proposalsAsked && proposals.length === 0" data-testid="propose-none">{{ text().actions.noPerson }}</div>
-            </template>
+            <input
+              data-testid="propose-search"
+              class="propose-search"
+              :disabled="Boolean(task.endedAt)"
+              type="search"
+              :placeholder="text().actions.proposeTo + ': ' + text().actions.searchPerson"
+              @input="searchPersons(($event.target as HTMLInputElement).value)"
+            />
+            <button v-for="person in proposals" :key="person.id" type="button" data-testid="propose-result" class="propose-result" @click="propose(task, person)">
+              {{ person.display ?? person.id }}
+            </button>
+            <div v-if="proposalsAsked && proposals.length === 0" data-testid="propose-none">{{ text().actions.noPerson }}</div>
           </div>
         </td>
         <td data-testid="cell-note" class="note-cell" @mouseenter="noteHoveredOf = task.id" @mouseleave="noteHoveredOf = undefined">
@@ -236,6 +255,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
           <v-btn
             v-if="noteHoveredOf === task.id && noteEditedOf !== task.id"
             data-testid="note-edit"
+            :disabled="Boolean(task.endedAt)"
             variant="text"
             size="x-small"
             icon
@@ -266,6 +286,33 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
             </v-tooltip>
           </template>
         </td>
+        <td data-testid="cell-tools" class="tools-cell">
+          <v-btn
+            :data-testid="task.read ? 'mark-unread' : 'mark-read'"
+            variant="text"
+            size="x-small"
+            icon
+            :aria-label="task.read ? text().actions.markUnread : text().actions.markRead"
+            @click="markAsRead(task, Boolean(task.read))"
+          ><v-icon :icon="task.read ? mdiEmailOutline : mdiEmailOpenOutline" /></v-btn>
+          <v-btn
+            data-testid="follow-up-edit"
+            variant="text"
+            size="x-small"
+            icon
+            :disabled="Boolean(task.endedAt)"
+            :aria-label="text().actions.followUp"
+            @click="editFollowUp(task)"
+          ><v-icon :icon="mdiCalendarClock" /></v-btn>
+          <div v-if="followUpOpenOf === task.id" class="over-list follow-up-popup" data-testid="follow-up-popup">
+            <input v-model="followUpDraft" type="date" data-testid="follow-up-input" :aria-label="text().actions.followUp" />
+            <div>
+              <v-btn data-testid="follow-up-save" size="small" :disabled="!followUpDraft" @click="setFollowUp(task, followUpDraft)">{{ text().actions.save }}</v-btn>
+              <v-btn data-testid="follow-up-delete" size="small" variant="text" @click="setFollowUp(task, undefined)">{{ text().actions.deleteFollowUp }}</v-btn>
+              <v-btn data-testid="follow-up-cancel" size="small" variant="text" @click="followUpOpenOf = undefined">{{ text().actions.cancel }}</v-btn>
+            </div>
+          </div>
+        </td>
       </tr>
     </tbody>
   </v-table>
@@ -294,7 +341,10 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 .claim-checkbox { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); visibility: hidden; }
 .assignee-cell:hover .claim-checkbox { visibility: visible; }
 /* the tools over the list do not move it (TL-030) */
-.candidate-cell, .note-cell { position: relative; }
+.candidate-cell, .note-cell, .tools-cell { position: relative; }
+.tools-cell, .tools-header { width: 96px; white-space: nowrap; }
+.tools-cell { right: 0; }
+.follow-up-popup { right: 0; left: auto; }
 .over-list { position: absolute; z-index: 5; top: 100%; left: 0; min-width: 240px; padding: 8px; text-align: left; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
 .candidate-person { display: flex; align-items: center; justify-content: space-between; }
 .propose-search, .note-popup textarea { width: 100%; border: 1px solid #9e9e9e; padding: 4px; }
