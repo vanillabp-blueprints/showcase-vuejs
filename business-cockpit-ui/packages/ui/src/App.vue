@@ -13,6 +13,8 @@ import TaskList from './tasks/TaskList.vue';
 import ModuleHeader from './modules/ModuleHeader.vue';
 import TaskHeader from './tasks/TaskHeader.vue';
 import TaskPage from './tasks/TaskPage.vue';
+import { openTask } from './tasks/openTask';
+import { stateOf } from './tasks/taskState';
 
 const props = defineProps<{ title: string; user: User }>();
 
@@ -31,6 +33,8 @@ window.addEventListener('click', (event) => {
   window.history.pushState({}, '', link.pathname + link.search);
   path.value = link.pathname;
 });
+// The header of an open task looks as the row of the task does (TF-042); it shows no title, so nothing is struck through.
+const headerLook = computed(() => (page.value === 'task' && openTask.value ? `task-${stateOf(openTask.value)}` : ''));
 // the page says which language it is in
 watchEffect(() => { document.documentElement.lang = language.value; });
 const shortForm = computed(() => props.user.displayShort ?? props.user.display ?? props.user.id);
@@ -40,7 +44,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
 
 <template>
   <v-app>
-    <v-app-bar data-testid="header" density="comfortable">
+    <v-app-bar data-testid="header" density="comfortable" :class="headerLook">
       <a data-testid="title" href="/" class="title">{{ title }}</a>
       <v-btn-toggle data-testid="toggle" class="toggle" density="comfortable" variant="outlined" divided>
         <v-btn data-testid="toggle-my-tasks" :href="text().routes.myTasks">{{ shown(text().myTasks, counts.myTasks) }}
@@ -107,4 +111,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
 <style scoped>
 .title { color: inherit; text-decoration: none; font-size: 1.25rem; margin: 0 16px; }
 .toggle { margin-left: 8px; }
+/* the look of a state as in the rows of the list (TL-023): grey when ended, lighter text when suspended */
+.v-toolbar.task-completed, .v-toolbar.task-cancelled { background-color: #e0e0e0; }
+.v-toolbar.task-suspended { color: rgba(33, 33, 33, 0.55); }
 </style>

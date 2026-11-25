@@ -56,11 +56,20 @@ const retryable = computed(() => note.value?.kind === 'task-failed' || note.valu
       {{ note.message }}
       <button v-if="retryable" data-testid="task-retry" type="button" @click="open">{{ text().partNotes.retry }}</button>
     </p>
-    <div ref="container" class="ma-4" />
+    <div ref="container" class="container ma-4" />
   </div>
 </template>
 
 <style scoped>
 /* long and wide content scrolls here; the application header stays and the frame keeps the height of the window */
 .task-page { height: calc(100vh - var(--v-layout-top, 0px)); overflow: auto; }
+/* With areas (TF-041): `body` on the left, `information` and `actions` in the column on the right. The container has the visible height,
+   `information` scrolls on its own and `actions` stays at the bottom, while a long `body` scrolls in its own area. The area `all` is not laid out. */
+.container:has(> [data-area='body'], > [data-area='information'], > [data-area='actions']) {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 320px); grid-template-rows: minmax(0, 1fr) auto; gap: 16px;
+  height: calc(100% - 32px);
+}
+.container :deep([data-area='body']) { grid-column: 1; grid-row: 1 / 3; min-height: 0; overflow: auto; }
+.container :deep([data-area='information']) { grid-column: 2; grid-row: 1; min-height: 0; overflow-y: auto; }
+.container :deep([data-area='actions']) { grid-column: 2; grid-row: 2; }
 </style>
