@@ -15,6 +15,7 @@ const en = {
   noTasks: 'No tasks',
   listNotLoaded: "The list could not be loaded",
   cannotOpenHere: "This task cannot be opened here.",
+  backToList: { button: "Back to the list", ask: "Input may be lost. Leave the task?", inOtherTab: "The list is in another tab or window." },
   taskNotLoaded: "The task could not be loaded.",
   columnsNotLoaded: "Not loaded",
   columnNeedsType: "This column needs a type.",

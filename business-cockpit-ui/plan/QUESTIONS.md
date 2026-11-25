@@ -160,3 +160,10 @@ Date: 2026-11-25
 The cockpit was a page per address; for TF-039 (no entry loaded twice, no second manifest read) App.vue now opens a link to a task, the back button and the `navigate` action in the same page with `history.pushState` (list pages and other links still load the page). The note of a task page does not name the entry for a failed data entry beyond `UserTaskForm`; ASK-021 is closed by the notes and retry on the page (EXT-035 and EXT-037 are now also on the page). Not built: the case page (WP-010 uses the same steps). Whether the other links of the cockpit should also open in the page is open.
 Answer: open
 
+## ASK-024 Task tab: what S47 left open
+
+Story: S47 (TF-007, TF-017, TF-018, TF-024, TF-045)
+Date: 2026-11-25
+Default taken: a list answers the question `{ question: 'list' }` on `bc-cockpit` with `{ list: true, visibility }`; the back button is on every task page (also one opened in the same page), and it never asks when the task has no assignee or another one. A tab which stays open after `window.close()` shows the hint after 100 ms. With no answer in 300 ms the tab loads the list of all tasks itself (a page load). TF-024: no case page exists yet, so only task titles, the menu and the toggle are tested. The cockpit and the simulator set no `Cross-Origin-Opener-Policy`; the backend was not touched, so whether it sets one is open. `window.open('', 'bc-list')` after the 300 ms wait may be refused by a popup blocker, the focus of an opener is the safe path.
+Answer: open
+

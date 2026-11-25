@@ -175,14 +175,18 @@ test('TF-029 the areas the page knows are drawn and never all together with them
 test('TF-039 a second task of the same kind and the same task again load no entry again and read no manifest again', async ({ page }) => {
   const module = await fakeModule(page, { 'UserTaskForm.js': form({ element: 'fake-module-v1-page', entry: 'Views' }), 'Views.js': views('fake-module-v1-page') });
   await seed(page, [{}, {}]);
-  await page.goto('/tasks');
-  await page.getByTestId('task-title').filter({ hasText: 'Check t1' }).click();
+  await page.goto('/tasks/t1');
   await expect(page.getByTestId('fake-module-v1-page')).toBeVisible();
   expect([module.count('bc-manifest.json'), module.count('UserTaskForm.js'), module.count('Views.js')]).toEqual([1, 1, 1]);
   // client-side navigation to the list and to a second task and back to the first
   for (const id of ['t2', 't1']) {
-    await page.goBack();
-    await page.getByTestId('task-title').filter({ hasText: `Check ${id}` }).click();
+    // a link to a task inside the page (the lists open a task tab, so the link is made here)
+    await page.evaluate((address) => {
+      const link = document.createElement('a');
+      link.href = address;
+      document.body.append(link);
+      link.click();
+    }, `/tasks/${id}`);
     await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`));
     await expect(page.getByTestId('fake-module-v1-page')).toBeVisible();
   }

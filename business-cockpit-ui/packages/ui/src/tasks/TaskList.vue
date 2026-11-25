@@ -17,6 +17,7 @@ import { stateOf } from './taskState';
 import { dayOf, startOfDay } from './followUp';
 import { cappedNotice } from './cappedNotice';
 import { onTaskChangedInAnotherTab } from './openTask';
+import { answerListQuestions, openInOwnTab } from './ownWindow';
 import StatusLine from './StatusLine.vue';
 import SearchBar from './SearchBar.vue';
 import { fullText, searchQueriesOf, type Suggestion } from './search';
@@ -137,6 +138,12 @@ watch(pages, () => {
 
 // only the first load shows the loading sign; the pages that follow load without one
 // what the central loader made of each row which was drawn (a row without a type is of a module which reports none)
+// a plain click opens the task in a tab of its own (TF-007); the other kinds of click keep what the browser does with a link, and an external task has its own tab already
+function openedInOwnTab(event: MouseEvent, task: UserTask): void {
+  if (isExternal(task) || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  openInOwnTab(linkOf(task));
+}
 /** An external task opens its address in a tab of its own (TF-019); any other task opens its page. */
 const linkOf = (task: UserTask): string => (isExternal(task) ? addressOfTask(task) : taskAddress(task.id));
 const partsOf = reactive<Record<string, 'loading' | 'loaded' | 'unopenable'>>({});
@@ -436,9 +443,12 @@ const updates = new EventSource(updateStreamUrl());
 updates.addEventListener('UserTask', () => void load());
 // a task tab tells which task it changed; the rows are read again at once, without waiting for the update stream (ACT-019)
 const stopListening = onTaskChangedInAnotherTab(() => void load());
+// a task tab asks whether a list is open and in which state (TF-045)
+const stopAnswering = answerListQuestions();
 onBeforeUnmount(() => {
   updates.close();
   stopListening();
+  stopAnswering();
   clearTimeout(pause);
   resizing?.disconnect();
   scrollArea?.removeEventListener('scroll', scrolled);
@@ -700,7 +710,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
         <td data-testid="cell-businessId">{{ task.businessId }}</td>
         <td data-testid="cell-caseKind">{{ pickTranslation(task.workflowTitle ?? {}, language) }}</td>
         <td data-testid="cell-title">
-          <a data-testid="task-title" :href="linkOf(task)" :target="isExternal(task) ? '_blank' : undefined" :rel="isExternal(task) ? 'noopener' : undefined">{{ pickTranslation(task.title, language) }}</a>
+          <a data-testid="task-title" :href="linkOf(task)" :target="isExternal(task) ? '_blank' : undefined" :rel="isExternal(task) ? 'noopener' : undefined" @click="openedInOwnTab($event, task)">{{ pickTranslation(task.title, language) }}</a>
           <span v-if="partsOf[task.id] === 'unopenable'" data-testid="cannot-open" class="cannot-open">{{ text().cannotOpenHere }}</span>
           <span v-if="columnsFailedOf(task) && moduleColumns.length === 0" data-testid="columns-not-loaded" class="cannot-open">{{ text().columnsNotLoaded }}</span>
         </td>

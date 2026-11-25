@@ -15,6 +15,7 @@ const fr: Messages = {
   noTasks: 'Aucune tâche',
   listNotLoaded: "La liste n'a pas pu être chargée",
   cannotOpenHere: "Cette tâche ne peut pas être ouverte ici.",
+  backToList: { button: "Retour à la liste", ask: "Des saisies peuvent être perdues. Quitter la tâche ?", inOtherTab: "La liste est dans un autre onglet ou une autre fenêtre." },
   taskNotLoaded: "La tâche n'a pas pu être chargée.",
   columnsNotLoaded: "Non chargé",
   columnNeedsType: "Cette colonne a besoin d'un type.",

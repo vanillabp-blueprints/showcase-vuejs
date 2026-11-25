@@ -83,8 +83,10 @@ test('TL-012 the title is a real link that opens the task page, and open in new 
   await opened.waitForLoadState();
   expect(new URL(opened.url()).pathname).toBe('/tasks/t1');
   await expect(page).toHaveURL(/\/tasks$/);
-  await link.click();
-  await expect(page).toHaveURL(/\/tasks\/t1$/);
+  // a plain click opens the task in a tab of its own (TF-007)
+  const [tab] = await Promise.all([page.waitForEvent('popup'), link.click()]);
+  await expect(tab).toHaveURL(/\/tasks\/t1$/);
+  await expect(page).toHaveURL(/\/tasks$/);
 });
 
 test('TL-013 the assignee cell shows the short form, and the mouse-over the long form, the user id and the email address', async ({ page }) => {

@@ -15,6 +15,7 @@ const de: Messages = {
   noTasks: 'Keine Aufgaben',
   listNotLoaded: "Die Liste konnte nicht geladen werden",
   cannotOpenHere: "Diese Aufgabe kann hier nicht geöffnet werden.",
+  backToList: { button: "Zurück zur Liste", ask: "Eingaben können verloren gehen. Die Aufgabe verlassen?", inOtherTab: "Die Liste ist in einem anderen Tab oder Fenster." },
   taskNotLoaded: "Die Aufgabe konnte nicht geladen werden.",
   columnsNotLoaded: "Nicht geladen",
   columnNeedsType: "Diese Spalte braucht einen Typ.",

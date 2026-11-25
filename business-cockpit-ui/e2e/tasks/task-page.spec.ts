@@ -34,9 +34,11 @@ test('TF-001 opening a task from the list loads it, marks it as read and draws t
   await seed(page, [task('t1', { read: false })]);
   await page.goto('/tasks');
   await expect(page.getByTestId('task-row')).toHaveClass(/unread/);
+  const opened = page.waitForEvent('popup');
   await page.getByTestId('task-title').click();
-  await expect(page).toHaveURL(/\/tasks\/t1$/);
-  await expect(page.getByTestId('react-all')).toContainText('React all of t1');
+  const tab = await opened;
+  await expect(tab).toHaveURL(/\/tasks\/t1$/);
+  await expect(tab.getByTestId('react-all')).toContainText('React all of t1');
   expect((await stored(page, 't1')).read).toBe(true);
 });
 
@@ -45,12 +47,14 @@ test('TL-022 a closed task is listed and opened like an open one', async ({ page
   await page.goto('/tasks');
   await page.getByTestId('primary-filter-ClosedTasksOnly').click();
   await expect(page.getByTestId('task-row')).toHaveCount(1);
+  const opened = page.waitForEvent('popup');
   await page.getByTestId('task-title').click();
-  await expect(page).toHaveURL(/\/tasks\/t2$/);
-  await expect(page.getByTestId('react-all')).toContainText('React all of t2');
+  const tab = await opened;
+  await expect(tab).toHaveURL(/\/tasks\/t2$/);
+  await expect(tab.getByTestId('react-all')).toContainText('React all of t2');
   // the cockpit treats it the same way, the actions which need an open task are off
-  await expect(action(page, 'claim')).toBeDisabled();
-  await expect(action(page, 'mark-unread')).toBeEnabled();
+  await expect(action(tab, 'claim')).toBeDisabled();
+  await expect(action(tab, 'mark-unread')).toBeEnabled();
 });
 
 test('TF-004 the actions sit in the application header at the same place for every kind of task, the page has none of its own', async ({ page }) => {
@@ -59,7 +63,10 @@ test('TF-004 the actions sit in the application header at the same place for eve
   for (const id of ['t1', 't2']) {
     await page.goto(`/tasks/${id}`);
     await expect(page.getByTestId('header').getByTestId('task-actions')).toBeVisible();
-    boxes.push(await action(page, 'claim').boundingBox());
+    // the text of the header (user name) is wider until the fonts are loaded, so the place is read when it stops moving
+    let before = await action(page, 'claim').boundingBox();
+    await expect.poll(async () => { const now = await action(page, 'claim').boundingBox(); const still = JSON.stringify(now) === JSON.stringify(before); before = now; return still; }).toBe(true);
+    boxes.push(before);
     // no header and no footer of the task's own, no actions inside the page
     await expect(page.getByTestId('task-page').locator('header, footer, [data-testid="task-actions"]')).toHaveCount(0);
   }

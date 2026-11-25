@@ -11,6 +11,7 @@ import { pageOf, taskIdOf } from './routing';
 import { cappedNotice, isCapped } from './tasks/cappedNotice';
 import TaskList from './tasks/TaskList.vue';
 import ModuleHeader from './modules/ModuleHeader.vue';
+import BackToList from './tasks/BackToList.vue';
 import TaskHeader from './tasks/TaskHeader.vue';
 import TaskPage from './tasks/TaskPage.vue';
 import { openTask } from './tasks/openTask';
@@ -62,7 +63,9 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
       <!-- right of the parts of the modules, so late parts do not move the actions -->
       <task-header v-if="page === 'task'" :current-user-id="user.id" />
       <span data-testid="current-user" class="mr-2">{{ user.display ?? user.id }}</span>
-      <v-btn data-testid="menu-button" :icon="mdiMenu" :aria-label="text().menu" @click="menuOpen = !menuOpen" />
+      <!-- a task tab has no menu, its way out is the way back to the list (TF-007) -->
+      <back-to-list v-if="page === 'task'" :current-user-id="user.id" />
+      <v-btn v-else data-testid="menu-button" :icon="mdiMenu" :aria-label="text().menu" @click="menuOpen = !menuOpen" />
     </v-app-bar>
 
     <v-navigation-drawer v-model="menuOpen" data-testid="menu" location="right" temporary>

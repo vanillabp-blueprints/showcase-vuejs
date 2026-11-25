@@ -15,6 +15,7 @@ const es: Messages = {
   noTasks: 'Sin tareas',
   listNotLoaded: "No se pudo cargar la lista",
   cannotOpenHere: "Esta tarea no se puede abrir aquí.",
+  backToList: { button: "Volver a la lista", ask: "Se pueden perder datos. ¿Salir de la tarea?", inOtherTab: "La lista está en otra pestaña o ventana." },
   taskNotLoaded: "No se pudo cargar la tarea.",
   columnsNotLoaded: "No cargado",
   columnNeedsType: "Esta columna necesita un tipo.",
