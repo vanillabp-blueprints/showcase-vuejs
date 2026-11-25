@@ -8,7 +8,7 @@ import { createManifest } from '@acme/bc-module-kit';
 
 const here = new URL('.', import.meta.url).pathname;
 const MODULES = {
-  'react-module': { UserTaskList: 'user-task-list.js', UserTaskForm: 'user-task-form.js', FormViews: 'form-views.jsx' },
+  'react-module': { Header: 'header.js', UserTaskList: 'user-task-list.js', UserTaskForm: 'user-task-form.js', FormViews: 'form-views.jsx', HeaderViews: 'header-views.jsx' },
   'vue-module': { WorkflowList: 'workflow-list.js', WorkflowPage: 'workflow-page.js', PageViews: 'page-views.js' },
   'angular-module': { Header: 'header.js', UserTaskList: 'user-task-list.js', HeaderElements: 'header-elements.ts' },
 };

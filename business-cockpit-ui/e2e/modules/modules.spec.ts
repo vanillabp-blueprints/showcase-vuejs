@@ -155,7 +155,8 @@ test('EXT-010 an extension point outside the lists asks every module, a row entr
     }, [entry, ids] as const);
   const requests: string[] = [];
   page.on('request', (r) => { if (r.url().endsWith('bc-manifest.json')) requests.push(r.url()); });
-  expect(await asked('Header', ALL)).toEqual(['angular-module']);
+  // react and angular name a Header (S35), vue does not
+  expect(((await asked('Header', ALL)) as string[]).sort()).toEqual(['angular-module', 'react-module']);
   expect(requests).toHaveLength(3); // every module was asked
   expect(await asked('UserTaskList', ALL)).toMatch(/only the module of the row/);
   expect(await asked('UserTaskList', ['react-module'])).toEqual(['react-module']);
@@ -169,7 +170,7 @@ test('EXT-011 a module whose manifest does not name the entry causes no error an
   page.on('pageerror', (e) => consoleMessages.push(String(e)));
   const answers = await page.evaluate(async (ids) =>
     [...(await (window as any).host.askModules(ids.map((id) => ({ workflowModuleId: id, webPath: `/wm/${id}/` })), 'Header')).keys()], ALL);
-  expect(answers).toEqual(['angular-module']);
+  expect(answers.sort()).toEqual(['angular-module', 'react-module']); // the vue module names no Header and is skipped
   expect(await page.evaluate(() => (window as any).problems)).toEqual([]);
   expect(consoleMessages.filter((m) => !/favicon|404/.test(m))).toEqual([]);
   // a named entry which fails to load is reported

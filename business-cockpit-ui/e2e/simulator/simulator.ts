@@ -489,7 +489,15 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       return;
     }
 
-    if (path === `${officialGuiApiPath}/workflow-module` && method === 'GET') {
+    const visibleTo = (module: SimulatedModule, user: SimulatedUser | undefined) =>
+      module.accessibleToGroups.length === 0 || (user?.groups ?? []).some((group) => module.accessibleToGroups.includes(group));
+    const oneModule = new RegExp(`^(?:${officialGuiApiPath}|${guiApiPath})/workflow-module/([^/]+)$`).exec(path);
+    if (oneModule && method === 'GET') {
+      const module = modules.get(oneModule[1]);
+      if (!module || !visibleTo(module, userOf(req))) return send(res, 404);
+      return send(res, 200, { id: module.id, version: module.version, uri: module.uri });
+    }
+    if ((path === `${officialGuiApiPath}/workflow-module` || path === `${guiApiPath}/workflow-module`) && method === 'GET') {
       const user = userOf(req);
       const visible = [...modules.values()].filter((module) =>
         module.accessibleToGroups.length === 0 || (user?.groups ?? []).some((group) => module.accessibleToGroups.includes(group)));

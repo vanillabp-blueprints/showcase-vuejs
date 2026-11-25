@@ -97,3 +97,7 @@ S33 built `requestFromCockpit`, `rejectOpenRequests`, `defineBcElement`, the eve
 ## ASK-013 The Angular test module is built with esbuild in JIT mode
 
 `e2e/modules/angular-module` uses `@angular/compiler` at run time (JIT) and esbuild with decorators, not `ng build`. It runs in the newest Angular (22.3.0) and passes the end-to-end test, but the build is not the AOT build of the Angular CLI. Decide in a later story whether the module must be built with `ng build`.
+
+## ASK-014 The registry and the loader are partly built, the cockpit has no page for one row yet
+
+S35 built the registry (`createModuleRegistry`: one `GET /workflow-module`, one `GET /workflow-module/{id}` for a late module), the opening of a row by `uiUriType`, and the Header in the app bar. The loader still reads each manifest once per session: the re-read after a minute and dropping an old build (module-loading.md, "A new build of a module") are unbuilt. `EXTERNAL` rows are recognised but not opened. A row of a known type whose module the user may not see counts as "cannot be opened here". A row without `uiUriType` gets neither a load nor a notice, because the rows of earlier tests carry none; the real GUI API always sends one. Later EXT stories should decide whether to treat the missing type as unknown too.

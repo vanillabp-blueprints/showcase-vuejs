@@ -10,6 +10,7 @@ import { language, languages, text } from './i18n/messages';
 import { pageOf } from './routing';
 import { cappedNotice, isCapped } from './tasks/cappedNotice';
 import TaskList from './tasks/TaskList.vue';
+import ModuleHeader from './modules/ModuleHeader.vue';
 
 const props = defineProps<{ title: string; user: User }>();
 
@@ -38,6 +39,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
         </v-btn>
       </v-btn-toggle>
       <v-spacer />
+      <module-header />
       <span data-testid="current-user" class="mr-2">{{ user.display ?? user.id }}</span>
       <v-btn data-testid="menu-button" :icon="mdiMenu" :aria-label="text().menu" @click="menuOpen = !menuOpen" />
     </v-app-bar>

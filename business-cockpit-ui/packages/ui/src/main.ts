@@ -7,6 +7,7 @@ import App from './App.vue';
 import { configureGuiApiClients } from './api/clients';
 import { LoginApi } from './generated/cockpit-gui-api';
 import { keepCountsCurrent } from './counts/counts';
+import { startModules } from './modules/modules';
 import { currentUser, sendToLoginOnUnauthorized } from './session/session';
 
 installTheme();
@@ -18,6 +19,7 @@ async function start(): Promise<void> {
   if (!user) return;
   const info = await new LoginApi().appInformation();
   keepCountsCurrent();
+  await startModules();
   const vuetify = createVuetify({
     icons: { defaultSet: 'mdi', aliases, sets: { mdi } },
     // the dark mode follows the operating system

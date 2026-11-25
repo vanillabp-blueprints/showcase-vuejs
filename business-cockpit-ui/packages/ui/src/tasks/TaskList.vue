@@ -9,6 +9,7 @@ import { dateCellDetails, dateCellText } from '../i18n/format';
 import { language, text } from '../i18n/messages';
 import { pickTranslation } from '../i18n/translatable';
 import { taskAddress } from '../routing';
+import { loadPartsOf } from '../modules/modules';
 import { settingKey, settings } from '../settings/settings';
 import { stateOf } from './taskState';
 import { dayOf, startOfDay } from './followUp';
@@ -71,6 +72,16 @@ const capped = computed(() => total.value > maxListEntries);
 const noticeShown = computed(() => capped.value && drawnLast.value === length.value - 1);
 const spaceBelow = computed(() => (Math.max(0, length.value - 1 - drawnLast.value) + (capped.value && !noticeShown.value ? 1 : 0)) * rowHeight);
 // only the first load shows the loading sign; the pages that follow load without one
+// what the central loader made of each row which was drawn (a row without a type is of a module which reports none)
+const partsOf = reactive<Record<string, 'loading' | 'loaded' | 'unopenable'>>({});
+function loadPartsOfRows(rows: { task?: UserTask }[]): void {
+  for (const { task } of rows) {
+    if (!task?.uiUriType || partsOf[task.id]) continue;
+    partsOf[task.id] = 'loading';
+    loadPartsOf(task).then((opened) => { partsOf[task.id] = opened ? 'loaded' : 'unopenable'; }, () => { partsOf[task.id] = 'unopenable'; });
+  }
+}
+watch(drawn, loadPartsOfRows, { immediate: true });
 const loadingFirst = ref(false);
 // the moment the user started to look at this list; a new sort, a new search and opening the list start it again (SRCH-027)
 const startedAt = ref<string>();
@@ -592,7 +603,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       <tr v-if="spaceAbove > 0" class="space" aria-hidden="true"><td :colspan="columns.length + 1" :style="{ height: `${spaceAbove}px` }" /></tr>
       <template v-for="{ key, task } in drawn" :key="key">
       <tr v-if="!task" data-testid="task-placeholder" class="task-row placeholder"><td :colspan="columns.length + 1" /></tr>
-      <tr v-else data-testid="task-row" :data-task-id="task.id" :data-state="stateOf(task)" :class="['task-row', stateOf(task), { unread: !task.read }]">
+      <tr v-else data-testid="task-row" :data-task-id="task.id" :data-parts="partsOf[task.id]" :data-state="stateOf(task)" :class="['task-row', stateOf(task), { unread: !task.read }]">
         <td data-testid="cell-id" class="select-cell">
           <input
             type="checkbox"
@@ -606,6 +617,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
         <td data-testid="cell-caseKind">{{ pickTranslation(task.workflowTitle ?? {}, language) }}</td>
         <td data-testid="cell-title">
           <a data-testid="task-title" :href="taskAddress(task.id)">{{ pickTranslation(task.title, language) }}</a>
+          <span v-if="partsOf[task.id] === 'unopenable'" data-testid="cannot-open" class="cannot-open">{{ text().cannotOpenHere }}</span>
         </td>
         <td data-testid="cell-dueDate">
           <template v-if="dateAndDetails(task.dueDate)">
@@ -770,6 +782,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 </template>
 
 <style scoped>
+.cannot-open { display: block; font-size: 0.8rem; opacity: 0.7; }
 th.sortable { cursor: pointer; user-select: none; }
 .filter-cell { position: sticky; top: 56px; z-index: 2; padding: 0 4px !important; height: 36px !important; }
 .column-filter { width: 100%; border: 1px solid #bdbdbd; border-radius: 4px; padding: 2px 24px 2px 6px; font-size: 0.85em; }

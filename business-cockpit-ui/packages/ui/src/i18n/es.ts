@@ -14,6 +14,7 @@ const es: Messages = {
   search: { placeholder: 'Buscar', clear: 'Borrar', reset: 'Restablecer', filterBy: 'Filtrar por' },
   noTasks: 'Sin tareas',
   listNotLoaded: "No se pudo cargar la lista",
+  cannotOpenHere: "Esta tarea no se puede abrir aquí.",
   cappedNotice: "Solo se listan las primeras {limit} entradas en el orden actual. Por favor, restrinja la lista con más criterios.",
   primaryFilter: 'Filtro principal',
   primaryFilters: { OpenTasksWithoutFollowUp: 'Abiertas', OpenTasksWithFollowUp: 'Todas abiertas', ClosedTasksOnly: 'Cerradas' },

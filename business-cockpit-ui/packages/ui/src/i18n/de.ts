@@ -14,6 +14,7 @@ const de: Messages = {
   search: { placeholder: 'Suchen', clear: 'Leeren', reset: 'Zurücksetzen', filterBy: 'Filtern nach' },
   noTasks: 'Keine Aufgaben',
   listNotLoaded: "Die Liste konnte nicht geladen werden",
+  cannotOpenHere: "Diese Aufgabe kann hier nicht geöffnet werden.",
   cappedNotice: "Es sind nur die ersten {limit} Einträge in der aktuellen Sortierung aufgelistet. Bitte schränken Sie die Liste mit weiteren Kriterien ein.",
   primaryFilter: 'Primärfilter',
   primaryFilters: { OpenTasksWithoutFollowUp: 'Offen', OpenTasksWithFollowUp: 'Alle offenen', ClosedTasksOnly: 'Erledigt' },

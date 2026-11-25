@@ -14,6 +14,7 @@ const fr: Messages = {
   search: { placeholder: 'Rechercher', clear: 'Effacer', reset: 'Réinitialiser', filterBy: 'Filtrer par' },
   noTasks: 'Aucune tâche',
   listNotLoaded: "La liste n'a pas pu être chargée",
+  cannotOpenHere: "Cette tâche ne peut pas être ouverte ici.",
   cappedNotice: "Seules les {limit} premières entrées dans l'ordre de tri actuel sont listées. Veuillez restreindre la liste avec d'autres critères.",
   primaryFilter: 'Filtre principal',
   primaryFilters: { OpenTasksWithoutFollowUp: 'Ouvertes', OpenTasksWithFollowUp: 'Toutes ouvertes', ClosedTasksOnly: 'Terminées' },

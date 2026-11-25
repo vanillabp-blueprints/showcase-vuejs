@@ -144,3 +144,4 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
     },
   };
 }
+export * from './registry.js';

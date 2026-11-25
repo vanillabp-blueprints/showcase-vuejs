@@ -14,6 +14,7 @@ const en = {
   search: { placeholder: 'Search', clear: 'Clear', reset: 'Reset', filterBy: 'Filter' },
   noTasks: 'No tasks',
   listNotLoaded: "The list could not be loaded",
+  cannotOpenHere: "This task cannot be opened here.",
   cappedNotice: "Only the first {limit} entries in the current sort order are listed. Please narrow down the list with more criteria.",
   primaryFilter: 'Primary filter',
   primaryFilters: { OpenTasksWithoutFollowUp: 'Open', OpenTasksWithFollowUp: 'All open', ClosedTasksOnly: 'Closed' },
