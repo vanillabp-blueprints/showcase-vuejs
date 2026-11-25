@@ -48,7 +48,7 @@ Started: 2026-11-25
 | S39 | The cockpit loads the parts of the modules (6 of 6) | done | EXT-054, EXT-055, EXT-056, EXT-057, EXT-059 | `sh plan/checks/S39.sh` |
 | S40 | The lists show the columns of the modules (1 of 3) | done | COL-001, COL-003, COL-004, COL-005, COL-006, COL-007 | `sh plan/checks/S40.sh` |
 | S41 | The lists show the columns of the modules (2 of 3) | done | COL-008, COL-009, COL-010, COL-011, COL-012, COL-013 | `sh plan/checks/S41.sh` |
-| S42 | The lists show the columns of the modules (3 of 3) | open | COL-016, COL-020, COL-022 | `sh plan/checks/S42.sh` |
+| S42 | The lists show the columns of the modules (3 of 3) | done | COL-016, COL-020, COL-022 | `sh plan/checks/S42.sh` |
 | S43 | A clerk opens a task and works on it in the form of the module (1 of 4) | open | TL-022, ACT-019, TF-001, TF-004, TF-005, TF-006 | `sh plan/checks/S43.sh` |
 | S44 | A clerk opens a task and works on it in the form of the module (2 of 4) | open | TF-008, TF-016, TF-019, TF-020, TF-022, TF-023 | `sh plan/checks/S44.sh` |
 | S45 | A clerk opens a task and works on it in the form of the module (3 of 4) | open | TF-025, TF-026, TF-027, TF-029, TF-039, TF-040 | `sh plan/checks/S45.sh` |

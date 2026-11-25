@@ -125,3 +125,11 @@ Story: S40 (COL-001, COL-003 to COL-007)
 Date: 2026-11-25
 
 The task list shows module columns (merge by `path`, priority, `show`, failed module note, `value` cells). Open: the case list does not draw `WorkflowList` columns yet; `sortable`, `filterable` and `resizeable` of a module column are not used (the header does not sort or filter by them); `width` is not applied. A column function is called once per loaded row, in the browser, and its answer is kept until the row leaves the window. The note of a failed module sits in each module cell of its row, or in the title cell when the list has no module column at all.
+
+
+## ASK-020 Column width: what S42 left open
+
+Story: S42 (COL-022)
+Date: 2026-11-25
+
+A dragged width is set on the header cell (width, min-width, max-width); the cells of the rows keep the layout the table gives them, so a long value can still push a column wider than its header. `width` of a module column (its default width) is not applied. The case list has no resizable columns yet because it draws no module columns (ASK-019). Open: should the body cells be cut at the width (ellipsis) or fixed table layout be used?

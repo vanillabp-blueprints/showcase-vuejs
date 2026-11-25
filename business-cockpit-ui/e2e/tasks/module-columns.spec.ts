@@ -233,3 +233,66 @@ test.describe('typed cells', () => {
     await expect(one(page, 'details.thing')).toHaveText('This column needs a type.');
   });
 });
+
+test('COL-016 the column function is called for every loaded row, with that row', async ({ page }) => {
+  const recording = 'export const userTaskListColumns = (task) => { (window.__asked ??= []).push([task.id, task.businessId]); return task.details?.columns; };';
+  await fakeModule(page, 'colmod', recording);
+  await seed(page, [0, 1, 2].map((index) => task(index, 'colmod', [column('details.a', 'A')], { a: index })));
+  await page.goto('/tasks');
+  await expect(page.getByTestId('task-row')).toHaveCount(3);
+  const asked = await page.evaluate(() => (window as unknown as { __asked: string[][] }).__asked);
+  expect(asked.slice().sort()).toEqual([['t000', 'B-0'], ['t001', 'B-1'], ['t002', 'B-2']]);
+});
+
+test('COL-020 the list part is asked only for modules of loaded rows, and loaded once for the rows of one build', async ({ page }) => {
+  const requested: string[] = [];
+  page.on('request', (request) => { const path = new URL(request.url()).pathname; if (path.startsWith('/wm/')) requested.push(path); });
+  await fakeModule(page, 'col-used');
+  await fakeModule(page, 'col-unused');
+  await seed(page, Array.from({ length: 5 }, (_, index) => task(index, 'col-used', [column('details.a', 'A')], { a: index })));
+  await page.goto('/tasks');
+  await expect(page.getByTestId('task-row')).toHaveCount(5);
+  await expect(page.getByTestId('cell-module-details.a')).toHaveCount(5);
+  expect(requested.filter((path) => path === '/wm/col-unused/UserTaskList.js')).toEqual([]);
+  expect(requested.filter((path) => path === '/wm/col-used/UserTaskList.js')).toHaveLength(1);
+});
+
+test.describe('column width', () => {
+  const edge = (page: Page, key: string) => page.getByTestId(`column-resize-${key}`);
+  const widthOf = async (page: Page, testId: string) => (await page.getByTestId(testId).boundingBox())!.width;
+  const drag = async (page: Page, key: string, by: number) => {
+    const box = (await edge(page, key).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + by / 2, box.y + box.height / 2, { steps: 3 });
+    await page.mouse.move(box.x + box.width / 2 + by, box.y + box.height / 2, { steps: 3 });
+    await page.mouse.up();
+  };
+
+  test('COL-022 a column is resized by its right edge, the width is kept per list and path', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 800 });
+    await fakeModule(page, 'colmod');
+    await seed(page, [task(0, 'colmod', [column('details.r', 'R', { resizeable: true }), column('details.f', 'F')], { r: 'x', f: 'y' })]);
+    await page.goto('/tasks');
+    await expect(page.getByTestId('task-row')).toHaveCount(1);
+    // no edge on the checkbox column, the candidates column and a module column which is not resizeable
+    await expect(edge(page, 'id')).toHaveCount(0);
+    await expect(edge(page, 'candidateUsers')).toHaveCount(0);
+    await expect(edge(page, 'module-details.f')).toHaveCount(0);
+    const before = await widthOf(page, 'column-header-businessId');
+    await drag(page, 'businessId', 80);
+    await expect.poll(() => widthOf(page, 'column-header-businessId')).toBeGreaterThan(before + 60);
+    const beforeModule = await widthOf(page, 'column-header-module-details.r');
+    await drag(page, 'module-details.r', 60);
+    await expect.poll(() => widthOf(page, 'column-header-module-details.r')).toBeGreaterThan(beforeModule + 40);
+    const wide = await widthOf(page, 'column-header-businessId');
+    // the width survives a new page load, and is only for this list
+    await expect.poll(async () => (await page.request.get('/gui/api/v1/app/current-user/settings/bc:tasks:all:width:businessId')).status()).toBe(200);
+    await page.reload();
+    await expect(page.getByTestId('task-row')).toHaveCount(1);
+    await expect.poll(() => widthOf(page, 'column-header-businessId')).toBeCloseTo(wide, -1);
+    await page.goto('/my-tasks');
+    await expect(page.getByTestId('column-header-businessId')).toBeVisible();
+    expect(await widthOf(page, 'column-header-businessId')).toBeLessThan(wide - 40);
+  });
+});

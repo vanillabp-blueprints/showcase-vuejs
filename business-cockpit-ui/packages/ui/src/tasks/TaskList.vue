@@ -89,6 +89,45 @@ const fractionWidths = computed(() => Object.fromEntries(moduleColumns.value.map
   column.path, fractionDigits(loadedTasks().map((task) => cellFor(task, column)).filter((cell) => cell.kind === 'number')),
 ])));
 const columnsFailedOf = (task: UserTask): boolean => { const answer = answeredOf(task); return answer !== undefined && 'failed' in answer; };
+// the width of a column the user dragged, by column key (COL-022); the list keeps it as a setting per list and path
+const widths = reactive<Record<string, number>>({});
+const widthsRead = new Set<string>();
+const listName = (): string => (props.own ? 'own' : 'all');
+const widthSetting = (key: string): string => settingKey('tasks', listName(), 'width', key);
+const minimumWidth = 40;
+// every fixed column but the checkbox of `id` and the candidates can be resized; a module column only when it says so
+const fixedResizeable = (column: (typeof allColumns)[number]): boolean => column !== 'id' && column !== 'candidateUsers';
+const widthStyle = (key: string): Record<string, string> | undefined =>
+  widths[key] === undefined ? undefined : { width: `${widths[key]}px`, minWidth: `${widths[key]}px`, maxWidth: `${widths[key]}px` };
+function readWidthsOf(keys: string[]): void {
+  for (const key of keys) {
+    if (widthsRead.has(key)) continue;
+    widthsRead.add(key);
+    void settings.read<number>(widthSetting(key)).then((width) => {
+      if (typeof width === 'number' && widths[key] === undefined) widths[key] = width;
+    });
+  }
+}
+function startResize(key: string, event: PointerEvent): void {
+  const handle = event.currentTarget as HTMLElement;
+  const header = handle.parentElement!;
+  const startX = event.clientX;
+  const startWidth = header.getBoundingClientRect().width;
+  handle.setPointerCapture(event.pointerId);
+  const move = (moved: PointerEvent): void => { widths[key] = Math.max(minimumWidth, Math.round(startWidth + moved.clientX - startX)); };
+  const end = (): void => {
+    handle.removeEventListener('pointermove', move);
+    handle.removeEventListener('pointerup', end);
+    handle.removeEventListener('pointercancel', end);
+    if (widths[key] !== undefined) settings.writeWhenQuiet(widthSetting(key), widths[key]);
+  };
+  handle.addEventListener('pointermove', move);
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+  event.preventDefault();
+}
+// another list has other widths
+watch(() => props.own, () => { for (const key of Object.keys(widths)) delete widths[key]; widthsRead.clear(); });
 // ids of rows which left the window do not stay in the answers
 watch(pages, () => {
   const loaded = new Set(loadedTasks().map((task) => task.id));
@@ -114,6 +153,11 @@ const failed = ref(false);
 // the text of a sort the server refused with 400, shown as it is (SRCH-034)
 const refusedSort = ref<string>();
 const filter = ref<PrimaryFilter>(defaultPrimaryFilter);
+watch(
+  [columns, moduleColumns, () => props.own],
+  () => readWidthsOf([...columns.value.filter(fixedResizeable), ...moduleColumns.value.filter((column) => column.resizeable).map((column) => `module-${column.path}`)]),
+  { immediate: true },
+);
 const counts = reactive<Partial<Record<PrimaryFilter, number>>>({});
 
 // the searches by path, one entry per path (SRCH-005); the full-text search has the empty path (SRCH-001)
@@ -593,13 +637,18 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
           :data-sort="sortMarkOf(column)"
           @click="sortBy(column)"
           :class="{ 'icon-cell': column === 'candidateUsers', sortable: isSortable(column) }"
+          :style="widthStyle(column)"
           :aria-label="column === 'candidateUsers' ? text().columns[column] : undefined"
         >
           <v-icon v-if="column === 'candidateUsers'" data-testid="candidate-header-icon" :icon="mdiAccountMultiple" />
           <template v-else>{{ text().columns[column] }}</template>
           <v-icon v-if="sortMarkOf(column)" data-testid="sort-mark" size="small" :icon="sortMarkOf(column) === 'asc' ? mdiArrowUp : mdiArrowDown" />
+          <span v-if="fixedResizeable(column)" :data-testid="`column-resize-${column}`" class="resize-edge" @pointerdown="startResize(column, $event)" @click.stop />
         </th>
-        <th v-for="column in moduleColumns" :key="column.path" :data-testid="`column-header-module-${column.path}`" :data-path="column.path">{{ titleOfColumn(column) }}</th>
+        <th v-for="column in moduleColumns" :key="column.path" :data-testid="`column-header-module-${column.path}`" :data-path="column.path" :style="widthStyle(`module-${column.path}`)">
+          {{ titleOfColumn(column) }}
+          <span v-if="column.resizeable" :data-testid="`column-resize-module-${column.path}`" class="resize-edge" @pointerdown="startResize(`module-${column.path}`, $event)" />
+        </th>
         <th data-testid="column-header-tools" class="tools-header" :aria-label="text().actions.tools" />
       </tr>
       <tr class="filter-row">
@@ -826,6 +875,9 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 <style scoped>
 .cannot-open { display: block; font-size: 0.8rem; opacity: 0.7; }
 th.sortable { cursor: pointer; user-select: none; }
+thead th { position: relative; overflow: hidden; }
+/* the right edge of a header is the handle to drag (COL-022) */
+.resize-edge { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; touch-action: none; }
 .filter-cell { position: sticky; top: 56px; z-index: 2; padding: 0 4px !important; height: 36px !important; }
 .column-filter { width: 100%; border: 1px solid #bdbdbd; border-radius: 4px; padding: 2px 24px 2px 6px; font-size: 0.85em; }
 .filter-cell .v-btn { position: absolute; right: 6px; top: 6px; }
