@@ -1,4 +1,4 @@
-// NAV-003, WL-001 to WL-010, WL-012: the case list.
+// NAV-003, WL-001 to WL-010, WL-012, WL-013: the case list.
 import { expect, test, type Page } from '@playwright/test';
 
 type SimulatedCase = Record<string, unknown>;
@@ -253,4 +253,37 @@ test('WL-012 the status line of the case list shows the legend of new, changed, 
   await expect(legend.locator('[data-legend]')).toHaveText(['New', 'Changed', 'Removed', 'Completed', 'Cancelled', 'Suspended']);
   await inGerman(page);
   await expect(legend.locator('[data-legend]')).toHaveText(['Neu', 'Geändert', 'Entfernt', 'Erledigt', 'Abgebrochen', 'Ausgesetzt']);
+});
+
+test('WL-013 the ended column of the case list shows only for the primary filters which hold ended cases', async ({ page }) => {
+  await seed(page, cases);
+  await page.goto('/workflows');
+  await expect(page.getByTestId('case-row')).toHaveCount(3);
+  await expect(page.getByTestId('column-header-endedAt')).toHaveCount(0);
+  await expect(page.getByTestId('cell-endedAt')).toHaveCount(0);
+  await page.getByTestId('primary-filter-Done').click();
+  await expect(page.getByTestId('case-row')).toHaveCount(1);
+  await expect(page.getByTestId('column-header-endedAt')).toHaveCount(1);
+  await expect(page.getByTestId('cell-endedAt')).toHaveCount(1);
+  await expect(page.getByTestId('cell-endedAt')).not.toHaveText('');
+  // the header and the cells go together, so no cell is out of line with its header
+  const cellsPerRow = await page.locator('[data-testid="case-row"] > td').count();
+  expect(cellsPerRow).toBe((await headerKeys(page)).length);
+  await page.getByTestId('primary-filter-InProgress').click();
+  await expect(page.getByTestId('case-row')).toHaveCount(3);
+  await expect(page.getByTestId('column-header-endedAt')).toHaveCount(0);
+  await expect(page.getByTestId('cell-endedAt')).toHaveCount(0);
+});
+
+test('WL-009 the primary filter of the case list the user chose last is kept as a setting and used on the next visit', async ({ page }) => {
+  await seed(page, cases);
+  await page.goto('/workflows');
+  await expect(page.getByTestId('case-row')).toHaveCount(3);
+  await page.getByTestId('primary-filter-Done').click();
+  await expect(page.getByTestId('case-row')).toHaveCount(1);
+  await expect.poll(async () => (await page.request.get('/gui/api/v1/app/current-user/settings/bc:cases:primaryFilter')).status()).toBe(200);
+  await page.goto('/workflows');
+  await expect(page.getByTestId('primary-filter-Done')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('case-row')).toHaveCount(1);
+  expect((await listRequests(page)).at(-1)!.body.mode).toBe('Done');
 });

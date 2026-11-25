@@ -12,9 +12,10 @@ import { cellOf, fractionDigits, mergeColumns, type Cell } from '../tasks/module
 import { pageSize } from '../tasks/paging';
 import { idsPerRequest } from '../tasks/selection';
 import { caseAddress } from '../routing';
+import { settingKey, settings } from '../settings/settings';
 import { stateOf } from '../tasks/taskState';
 import LegendOfRows from '../tasks/Legend.vue';
-import { caseColumns, caseFilters, defaultCaseFilter, showsEndedOfCases, type CaseFilter } from './caseFilters';
+import { caseColumns, caseFilters, defaultCaseFilter, isCaseFilter, showsEndedOfCases, type CaseFilter } from './caseFilters';
 
 const filter = ref<CaseFilter>(defaultCaseFilter);
 const rows = shallowRef<Workflow[]>([]);
@@ -167,9 +168,12 @@ async function saveBulkNote(): Promise<void> {
   });
 }
 
+const filterSetting = settingKey('cases', 'primaryFilter');
+
 function choose(chosen: CaseFilter): void {
   if (chosen === filter.value) return;
   filter.value = chosen;
+  settings.write(filterSetting, chosen);
   selected.value = new Set();
   bulkNoteOpen.value = false;
   void load();
@@ -180,9 +184,12 @@ const label = (chosen: CaseFilter): string => {
   return count === undefined ? text().caseFilters[chosen] : `${text().caseFilters[chosen]} (${formatNumber(count, language.value)})`;
 };
 
-onMounted(() => {
+// the filter the user chose last is the one the list opens with (WL-009)
+onMounted(async () => {
   void askCounts();
-  void load();
+  const chosenLast = await settings.read(filterSetting);
+  filter.value = isCaseFilter(chosenLast) ? chosenLast : defaultCaseFilter;
+  await load();
 });
 </script>
 

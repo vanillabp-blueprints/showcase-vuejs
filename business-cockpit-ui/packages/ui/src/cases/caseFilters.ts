@@ -4,6 +4,8 @@ import type { WorkflowRetrieveMode } from '../generated/official-gui-api';
 export const caseFilters = ['InProgress', 'Done'] as const satisfies readonly WorkflowRetrieveMode[];
 export type CaseFilter = (typeof caseFilters)[number];
 
+export const isCaseFilter = (value: unknown): value is CaseFilter => caseFilters.includes(value as CaseFilter);
+
 export const defaultCaseFilter: CaseFilter = 'InProgress';
 
 /** The ended column shows only for the primary filters which can hold an ended case (WL-013). */

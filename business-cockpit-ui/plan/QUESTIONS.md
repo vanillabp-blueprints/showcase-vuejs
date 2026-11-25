@@ -188,3 +188,10 @@ Story: S50 (WL-006, WL-007, WL-008, WL-009, WL-010, WL-012)
 Date: 2026-11-26
 Default taken: the title is a real link to the case address (/workflows/<id> and the paths of the other languages); the case page itself is not built, so a click shows an empty main area until the case page story. The toolbar of the case list holds only the selection count and the note tool (no search field yet, SRCH-001 to SRCH-006 for cases stay open from ASK-026). The note is written through the GUI API calls setWorkflowNote and setWorkflowsNote; the backend needed no change, the endpoints come with the business-cockpit library, and ListControllersTest does not cover them. The primary filter of the case list is still not kept as a setting (WL-009 asks only for the default).
 Answer: open
+
+## ASK-028 Case list: what S51 left open
+
+Story: S51 (WL-013)
+Date: 2026-11-26
+Default taken: WL-013 has its own test now; the primary filter of the case list is kept as the setting bc:cases:primaryFilter. Still open from ASK-026 and ASK-027: the search field and search of the case list (carry-over of SRCH-001 to SRCH-006) and the virtual window of the case list (SRCH-010 to SRCH-014, reuse of tasks/paging.ts); the list still appends pages of 20 without dropping far pages. The primary filter All does not exist in the case list (Q-WORKFLOW-FILTERS has InProgress and Done only).
+Answer: open

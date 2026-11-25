@@ -57,7 +57,7 @@ Started: 2026-11-25
 | S48 | A clerk claims a task before working on it, and a suspended task waits | done | TF-030, TF-031, TF-035, TF-038, TF-043, TF-044 | `sh plan/checks/S48.sh` |
 | S49 | A clerk looks up a case in the case list (1 of 3) | done | NAV-003, WL-001, WL-002, WL-003, WL-004, WL-005 | `sh plan/checks/S49.sh` |
 | S50 | A clerk looks up a case in the case list (2 of 3) | done | WL-006, WL-007, WL-008, WL-009, WL-010, WL-012 | `sh plan/checks/S50.sh` |
-| S51 | A clerk looks up a case in the case list (3 of 3) | open | WL-013 | `sh plan/checks/S51.sh` |
+| S51 | A clerk looks up a case in the case list (3 of 3) | done | WL-013 | `sh plan/checks/S51.sh` |
 | S52 | A clerk opens the page of a case (1 of 2) | open | NAV-004, TF-013, WP-001, WP-003, WP-007, WP-008 | `sh plan/checks/S52.sh` |
 | S53 | A clerk opens the page of a case (2 of 2) | open | WP-009, WP-010, WP-011, WP-012, WP-014, WP-015 | `sh plan/checks/S53.sh` |
 | S54 | A clerk sees changes without a reload (1 of 5) | open | TF-011, TF-037, LIVE-001, LIVE-002, LIVE-003, LIVE-004 | `sh plan/checks/S54.sh` |

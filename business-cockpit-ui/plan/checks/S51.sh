@@ -1,3 +1,3 @@
 #!/bin/sh
 set -e
-npx playwright test --grep "WL-013"
+npx playwright test --grep "WL-013|WL-009"
