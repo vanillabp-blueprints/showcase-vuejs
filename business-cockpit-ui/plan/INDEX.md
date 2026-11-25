@@ -43,7 +43,7 @@ Started: 2026-11-25
 | S34 | The cockpit loads the parts of the modules (1 of 6) | done | EXT-005, EXT-007, EXT-008, EXT-009, EXT-010, EXT-011 | `sh plan/checks/S34.sh` |
 | S35 | The cockpit loads the parts of the modules (2 of 6) | done | EXT-016, EXT-019, EXT-021, EXT-026, EXT-027, EXT-029 | `sh plan/checks/S35.sh` |
 | S36 | The cockpit loads the parts of the modules (3 of 6) | done | EXT-031, EXT-033, EXT-034, EXT-035, EXT-036, EXT-037 | `sh plan/checks/S36.sh` |
-| S37 | The cockpit loads the parts of the modules (4 of 6) | open | EXT-041, EXT-043, EXT-044, EXT-045, EXT-046, EXT-047 | `sh plan/checks/S37.sh` |
+| S37 | The cockpit loads the parts of the modules (4 of 6) | done | EXT-041, EXT-043, EXT-044, EXT-045, EXT-046, EXT-047 | `sh plan/checks/S37.sh` |
 | S38 | The cockpit loads the parts of the modules (5 of 6) | open | EXT-048, EXT-049, EXT-050, EXT-051, EXT-052, EXT-053 | `sh plan/checks/S38.sh` |
 | S39 | The cockpit loads the parts of the modules (6 of 6) | open | EXT-054, EXT-055, EXT-056, EXT-057, EXT-059 | `sh plan/checks/S39.sh` |
 | S40 | The lists show the columns of the modules (1 of 3) | open | COL-001, COL-003, COL-004, COL-005, COL-006, COL-007 | `sh plan/checks/S40.sh` |

@@ -14,7 +14,7 @@ const registry = createModuleRegistry({
     }
   },
 });
-export const host = createModuleHost();
+export const host = createModuleHost({ moduleIds: () => registry.ids() });
 
 /** Reads the list of the modules the user may see; called once, after the current user is known. */
 export const startModules = (): Promise<void> => registry.start();

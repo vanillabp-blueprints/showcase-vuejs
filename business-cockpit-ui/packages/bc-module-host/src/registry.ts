@@ -30,15 +30,19 @@ const webPathOf = (address: string): string => address.replace(/[^/]*$/, '');
 export function createModuleRegistry(source: ModuleSource) {
   const modules = new Map<string, Promise<RegisteredModule | undefined>>();
   let started: Promise<void> | undefined;
+  const known = new Set<string>();
+  const remember = (module: RegisteredModule | undefined) => { if (module) known.add(module.id); return module; };
 
   return {
     /** Fills the registry from `GET /workflow-module`; a second call returns the first one's promise. */
     start(): Promise<void> {
       started ??= source.all().then((list) => {
-        for (const module of list) if (!modules.has(module.id)) modules.set(module.id, Promise.resolve(module));
+        for (const module of list) if (!modules.has(module.id)) modules.set(module.id, Promise.resolve(remember(module)));
       });
       return started;
     },
+    /** The ids of the modules known now, for the check of the names. */
+    ids(): string[] { return [...known]; },
     /** Every module known now which has a web path to load from. */
     async all(): Promise<RegisteredModule[]> {
       await this.start();
@@ -47,7 +51,7 @@ export function createModuleRegistry(source: ModuleSource) {
     /** The module of a row; a module which registered after the start is asked for once and then kept. */
     async find(workflowModuleId: string): Promise<RegisteredModule | undefined> {
       await this.start();
-      if (!modules.has(workflowModuleId)) modules.set(workflowModuleId, source.one(workflowModuleId));
+      if (!modules.has(workflowModuleId)) modules.set(workflowModuleId, source.one(workflowModuleId).then(remember));
       return modules.get(workflowModuleId);
     },
     /** What the row asks for; the type decides, never the form of the address. */

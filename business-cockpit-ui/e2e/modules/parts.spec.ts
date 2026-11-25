@@ -1,4 +1,4 @@
-// EXT-031, EXT-033, EXT-034, EXT-035, EXT-036, EXT-037: the cockpit loads, waits for and draws the parts of a module.
+// EXT-031, EXT-033, EXT-034, EXT-035, EXT-036, EXT-037, EXT-041, EXT-043, EXT-044, EXT-045, EXT-046, EXT-047: the cockpit loads, waits for and draws the parts of a module.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { build } from 'esbuild';
@@ -212,4 +212,189 @@ test('EXT-037 an answer of undefined is no error, a refused name and a throwing 
   await expect(thrown).toHaveAttribute('data-kind', 'create-failed');
   await expect(thrown).toContainText('fake-module');
   await expect(thrown).toContainText('fake-module-b1-box');
+});
+
+const formPage = (element: unknown) => `export const userTaskForm = () => (${JSON.stringify({ entry: 'Form', element })});`;
+const defineAll = (...names: string[]) => names.map((name) => defineBox(name, name)).join('\n');
+
+test('EXT-041 an entry the manifest names and the cockpit does not know is ignored without an error', async ({ page }) => {
+  await register(page, 'fake-module');
+  const module = await fakeModule(page, 'fake-module', {
+    'Header.js': header('fake-module-b1-box', 'Box'), 'Box.js': defineBox('fake-module-b1-box', 'known entry drawn'),
+    'Mystery.js': 'throw new Error("never loaded");',
+  });
+  const errors: string[] = [];
+  page.on('console', (message) => { if (message.type() === 'error') if (message.location().url.includes('/wm/')) errors.push(message.text()); });
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/tasks');
+  await expect(page.getByText('known entry drawn')).toBeVisible();
+  expect(module.requests).not.toContain('Mystery.js');
+  expect(errors).toEqual([]);
+});
+
+test('EXT-041 the cockpit draws the areas it knows, ignores the others, and else draws all', async ({ page }) => {
+  await register(page, 'fake-module');
+  await fakeModule(page, 'fake-module', {
+    'UserTaskForm.js': formPage({ all: 'fake-module-b1-all', body: 'fake-module-b1-body', mystery: 'fake-module-b1-mystery' }),
+    'Form.js': defineAll('fake-module-b1-all', 'fake-module-b1-body', 'fake-module-b1-mystery'),
+  });
+  await register(page, 'only-string');
+  await fakeModule(page, 'only-string', {
+    'UserTaskForm.js': formPage('only-string-b1-all'), 'Form.js': defineAll('only-string-b1-all'),
+  });
+  await register(page, 'no-all');
+  await fakeModule(page, 'no-all', {
+    'UserTaskForm.js': formPage({ mystery: 'no-all-b1-mystery' }), 'Form.js': defineAll('no-all-b1-mystery'),
+  });
+  await withHost(page);
+  const drawn = await page.evaluate(async () => {
+    const host = (window as any).bcHost.createModuleHost();
+    const run = async (id: string, areas: string[]) => {
+      const container = document.createElement('div');
+      document.body.append(container);
+      const answer = await host.drawPage(id, `/wm/${id}/`, 'UserTaskForm', { id: 'T-1' }, areas, container);
+      return { areas: Object.keys(answer), text: container.textContent };
+    };
+    return {
+      known: await run('fake-module', ['body', 'information', 'actions']),
+      noneKnown: await run('fake-module', ['information']),
+      cockpitHasNone: await run('fake-module', []),
+      string: await run('only-string', ['body']),
+      nothing: await run('no-all', ['body']),
+    };
+  });
+  expect(drawn).toEqual({
+    known: { areas: ['body'], text: 'fake-module-b1-body' },
+    noneKnown: { areas: ['all'], text: 'fake-module-b1-all' },
+    cockpitHasNone: { areas: ['all'], text: 'fake-module-b1-all' },
+    string: { areas: ['all'], text: 'only-string-b1-all' },
+    nothing: { areas: [], text: '' },
+  });
+});
+
+test('EXT-043 resting the mouse on a row or focusing it loads no file of a module', async ({ page, request }) => {
+  await register(page, 'react-module');
+  const row = (id: string) => ({
+    id, bpmnProcessId: 'p', createdAt: '2026-11-20T08:00:00Z', updatedAt: '2026-11-20T08:00:00Z', businessId: `B-${id}`, title: { en: `Check ${id}` },
+    workflowModuleId: 'react-module', uiUriType: 'ES_MODULES', uiUri: '/bc-manifest.json',
+  });
+  await request.post('/simulator-api/user-tasks', { data: { userTasks: [row('t1'), row('t2'), row('t3')] } });
+  await page.goto('/tasks');
+  const rows = page.getByTestId('task-row');
+  await expect(rows.first()).toBeVisible();
+  await expect(rows.first()).toHaveAttribute('data-parts', 'loaded');
+  await expect(page.getByTestId('react-header')).toBeVisible();
+  const before = await loadedFiles(page);
+  expect(before.length).toBeGreaterThan(0);
+  await rows.first().hover();
+  await rows.nth(1).hover();
+  await rows.first().focus();
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(500);
+  expect(await loadedFiles(page)).toEqual(before);
+});
+
+test('EXT-044 a name which is no custom element name, has the wrong prefix or the prefix of a longer module id is refused', async ({ page }) => {
+  const cases: [string, string, string][] = [
+    ['taxi', 'taxi-ride-b1-box', 'longer prefix'], ['fake-module', 'fake-module-B1-box', 'upper case'],
+    ['fake-module', 'fakemodule', 'no hyphen'], ['fake-module', 'other-b1-box', 'wrong prefix'],
+  ];
+  for (const [id, name] of cases.map(([id, name]) => [id, name])) {
+    await page.request.post('/simulator-api/reset');
+    await register(page, id);
+    await register(page, 'taxi-ride');
+    await fakeModule(page, 'taxi-ride', { 'Other.js': 'export const other = 1;' });
+    const module = await fakeModule(page, id, { 'Header.js': header(name, 'Box'), 'Box.js': defineBox(name, 'must not show') });
+    const messages: string[] = [];
+    page.on('console', (message) => { if (message.type() === 'error') messages.push(message.text()); });
+    await page.goto('/tasks');
+    const note = page.getByTestId('part-note');
+    await expect(note).toHaveAttribute('data-kind', 'name-refused');
+    for (const word of [id, name, id === 'taxi' ? 'taxi-' : `${id}-`]) {
+      await expect(note).toContainText(word);
+      expect(messages.join('\n')).toContain(word);
+    }
+    expect(module.requests).not.toContain('Box.js');
+    page.removeAllListeners('console');
+  }
+});
+
+test('EXT-045 ten parts asked at the same time fetch the manifest and each file once', async ({ page }) => {
+  await register(page, 'fake-module');
+  const module = await fakeModule(page, 'fake-module', {
+    'UserTaskForm.js': `export const userTaskForm = () => ({ element: 'fake-module-b1-box', entry: 'Box' });`,
+    'Box.js': defineBox('fake-module-b1-box', 'box'),
+  });
+  await withHost(page);
+  await page.evaluate(async () => {
+    const host = (window as any).bcHost.createModuleHost();
+    const ref = ['fake-module', '/wm/fake-module/'] as const;
+    const answers = await Promise.all(Array.from({ length: 10 }, () => host.ask(...ref, 'UserTaskForm', { id: 'T-1' }, 'all')));
+    await Promise.all(answers.map((descriptor) => host.draw(...ref, descriptor, document.body)));
+  });
+  await expect(page.getByText('box')).toHaveCount(10);
+  expect(module.count('bc-manifest.json')).toBe(1);
+  expect(module.count('UserTaskForm.js')).toBe(1);
+  expect(module.count('Box.js')).toBe(1);
+});
+
+test('EXT-046 a part whose web component is defined already is drawn without import, wait or loading state', async ({ page }) => {
+  await register(page, 'fake-module');
+  const module = await fakeModule(page, 'fake-module', {
+    'Header.js': header('fake-module-b1-box', 'Box'), 'Box.js': 'throw new Error("must not be imported");',
+  });
+  const states: string[] = [];
+  await page.exposeFunction('seenState', (state: string) => states.push(state));
+  await page.addInitScript(() => {
+    customElements.define('fake-module-b1-box', class extends HTMLElement { connectedCallback() { this.textContent = 'defined before'; } });
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const state = (record.target as HTMLElement).getAttribute?.('data-state');
+        if (state) (window as any).seenState(state);
+      }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ['data-state'], childList: true });
+    new MutationObserver(() => {
+      const part = document.querySelector('[data-testid="module-part"]');
+      if (part) (window as any).seenState(`found:${part.getAttribute('data-state')}`);
+    }).observe(document, { subtree: true, childList: true });
+  });
+  await page.goto('/tasks');
+  await expect(page.getByText('defined before')).toBeVisible();
+  expect(module.requests).not.toContain('Box.js');
+  expect(states.filter((state) => state.endsWith('loading'))).toEqual([]);
+});
+
+test('EXT-047 the manifest is read with no-cache, again only after the recheck time, and a failed read keeps the old one', async ({ page }) => {
+  await register(page, 'fake-module');
+  const manifest = JSON.stringify({ manifestVersion: 1, entries: { Header: 'Header.js' }, buildVersion: '1.0.0', buildTimestamp: '2026-11-25T00:00:00Z' });
+  const module = await fakeModule(page, 'fake-module', {
+    'bc-manifest.json': (count) => (count === 3 ? 500 : manifest),
+    'Header.js': 'export const header = () => undefined;',
+  });
+  await page.clock.install();
+  await withHost(page);
+  const caches = await page.evaluate(() => {
+    const seen: string[] = [];
+    const original = window.fetch;
+    window.fetch = (input, init) => { seen.push(String(init?.cache)); return original(input, init); };
+    (window as any).host = (window as any).bcHost.createModuleHost();
+    (window as any).seen = seen;
+    return seen;
+  });
+  expect(caches).toEqual([]);
+  const ask = () => page.evaluate(() => (window as any).host.ask('fake-module', '/wm/fake-module/', 'Header'));
+  await ask(); await ask(); await ask();
+  expect(module.count('bc-manifest.json')).toBe(1);
+  await page.clock.runFor(59_000);
+  await ask();
+  expect(module.count('bc-manifest.json')).toBe(1);
+  await page.clock.runFor(2_000);
+  await ask(); await ask();
+  expect(module.count('bc-manifest.json')).toBe(2);
+  await page.clock.runFor(61_000);
+  await expect(ask()).resolves.toBeUndefined(); // the third read fails, the old manifest serves
+  expect(module.count('bc-manifest.json')).toBe(3);
+  await ask();
+  expect(module.count('bc-manifest.json')).toBe(4); // a failed read is tried again at the next ask
+  expect(await page.evaluate(() => (window as any).seen)).toEqual(['no-cache', 'no-cache', 'no-cache', 'no-cache']);
 });

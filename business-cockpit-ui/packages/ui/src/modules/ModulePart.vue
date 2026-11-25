@@ -42,7 +42,8 @@ async function run(): Promise<void> {
     if (!isDescriptor(answer)) { state.value = 'none'; return; }
     entry = answer.entry;
     step = 'load';
-    state.value = 'loading';
+    // a web component defined already is drawn at once, without a loading state
+    if (!host.isDefined(answer)) state.value = 'loading';
     await host.loadVisual(workflowModuleId, webPath, answer);
     step = 'draw';
     await host.draw(workflowModuleId, webPath, answer, container.value!, props.properties);

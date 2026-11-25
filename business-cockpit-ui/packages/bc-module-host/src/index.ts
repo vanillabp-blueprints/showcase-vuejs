@@ -21,7 +21,14 @@ export interface ModuleHostOptions {
   onProblem?: (workflowModuleId: string, error: unknown) => void;
   /** How long the cockpit waits for a web component to be defined after its visual entry loaded; the default is 10 seconds. */
   definedWithinMs?: number;
+  /** How old the manifest of a module may get before it is read again; the default is `MANIFEST_RECHECK_MS`. */
+  manifestRecheckMs?: number;
+  /** The ids of the modules of the registry; a name may not start with the longer prefix of another one. */
+  moduleIds?: () => readonly string[];
 }
+
+/** After this time the loader reads the manifest of a module again before it asks a part of it. */
+export const MANIFEST_RECHECK_MS = 60_000;
 
 export class ModuleNameError extends Error {
   constructor(message: string, readonly workflowModuleId = '', readonly element = '') { super(message); }
@@ -62,7 +69,14 @@ const errorOf = (error: unknown): { code: string; status?: number; message?: str
   return typeof status === 'number' ? { code: ERROR_CODES.REFUSED, status, message } : { code: ERROR_CODES.FAILED, message };
 };
 
+/** What a page function answers: one web component name, or one for each area. */
+interface PageParts { entry: string; element: string | Record<string, string> }
 const isDescriptor = (answer: unknown): answer is BcElementDescriptor => typeof (answer as BcElementDescriptor | undefined)?.element === 'string';
+const isPageParts = (answer: unknown): answer is PageParts => {
+  const element = (answer as PageParts | undefined)?.element;
+  return typeof (answer as PageParts | undefined)?.entry === 'string' && (typeof element === 'string' || (typeof element === 'object' && element !== null));
+};
+const namesOf = (parts: PageParts): string[] => (typeof parts.element === 'string' ? [parts.element] : Object.values(parts.element));
 const isValidElementName = (name: string) => /^[a-z][a-z0-9._-]*-[a-z0-9._-]*$/.test(name) && !RESERVED.includes(name);
 const RESERVED = ['annotation-xml', 'color-profile', 'font-face', 'font-face-src', 'font-face-uri', 'font-face-format', 'font-face-name', 'missing-glyph'];
 
@@ -72,7 +86,10 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
   const importFile = options.importFile ?? ((url: string) => import(/* @vite-ignore */ url) as Promise<Exports>);
   const actions = options.actions ?? {};
   const onProblem = options.onProblem ?? ((id: string, error: unknown) => console.error(`module ${id}:`, error));
-  const manifests = new Map<string, Promise<{ manifest: BcManifest; url: string }>>();
+  type Read = { manifest: BcManifest; url: string };
+  const manifests = new Map<string, { promise: Promise<Read>; readAt: number }>();
+  const recheckMs = options.manifestRecheckMs ?? MANIFEST_RECHECK_MS;
+  const moduleIds = options.moduleIds ?? (() => []);
   const files = new Map<string, Promise<Exports>>();
   const definedWithinMs = options.definedWithinMs ?? DEFINED_WITHIN_MS;
   const failures = new Map<string, number>();
@@ -87,10 +104,32 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
     return cache.get(key)!;
   };
 
-  const manifestOf = (workflowModuleId: string, webPath: string) => keepUnlessFailed(manifests, workflowModuleId, () => {
+  const readFresh = (webPath: string): Promise<Read> => {
     const url = new URL(`${webPath.replace(/\/?$/, '/')}${MANIFEST_FILE_NAME}`, globalThis.location?.href ?? 'http://localhost/').href;
     return readText(url).then((text) => ({ manifest: readManifest(text), url }));
-  });
+  };
+
+  /** The manifest of the module; it is read again when the last read is older than the recheck time, and a failed read keeps the old one. */
+  const manifestOf = (workflowModuleId: string, webPath: string): Promise<Read> => {
+    const held = manifests.get(workflowModuleId);
+    if (!held) {
+      const promise = readFresh(webPath);
+      const entry = { promise, readAt: Date.now() };
+      manifests.set(workflowModuleId, entry);
+      promise.catch(() => { if (manifests.get(workflowModuleId) === entry) manifests.delete(workflowModuleId); });
+      return promise;
+    }
+    if (Date.now() - held.readAt <= recheckMs) return held.promise;
+    // the time is set first, so that parts which ask while the read runs wait for this one read
+    const fresh = { promise: held.promise, readAt: Date.now() };
+    manifests.set(workflowModuleId, fresh);
+    fresh.promise = readFresh(webPath).catch(() => {
+      // the old manifest serves; the next ask tries again
+      fresh.readAt = held.readAt;
+      return held.promise;
+    });
+    return fresh.promise;
+  };
 
   // The browser keeps a failed `import()` of an address; a new query makes the second call a real one.
   const importAgain = async (address: string) => {
@@ -135,8 +174,13 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
   };
 
   const checkName = (workflowModuleId: string, name: string) => {
-    if (!isValidElementName(name) || !name.startsWith(`${elementPrefix(workflowModuleId)}-`)) {
-      throw new ModuleNameError(`module ${workflowModuleId}: the name ${name} is refused, it has to start with ${elementPrefix(workflowModuleId)}-`, workflowModuleId, name);
+    const prefix = elementPrefix(workflowModuleId);
+    const longerPrefixOfAnother = moduleIds().some((other) => {
+      const otherPrefix = elementPrefix(other);
+      return otherPrefix.length > prefix.length && name.startsWith(`${otherPrefix}-`);
+    });
+    if (!isValidElementName(name) || !name.startsWith(`${prefix}-`) || longerPrefixOfAnother) {
+      throw new ModuleNameError(`module ${workflowModuleId}: the name ${name} is refused, it has to start with ${prefix}-`, workflowModuleId, name);
     }
   };
 
@@ -145,12 +189,16 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
     async ask(workflowModuleId: string, webPath: string, entry: DataEntry, ...args: unknown[]): Promise<unknown> {
       const exports = await load(workflowModuleId, webPath, entry);
       const answer = (await (exports[EXPORT_NAMES[entry]] as ((...a: unknown[]) => unknown) | undefined)?.(...args)) as unknown;
-      if (isDescriptor(answer)) checkName(workflowModuleId, answer.element);
+      if (isPageParts(answer)) namesOf(answer).forEach((name) => checkName(workflowModuleId, name));
       return answer;
     },
     /** Whether the manifest of the module names the entry; a module which does not has nothing to add. */
     async names(workflowModuleId: string, webPath: string, entry: string): Promise<boolean> {
       return (await manifestOf(workflowModuleId, webPath)).manifest.entries[entry] !== undefined;
+    },
+    /** Whether every web component of the part is defined already, so that drawing it needs no import and no wait. */
+    isDefined(descriptor: PageParts): boolean {
+      return namesOf(descriptor).every((name) => customElements.get(name) !== undefined);
     },
     /** Step 2: loads the visual entry, unless the web component is defined already, and waits until it is defined. */
     async loadVisual(workflowModuleId: string, webPath: string, descriptor: BcElementDescriptor): Promise<void> {
@@ -191,6 +239,24 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
         } catch (error) { onProblem(workflowModuleId, error); }
       }));
       return answers;
+    },
+    /**
+     * The page of a user task or a case: the areas of the cockpit which the module names are drawn and the others are ignored;
+     * when none is left, or the cockpit has none, the web component of `all` is drawn. Returns what was drawn by area.
+     */
+    async drawPage(workflowModuleId: string, webPath: string, entry: DataEntry, data: unknown, cockpitAreas: readonly string[], container: Element): Promise<Record<string, HTMLElement>> {
+      const parts = await this.ask(workflowModuleId, webPath, entry, data, AREA_ALL);
+      if (!isPageParts(parts)) return {};
+      const named: Record<string, string> = typeof parts.element === 'string' ? { [AREA_ALL]: parts.element } : parts.element;
+      const known = cockpitAreas.filter((area) => Object.hasOwn(named, area));
+      const areas = known.length ? known : Object.hasOwn(named, AREA_ALL) ? [AREA_ALL] : [];
+      const drawn: Record<string, HTMLElement> = {};
+      for (const area of areas) {
+        const slot = container.appendChild(document.createElement('div'));
+        slot.dataset.area = area;
+        drawn[area] = await this.draw(workflowModuleId, webPath, { element: named[area], entry: parts.entry }, slot, { userTask: data, workflow: data, area });
+      }
+      return drawn;
     },
     /** Asks the entry once for each area (the areas of the interview, or `all`) and draws what is answered. */
     async drawAreas(workflowModuleId: string, webPath: string, entry: DataEntry, data: unknown, areas: readonly string[], container: Element): Promise<Record<string, HTMLElement>> {
