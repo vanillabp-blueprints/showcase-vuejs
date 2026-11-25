@@ -20,7 +20,7 @@ Started: 2026-11-25
 | S12 | The user sees the header and the menu (2 of 3) | done | NAV-031, NAV-032, I18N-001, I18N-002, I18N-004, I18N-005 | `sh plan/checks/S12.sh` |
 | S13 | The user sees the header and the menu (3 of 3) | done | I18N-006 | `sh plan/checks/S13.sh` |
 | S14 | The settings of a user are kept on the server | done | SET-001, SET-002, SET-004, SET-005, SET-006 | `sh plan/checks/S14.sh` |
-| S15 | A clerk sees the tasks waiting for them (1 of 3) | open | BE-004, NAV-001, NAV-002, TL-008, TL-012, TL-013 | `sh plan/checks/S15.sh` |
+| S15 | A clerk sees the tasks waiting for them (1 of 3) | done | BE-004, NAV-001, NAV-002, TL-008, TL-012, TL-013 | `sh plan/checks/S15.sh` |
 | S16 | A clerk sees the tasks waiting for them (2 of 3) | open | TL-015, TL-016, TL-018, TL-024, TL-032, COL-015 | `sh plan/checks/S16.sh` |
 | S17 | A clerk sees the tasks waiting for them (3 of 3) | open | COL-017, COL-018, COL-019, COL-021, BE-020, TL-033 | `sh plan/checks/S17.sh` |
 | S18 | A clerk switches between open and closed tasks and sees the counts (1 of 2) | open | TL-001, TL-002, TL-003, TL-005, TL-006, TL-009 | `sh plan/checks/S18.sh` |

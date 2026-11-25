@@ -49,6 +49,17 @@ final class TestBrowser {
         HttpResponse.BodyHandlers.ofString());
   }
 
+  /** A call of the user interface to the GUI API that sends a JSON body, like a list request. */
+  HttpResponse<String> postJson(final String path, final String body) throws Exception {
+    return client.send(
+        HttpRequest.newBuilder(URI.create(base() + path))
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(body))
+            .build(),
+        HttpResponse.BodyHandlers.ofString());
+  }
+
   Optional<HttpCookie> cookie(final String name) {
     return cookies.getCookieStore().getCookies().stream()
         .filter(candidate -> candidate.getName().equals(name))

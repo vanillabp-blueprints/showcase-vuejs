@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AppInformation } from '../../packages/ui/src/generated/cockpit-gui-api/types.gen.ts';
-import type { User, WorkflowModule, WorkflowModules } from '../../packages/ui/src/generated/official-gui-api/types.gen.ts';
+import type { User, UserTask, WorkflowModule, WorkflowModules } from '../../packages/ui/src/generated/official-gui-api/types.gen.ts';
 
 export const guiApiPath = '/gui/api/v1';
 export const officialGuiApiPath = '/official-api/gui/api/v1';
@@ -42,6 +42,9 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let namesOfCurrentUser: { display?: string | null; displayShort?: string | null } = {};
   let counts = { myTasks: 0, allTasks: 0, cases: 0 };
   let countRequests: CountRequest[] = [];
+  // the user tasks the lists answer, as a workflow module reported them, and the requests of the lists
+  let userTasks: UserTask[] = [];
+  let listRequests: { path: string; body: Record<string, unknown> }[] = [];
   // the settings of each user, as the cockpit keeps them in customSettings, and the requests which touched them
   let settingsOfUsers = new Map<string, Map<string, unknown>>();
   let settingRequests: { method: string; key: string; body?: unknown }[] = [];
@@ -131,10 +134,31 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       return send(res, 200);
     }
 
-    // A list asks for a login, like the chain of the backend does.
+    // The lists ask for a login, like the chain of the backend does. The list of all tasks shows every
+    // task the user may work on, the list of the user's own tasks only those the user is assigned to.
+    const list = /^\/gui\/api\/v1(\/current-user)?\/usertask$/.exec(path);
+    if (list && method === 'POST') {
+      const user = userOf(req);
+      if (!user) return send(res, 401);
+      const body = await readBody(req);
+      listRequests.push({ path, body });
+      const shown = userTasks.filter((task) => (list[1] ? task.assignee?.id === user.id : true));
+      const size = Number(body.pageSize ?? 20);
+      const number = Number(body.pageNumber ?? 0);
+      return send(res, 200, {
+        serverTimestamp: new Date().toISOString(),
+        page: { totalElements: shown.length, totalPages: Math.ceil(shown.length / size), number, size },
+        userTasks: shown.slice(number * size, (number + 1) * size),
+      });
+    }
+    if (path === '/simulator-api/user-tasks' && method === 'POST') {
+      userTasks = ((await readBody(req)).userTasks ?? []) as UserTask[];
+      return send(res, 200);
+    }
     if (path === `${guiApiPath}/usertasks`) {
       return userOf(req) ? send(res, 200, { userTasks: [] }) : send(res, 401);
     }
+    if (path === '/simulator-api/list-requests') return send(res, 200, listRequests);
 
     // The counts of the header toggle, for the three base paths of the lists.
     const countPath = /^\/gui\/api\/v1(\/current-user)?\/(usertask|workflow)\/count$/.exec(path);
@@ -274,6 +298,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       namesOfCurrentUser = {};
       counts = { myTasks: 0, allTasks: 0, cases: 0 };
       countRequests = [];
+      userTasks = [];
+      listRequests = [];
       settingsOfUsers = new Map();
       settingRequests = [];
       savedAddress = undefined;

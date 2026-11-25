@@ -8,7 +8,9 @@ const de: Messages = {
   menu: 'Menü',
   logout: 'Abmelden',
   language: 'Sprache',
-  routes: { allTasks: '/aufgaben', myTasks: '/meine-aufgaben', cases: '/vorgaenge', notifications: '/benachrichtigungen' },
+  columns: { id: 'Id', businessId: 'Geschäfts-ID', caseKind: 'Vorgangsart', title: 'Titel', dueDate: 'Fällig', assignee: 'Bearbeiter', candidateUsers: 'Kandidaten', note: 'Notizen', followUpDate: 'Wiedervorlage', endedAt: 'Beendet' },
+  noTasks: 'Keine Aufgaben',
+  routes: { allTasks: '/aufgaben', myTasks: '/meine-aufgaben', cases: '/vorgaenge', notifications: '/benachrichtigungen', task: '/aufgabe' },
 };
 
 export default de;

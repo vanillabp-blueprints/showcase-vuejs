@@ -24,7 +24,8 @@ public class ApiPersonAndGroupMapper implements PersonAndGroupApiMapper {
   @Override
   public Person personToApiPerson(final io.vanillabp.cockpit.users.model.Person person) {
 
-    return toApiPerson(person.getId());
+    // a user task without an assignee has no person
+    return person == null ? null : toApiPerson(person.getId());
 
   }
 
@@ -38,7 +39,7 @@ public class ApiPersonAndGroupMapper implements PersonAndGroupApiMapper {
   @Override
   public Group groupToApiGroup(final io.vanillabp.cockpit.users.model.Group group) {
 
-    return authorityToApiGroup(group.getId());
+    return group == null ? null : authorityToApiGroup(group.getId());
 
   }
 

@@ -15,3 +15,5 @@ const messages: Record<Language, Messages> = { en, de, fr, es };
 export const language = ref<Language>(defaultLanguage);
 
 export const text = (): Messages => messages[language.value];
+
+export const messagesOf = (code: Language): Messages => messages[code];
