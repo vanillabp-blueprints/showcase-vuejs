@@ -8,7 +8,7 @@ Started: 2026-11-25
 |-----|-------|--------|---------------|---------------|
 | S01 | The UI repository builds and tests itself (1 of 3) | done | PKG-044, PKG-035, PKG-045, PKG-019, PKG-002, PKG-062 | `sh plan/checks/S01.sh` |
 | S02 | The UI repository builds and tests itself (2 of 3) | done | PKG-055, PKG-047, PKG-046, PKG-014, PKG-008, PKG-052 | `sh plan/checks/S02.sh` |
-| S03 | The UI repository builds and tests itself (3 of 3) | open | PKG-063, PKG-064, PKG-054 | `sh plan/checks/S03.sh` |
+| S03 | The UI repository builds and tests itself (3 of 3) | done | PKG-063, PKG-064, PKG-054 | `sh plan/checks/S03.sh` |
 | S04 | The backend starts and serves the user interface (1 of 3) | open | BE-001, BE-024, BE-025, BE-002, BE-003, BE-014 | `sh plan/checks/S04.sh` |
 | S05 | The backend starts and serves the user interface (2 of 3) | open | BE-028, BE-012, BE-006, PKG-003, PKG-004, PKG-005 | `sh plan/checks/S05.sh` |
 | S06 | The backend starts and serves the user interface (3 of 3) | open | PKG-059, BE-031 | `sh plan/checks/S06.sh` |

@@ -1,6 +1,6 @@
 // Tests of the shape of the UI repository. Run them with `npm test` after `npm run build`.
 import assert from 'node:assert/strict';
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -282,4 +282,78 @@ test('PKG-052 INTERVIEW.md has a section with an answer for every question of th
     assert.ok(section, `no section ${question}`);
     assert.match(section, /^(Answer:|Not asked)/m, question);
   }
+});
+
+const checklistRows = readFileSync(join(root, 'CHECKLIST.md'), 'utf8')
+  .split('\n')
+  .filter((line) => /^\| `[A-Z0-9]+-\d+` \|/.test(line))
+  .map((line) => line.split('|').map((cell) => cell.trim()));
+
+test('PKG-063 CHECKLIST.md keeps every item of the reference', () => {
+  const ids = readFileSync(join(root, 'plan/ids.txt'), 'utf8').split('\n').filter(Boolean);
+  const kept = new Set(checklistRows.map((row) => row[1].replaceAll('`', '')));
+  const missing = ids.filter((id) => !kept.has(id));
+  assert.deepEqual(missing, []);
+});
+
+test('PKG-063 an item of an answer given the other way is marked not chosen with the question id', () => {
+  const marked = checklistRows.filter((row) => row[3].startsWith('not chosen'));
+  assert.ok(marked.length > 0);
+  for (const row of marked) {
+    assert.match(row[3], /^not chosen: Q-[A-Z0-9-]+/, row[1]);
+  }
+});
+
+test('PKG-063 the customer own items have ids from CUST-001 on', () => {
+  const own = checklistRows.map((row) => row[1].replaceAll('`', '')).filter((id) => id.startsWith('CUST-'));
+  own.forEach((id, index) => assert.equal(id, `CUST-${String(index + 1).padStart(3, '0')}`));
+});
+
+test('PKG-063 every end-to-end test names the id of the item it proves', () => {
+  for (const file of readdirSync(join(root, 'e2e')).filter((name) => name.endsWith('.test.mjs'))) {
+    const titles = [...readFileSync(join(root, 'e2e', file), 'utf8').matchAll(/^\s*test\('([^']*)'/gm)].map((m) => m[1]);
+    assert.ok(titles.length > 0, file);
+    for (const title of titles) {
+      assert.match(title, /^[A-Z0-9]+-\d{3}[ ,]/, `${file}: ${title}`);
+    }
+  }
+});
+
+test('PKG-064 the root script dev starts the dev server of packages/ui', () => {
+  assert.equal(rootPackage.scripts.dev, 'npm run dev --workspace packages/ui');
+});
+
+test('PKG-064 the dev server listens on 127.0.0.1 at a fixed port, at the base path /', () => {
+  const config = readFileSync(join(root, 'packages/ui/vite.config.ts'), 'utf8');
+  assert.match(config, /host: '127\.0\.0\.1'/);
+  assert.match(config, /const devServerPort = 5173;/);
+  assert.match(config, /port: devServerPort/);
+  assert.match(config, /strictPort: true/);
+  assert.match(config, /clientPort: devServerPort/);
+  assert.match(config, /base: '\/'/);
+});
+
+test('PKG-064 the running dev server answers an unknown path with index.html', async () => {
+  const server = spawn('npm', ['run', 'dev'], { cwd: root, stdio: 'ignore', detached: true });
+  try {
+    let page;
+    for (let attempt = 0; attempt < 60 && !page; attempt++) {
+      page = await fetch('http://127.0.0.1:5173/some/unknown/path').then((r) => (r.ok ? r.text() : undefined), () => undefined);
+      if (!page) await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    assert.ok(page, 'the dev server did not answer');
+    assert.match(page, /<div id="app">/);
+    assert.match(page, /src\/main\.ts/);
+  } finally {
+    process.kill(-server.pid);
+  }
+});
+
+test('PKG-064 the README says how to develop against the backend', () => {
+  const readme = readFileSync(join(root, 'README.md'), 'utf8');
+  assert.match(readme, /^## Developing against the backend$/m);
+  assert.match(readme, /ui-dev-server/);
+  assert.match(readme, /npm run dev/);
+  assert.match(readme, /5173/);
+  assert.match(readme, /hot reload/i);
 });

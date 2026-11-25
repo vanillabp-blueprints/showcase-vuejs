@@ -14,3 +14,4 @@ Numbers come from the usage records in the session log (`~/.claude/projects/.../
 |-------|----------|------------|--------------|-------------|------------|---------------|---------------|
 | Interview and plan (main session, incl. pricing sub-agent) | 47 min | 94 | 188 | 162,186 | 10,545,741 | 49,568 | $2.20 |
 | S01 | 4 min | 25 | 50 | 88,519 | 1,891,966 | 16,094 | $0.70 |
+| S02 | 2 min | 19 | 38 | 58,269 | 1,378,254 | 12,697 | $0.50 |

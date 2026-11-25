@@ -18,8 +18,9 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present && npm run build:jars",
     "build:jars": "node jars/build-jars.mjs",
+    "dev": "npm run dev --workspace packages/ui",
     "fetch:openapi": "node scripts/fetch-openapi.mjs",
-    "test": "node --test e2e/repository.test.mjs",
+    "test": "node --test e2e/*.test.mjs",
     "set-version": "node scripts/set-version.mjs"
   },
   "devDependencies": {
