@@ -18,7 +18,7 @@ type SimulatedModule = WorkflowModule & { accessibleToGroups: string[] };
 type SimulatedUser = { id: string; name: string; groups: string[]; email: string };
 type CountRequest = { path: string; mode?: string; modes: string[]; keys: string[] };
 
-const userTaskFields = ['id', 'businessId', 'workflowTitle', 'title', 'taskDefinition', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt', 'createdAt', 'updatedAt'];
+const userTaskFields = ['id', 'businessId', 'workflowTitle', 'title', 'taskDefinition', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt', 'endReason', 'suspendedAt', 'read', 'createdAt', 'updatedAt'];
 
 const users: SimulatedUser[] = [
   { id: 'anna', name: 'Anna Sales', groups: ['sales'], email: 'anna@acme.example' },

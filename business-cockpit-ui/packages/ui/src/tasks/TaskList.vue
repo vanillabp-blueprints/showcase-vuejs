@@ -9,6 +9,7 @@ import { language, text } from '../i18n/messages';
 import { pickTranslation } from '../i18n/translatable';
 import { taskAddress } from '../routing';
 import { settingKey, settings } from '../settings/settings';
+import { stateOf } from './taskState';
 import StatusLine from './StatusLine.vue';
 import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsEnded, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
@@ -103,7 +104,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       </tr>
     </thead>
     <tbody>
-      <tr v-for="task in tasks" :key="task.id" data-testid="task-row">
+      <tr v-for="task in tasks" :key="task.id" data-testid="task-row" :data-state="stateOf(task)" :class="['task-row', stateOf(task), { unread: !task.read }]">
         <td data-testid="cell-id">{{ task.id }}</td>
         <td data-testid="cell-businessId">{{ task.businessId }}</td>
         <td data-testid="cell-caseKind">{{ pickTranslation(task.workflowTitle ?? {}, language) }}</td>
@@ -173,4 +174,9 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 .bar-slot { display: inline-block; width: 6px; margin-right: 6px; height: 1.2em; vertical-align: middle; }
 .bar { display: block; width: 3px; height: 100%; background-color: rgb(var(--v-theme-primary)); }
 .icon-cell { width: 48px; max-width: 48px; padding: 0 !important; text-align: center; }
+/* the look of a state (TL-023), a row the user has not read is bold, the whole row (TL-007) */
+.task-row.unread td, .task-row.unread a { font-weight: 700; }
+.task-row.completed, .task-row.cancelled { background-color: #e0e0e0; }
+.task-row.cancelled a { text-decoration: line-through; }
+.task-row.suspended td, .task-row.suspended a { color: rgba(33, 33, 33, 0.55); }
 </style>
