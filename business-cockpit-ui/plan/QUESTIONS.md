@@ -55,3 +55,11 @@ Date: 2026-11-25
 Default taken: the test opens `/tasks`, goes to `/cases` and back by address; heap and DOM nodes after the second leaving are within 10 % of the first. The list component is never unmounted inside a running page because the menu links reload the page.
 Why this default: the interview gives no in-app routing; adding a router is outside this story.
 Answer: open
+
+## ASK-008 SRCH-025 asks for Firefox, but the test setup has Chromium only
+
+Story: S28 (SRCH-025)
+Date: 2026-11-25
+Default taken: the test with 1,000,000 entries runs in Chromium and reaches the notice row; no Firefox project exists in `playwright.config.ts` and no Firefox is installed. Also unresolved: in Chromium, after a long wheel scroll through a list of 100,000 rows (4.6 million pixels), a jump or more wheel turns stop the scroll bar about 350 px before the end, because `scrollHeight` changes by a few hundred pixels while rows are drawn there. The notice row is then out of reach. The test therefore reaches the end from a list opened afresh, where it works. The cause is not found; a row height that differs from 46 px or a stale scroll range of the browser are the suspects.
+Why this default: installing a second browser and a second Playwright project is outside this story; the cap is 100,000 rows of 46 px, far below the 17.9 million pixels of Firefox.
+Answer: open

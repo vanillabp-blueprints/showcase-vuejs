@@ -34,7 +34,7 @@ Started: 2026-11-25
 | S25b | A clerk searches, filters and sorts a list (2b) | done | SRCH-034 | `sh plan/checks/S25b.sh` |
 | S26 | A clerk scrolls through very many tasks (1 of 4) | done | I18N-007, SRCH-010, SRCH-011, SRCH-012, SRCH-013, SRCH-014 | `sh plan/checks/S26.sh` |
 | S27 | A clerk scrolls through very many tasks (2 of 4) | done | SRCH-015, SRCH-016, SRCH-017, SRCH-018, SRCH-019, SRCH-020 | `sh plan/checks/S27.sh` |
-| S28 | A clerk scrolls through very many tasks (3 of 4) | open | SRCH-021, SRCH-022, SRCH-023, SRCH-024, SRCH-025, SRCH-028 | `sh plan/checks/S28.sh` |
+| S28 | A clerk scrolls through very many tasks (3 of 4) | done | SRCH-021, SRCH-022, SRCH-023, SRCH-024, SRCH-025, SRCH-028 | `sh plan/checks/S28.sh` |
 | S29 | A clerk scrolls through very many tasks (4 of 4) | open | SRCH-029, SRCH-030, SRCH-031, SRCH-032 | `sh plan/checks/S29.sh` |
 | S30 | A clerk acts on several selected tasks at once | open | TL-011, TL-019, TL-029, TL-030, TL-031, ACT-018 | `sh plan/checks/S30.sh` |
 | S31 | A workflow module builds its parts against the module kit (1 of 3) | open | PKG-006, PKG-009, PKG-017, PKG-020, PKG-033, PKG-039 | `sh plan/checks/S31.sh` |

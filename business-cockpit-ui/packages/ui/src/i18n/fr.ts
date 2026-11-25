@@ -13,6 +13,7 @@ const fr: Messages = {
   search: { placeholder: 'Rechercher', clear: 'Effacer', reset: 'Réinitialiser', filterBy: 'Filtrer par' },
   noTasks: 'Aucune tâche',
   listNotLoaded: "La liste n'a pas pu être chargée",
+  cappedNotice: "Seules les {limit} premières entrées dans l'ordre de tri actuel sont listées. Veuillez restreindre la liste avec d'autres critères.",
   primaryFilter: 'Filtre principal',
   primaryFilters: { OpenTasksWithoutFollowUp: 'Ouvertes', OpenTasksWithFollowUp: 'Toutes ouvertes', ClosedTasksOnly: 'Terminées' },
   legend: { new: 'Nouveau', changed: 'Modifié', removed: 'Supprimé', completed: 'Terminée', cancelled: 'Annulée', suspended: 'Suspendue' },

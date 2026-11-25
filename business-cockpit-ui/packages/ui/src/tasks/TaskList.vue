@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue';
-import { VBtn, VCard, VCardActions, VCardText, VDialog, VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
+import { VBtn, VCard, VCardActions, VCardText, VDialog, VIcon, VProgressLinear, VSnackbar, VTable, VTooltip } from 'vuetify/components';
 import { mdiAccount, mdiAccountMultiple, mdiArrowDown, mdiArrowUp, mdiCalendarClock, mdiClose, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
 import { FailedCall, updateStreamUrl } from '../api/clients';
@@ -12,11 +12,12 @@ import { taskAddress } from '../routing';
 import { settingKey, settings } from '../settings/settings';
 import { stateOf } from './taskState';
 import { dayOf, startOfDay } from './followUp';
+import { cappedNotice } from './cappedNotice';
 import StatusLine from './StatusLine.vue';
 import SearchBar from './SearchBar.vue';
 import { fullText, searchQueriesOf, type Suggestion } from './search';
 import { isSortable, nextSort, sortPathOf, sortsByLanguage, type Sort } from './sorting';
-import { drawnAround, listLength, pageOf, pageSize, pagesOfRows, rowHeight, scrollPauseMs, visibleRows, windowPages } from './paging';
+import { drawnAround, listLength, maxListEntries, pageOf, pageSize, pagesOfRows, rowHeight, scrollPauseMs, visibleRows, windowPages } from './paging';
 import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsEnded, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
 const props = defineProps<{ own: boolean; currentUserId: string }>();
@@ -63,7 +64,12 @@ const drawn = computed(() =>
   }),
 );
 const spaceAbove = computed(() => drawnFirst.value * rowHeight);
-const spaceBelow = computed(() => Math.max(0, length.value - 1 - drawnLast.value) * rowHeight);
+// a list with more entries than the limit ends with the notice row, which has the height of a row
+const capped = computed(() => total.value > maxListEntries);
+const noticeShown = computed(() => capped.value && drawnLast.value === length.value - 1);
+const spaceBelow = computed(() => (Math.max(0, length.value - 1 - drawnLast.value) + (capped.value && !noticeShown.value ? 1 : 0)) * rowHeight);
+// only the first load shows the loading sign; the pages that follow load without one
+const loadingFirst = ref(false);
 // the moment the user started to look at this list; a new sort, a new search and opening the list start it again (SRCH-027)
 const startedAt = ref<string>();
 const sort = ref<Sort>();
@@ -218,6 +224,7 @@ async function load(startAgain = false): Promise<void> {
     clearWindow();
   }
   refusedSort.value = undefined;
+  loadingFirst.value = pages.value.size === 0;
   try {
     // the first page tells the total, which sizes the scroll bar, and gives the timestamp the other pages ask with;
     // a list read again asks the pages of its window, with the same timestamp, so the rows show what the server answers now
@@ -243,6 +250,8 @@ async function load(startAgain = false): Promise<void> {
     pages.value = new Map();
     total.value = 0;
     failed.value = true;
+  } finally {
+    loadingFirst.value = false;
   }
 }
 
@@ -391,6 +400,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 
 <template>
   <search-bar :applied="searches[fullText] ?? ''" :suggest="suggest" @apply="search(fullText, $event)" @reset="resetSearches" />
+  <v-progress-linear v-if="loadingFirst" data-testid="list-loading" indeterminate class="mx-4" style="width: auto" />
   <v-table
     ref="tableRef"
     data-testid="task-list"
@@ -590,6 +600,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
         </td>
       </tr>
       </template>
+      <tr v-if="noticeShown" data-testid="capped-notice" class="capped-notice" aria-selected="false"><td :colspan="columns.length + 1">{{ cappedNotice() }}</td></tr>
       <tr v-if="spaceBelow > 0" class="space" aria-hidden="true"><td :colspan="columns.length + 1" :style="{ height: `${spaceBelow}px` }" /></tr>
     </tbody>
   </v-table>
@@ -618,6 +629,7 @@ th.sortable { cursor: pointer; user-select: none; }
 .task-list :deep(table) { min-width: 1100px; }
 /* white, partly transparent, so the background shows through, blurred where the browser can (TL-032) */
 .task-row > td { height: 46px; box-sizing: border-box; white-space: nowrap; }
+.capped-notice > td { height: 46px; box-sizing: border-box; text-align: center; font-style: italic; user-select: none; background-color: #fff8e1; }
 .space > td { padding: 0 !important; border: 0 !important; }
 .task-list { background-color: rgba(255, 255, 255, 0.85); color: #212121; backdrop-filter: blur(8px); }
 .bar-slot { display: inline-block; width: 6px; margin-right: 6px; height: 1.2em; vertical-align: middle; }

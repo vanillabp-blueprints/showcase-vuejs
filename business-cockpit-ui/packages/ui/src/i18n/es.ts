@@ -13,6 +13,7 @@ const es: Messages = {
   search: { placeholder: 'Buscar', clear: 'Borrar', reset: 'Restablecer', filterBy: 'Filtrar por' },
   noTasks: 'Sin tareas',
   listNotLoaded: "No se pudo cargar la lista",
+  cappedNotice: "Solo se listan las primeras {limit} entradas en el orden actual. Por favor, restrinja la lista con más criterios.",
   primaryFilter: 'Filtro principal',
   primaryFilters: { OpenTasksWithoutFollowUp: 'Abiertas', OpenTasksWithFollowUp: 'Todas abiertas', ClosedTasksOnly: 'Cerradas' },
   legend: { new: 'Nuevo', changed: 'Modificado', removed: 'Eliminado', completed: 'Completada', cancelled: 'Cancelada', suspended: 'Suspendida' },

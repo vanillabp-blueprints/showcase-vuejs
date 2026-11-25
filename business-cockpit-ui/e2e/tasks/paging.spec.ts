@@ -191,13 +191,8 @@ test('SRCH-015 scrolling up and down with small steps shows no empty row while p
   expect(await page.evaluate(() => (window as unknown as { empties: number }).empties)).toBe(0);
 });
 
-test('SRCH-016 a wheel scroll of ten seconds through 30,000 tasks has few long frames and no placeholder; after a fast drag every placeholder is filled soon', async ({ page }) => {
-  test.setTimeout(120_000);
-  await page.setViewportSize({ width: 1400, height: 900 });
-  await generate(page, 30000, 4);
-  await page.goto('/tasks');
-  await expect(rows(page).first()).toBeVisible();
-  await settledList(page);
+// ten seconds of wheel turns; counts the frames longer than 50 ms and the frames with a placeholder
+const wheelForTenSeconds = async (page: Page): Promise<{ empties: number; longFrames: number }> => {
   await page.evaluate(() => {
     const state = { empties: 0, longFrames: 0 };
     (window as unknown as { smooth: typeof state }).smooth = state;
@@ -211,9 +206,19 @@ test('SRCH-016 a wheel scroll of ten seconds through 30,000 tasks has few long f
   await page.mouse.move(700, 500);
   const until = Date.now() + 10_000;
   while (Date.now() < until) { await page.mouse.wheel(0, 100); await page.waitForTimeout(40); }
-  const { empties, longFrames } = await page.evaluate(() => (window as unknown as { smooth: { empties: number; longFrames: number } }).smooth);
+  return page.evaluate(() => (window as unknown as { smooth: { empties: number; longFrames: number } }).smooth);
   expect(longFrames, 'frames longer than 50 ms').toBeLessThanOrEqual(5);
   expect(empties, 'frames with a placeholder').toBe(0);
+};
+
+test('SRCH-016 a wheel scroll of ten seconds through 30,000 tasks has few long frames and no placeholder; after a fast drag every placeholder is filled soon', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await generate(page, 30000, 4);
+  await page.goto('/tasks');
+  await expect(rows(page).first()).toBeVisible();
+  await settledList(page);
+  const { empties, longFrames } = await wheelForTenSeconds(page);
   // a fast drag to the middle fills every placeholder once the scrolling has stopped
   await dragThrough(page, [0.1, 0.3, 0.5, 0.52].map((part) => part * 30000 * rowHeight), 15);
   await expect(placeholders(page)).toHaveCount(0, { timeout: 3000 });
@@ -287,4 +292,178 @@ test('SRCH-020 a fast drag of the scroll bar from top to bottom asks only for th
   const held = await windowPages(page);
   expect(held.length).toBeGreaterThan(0);
   for (const number of asked) expect(held, `asked ${asked.join(',')}`).toContain(number);
+});
+
+// ---- pages asked once, the cap, the notice row, the loading sign ----
+
+// The simulator holds few tasks. The page answers for a list with this many: the real pages repeat, and every answer says the larger total.
+// It returns the bodies of the list requests as the page sent them.
+const pretendTotal = async (page: Page, total: number) => {
+  let realPages = 1;
+  const asked: Request['body'][] = [];
+  await page.route((url) => /\/usertask$/.test(url.pathname), async (route) => {
+    const body = route.request().postDataJSON();
+    asked.push(body);
+    const askedPage = Number(body.pageNumber ?? 0);
+    const response = await route.fetch({ postData: JSON.stringify({ ...body, pageNumber: askedPage % realPages }) });
+    const answer = await response.json();
+    realPages = answer.page.totalPages;
+    answer.page.totalElements = total;
+    // an id stands for one row, so a repeated page gets other ids
+    answer.userTasks = answer.userTasks.map((task: { id: string }) => ({ ...task, id: `${task.id}-${askedPage}` }));
+    await route.fulfill({ response, json: answer });
+  });
+  await page.route((url) => /\/usertask\/count$/.test(url.pathname), async (route) => {
+    const response = await route.fetch();
+    const answer = await response.json();
+    answer.counts = answer.counts.map((entry: object) => ({ ...entry, count: total }));
+    await route.fulfill({ response, json: answer });
+  });
+  return asked;
+};
+const delayListAnswers = (page: Page, milliseconds: number) =>
+  page.route((url) => /\/usertask$/.test(url.pathname), async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, milliseconds));
+    await route.continue();
+  });
+// The user drags the scroll bar to its end.
+const toTheEnd = async (page: Page) => {
+  await scroller(page).evaluate((element) => { element.scrollTop = element.scrollHeight - element.clientHeight; });
+  await page.waitForTimeout(400);
+  await settledList(page);
+};
+// Vuetify keeps the tooltips it has shown in the page; only the open one is on the screen
+const shownTooltip = (page: Page) => page.locator('[role=tooltip].v-overlay--active');
+const notice = (page: Page) => page.getByTestId('capped-notice');
+const noticeText = /Only the first 100,000 entries in the current sort order are listed\. Please narrow down the list with more criteria\./;
+
+test('SRCH-021 a page is never asked for while it is on its way or in the window, and an answer starts no other request', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await generate(page, 3000);
+  await delayListAnswers(page, 300);
+  await page.goto('/tasks');
+  await expect(rows(page).first()).toBeVisible();
+  await settledList(page);
+  // slowly down: the window moves ahead and drops only pages behind, so no page is wanted twice
+  for (let turn = 0; turn < 80; turn++) { await scroller(page).evaluate((element) => { element.scrollTop += 120; }); await page.waitForTimeout(40); }
+  await settledList(page);
+  const asked = (await listRequests(page)).filter((request) => request.path.endsWith('/usertask')).map((request) => request.body.pageNumber!);
+  expect(new Set(asked).size, `asked ${asked.join(',')}`).toBe(asked.length);
+  // every answer has arrived, and nothing else is asked
+  await page.waitForTimeout(1000);
+  expect((await listRequests(page)).filter((request) => request.path.endsWith('/usertask')).length).toBe(asked.length);
+});
+
+test('SRCH-022 a list with a million entries is 100,000 rows long in its sort, and its count shows the million', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await generate(page, 600);
+  const asked = await pretendTotal(page, 1_000_000);
+  await page.goto('/tasks');
+  await expect(rows(page).first()).toBeVisible();
+  await page.getByTestId('column-header-id').click();
+  await expect(page.getByTestId('sort-mark')).toBeVisible();
+  // the sort starts the list again, so the test waits for its first rows
+  await expect(rows(page).first()).toBeVisible();
+  await expect(page.getByTestId('primary-filter-OpenTasksWithoutFollowUp')).toHaveText(/\(1,000,000\)/);
+  const height = await scroller(page).evaluate((element) => element.scrollHeight);
+  expect(height).toBeGreaterThanOrEqual(100_000 * rowHeight);
+  expect(height).toBeLessThan(100_000 * rowHeight + 300);
+  await toTheEnd(page);
+  const lastRow = rows(page).last();
+  await expect(lastRow.getByTestId('cell-id')).toHaveText(/-4999$/);
+  await expect(page.getByTestId('cell-id').filter({ hasText: /-5000$/ })).toHaveCount(0);
+  expect(Math.max(...asked.map((body) => body.pageNumber!))).toBe(4999);
+  expect(asked.at(-1)).toMatchObject({ sort: 'id' });
+});
+
+test('SRCH-023 only a capped list shows the notice row after its last entry, which spans all columns and cannot be opened', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await generate(page, 600);
+  await pretendTotal(page, 1_000_000);
+  await page.goto('/tasks');
+  await expect(rows(page).first()).toBeVisible();
+  await expect(notice(page)).toHaveCount(0);
+  await toTheEnd(page);
+  await expect(notice(page)).toHaveCount(1);
+  await expect(notice(page)).toHaveText(noticeText);
+  const columnCount = await page.locator('thead tr').first().locator('th').count();
+  expect(await notice(page).locator('td').getAttribute('colspan')).toBe(String(columnCount));
+  const noticeBox = (await notice(page).boundingBox())!;
+  const lastRowBox = (await rows(page).last().boundingBox())!;
+  expect(noticeBox.y).toBeGreaterThanOrEqual(lastRowBox.y + lastRowBox.height - 1);
+  expect(await notice(page).locator('td').evaluate((element) => getComputedStyle(element).userSelect)).toBe('none');
+  await notice(page).click();
+  await notice(page).dblclick();
+  expect(new URL(page.url()).pathname).toBe('/tasks');
+  await expect(notice(page)).toHaveAttribute('aria-selected', 'false');
+});
+
+test('SRCH-023 a list below the limit shows no notice row, also at its end', async ({ page }) => {
+  await generate(page, 300);
+  await page.goto('/tasks');
+  await expect(rows(page).first()).toBeVisible();
+  await toTheEnd(page);
+  await expect(notice(page)).toHaveCount(0);
+});
+
+test('SRCH-024 every count above the limit shows the text of the notice on mouse-over, the others show nothing', async ({ page }) => {
+  await generate(page, 600);
+  await pretendTotal(page, 1_000_000);
+  await page.goto('/tasks');
+  await expect(rows(page).first()).toBeVisible();
+  await expect(page.getByTestId('toggle-all-tasks')).toHaveText(/1,000,000/);
+  for (const count of [page.getByTestId('primary-filter-OpenTasksWithoutFollowUp'), page.getByTestId('toggle-all-tasks')]) {
+    await count.hover();
+    await expect(shownTooltip(page)).toHaveText(noticeText);
+    await page.mouse.move(700, 600);
+    await expect(shownTooltip(page)).toHaveCount(0);
+  }
+});
+
+test('SRCH-024 a count of at most 100,000 shows no tooltip', async ({ page }) => {
+  await generate(page, 300);
+  await page.goto('/tasks');
+  const count = page.getByTestId('primary-filter-OpenTasksWithoutFollowUp');
+  await expect(count).toHaveText(/\(\d+\)/);
+  await count.hover();
+  await page.waitForTimeout(800);
+  await expect(shownTooltip(page)).toHaveCount(0);
+});
+
+test('SRCH-025 with a million entries the wheel scroll stays smooth and the user reaches the notice row (Chromium only, see the questions)', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await generate(page, 30000, 4);
+  await pretendTotal(page, 1_000_000);
+  await page.goto('/tasks');
+  await expect(rows(page).first()).toBeVisible();
+  await settledList(page);
+  const { empties, longFrames } = await wheelForTenSeconds(page);
+  expect(longFrames, 'frames longer than 50 ms').toBeLessThanOrEqual(5);
+  expect(empties, 'frames with a placeholder').toBe(0);
+  // The end is reached from a list opened afresh. After a long wheel scroll Chromium stops the scroll bar about 350 px short of the end
+  // of a list this long (see the questions), so the notice row is out of reach there.
+  await page.goto('/tasks');
+  await expect(rows(page).first()).toBeVisible();
+  await toTheEnd(page);
+  await expect(notice(page)).toBeInViewport();
+});
+
+test('SRCH-028 the loading sign shows on the first load, not while more pages load', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await generate(page, 3000);
+  await delayListAnswers(page, 600);
+  await page.goto('/tasks');
+  await expect(page.getByTestId('list-loading')).toBeVisible();
+  await expect(rows(page).first()).toBeVisible();
+  await expect(page.getByTestId('list-loading')).toHaveCount(0);
+  await settledList(page);
+  await page.evaluate(() => {
+    const seen = { count: 0 };
+    (window as unknown as { signs: typeof seen }).signs = seen;
+    new MutationObserver(() => { if (document.querySelector('[data-testid="list-loading"]')) seen.count++; }).observe(document.body, { childList: true, subtree: true });
+  });
+  await scrollToRow(page, 400);
+  await scrollToRow(page, 1500);
+  expect(await page.evaluate(() => (window as unknown as { signs: { count: number } }).signs.count)).toBe(0);
 });

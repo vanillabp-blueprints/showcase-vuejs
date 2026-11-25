@@ -8,6 +8,7 @@ import { initialsOf } from './initials';
 import { formatNumber } from './i18n/format';
 import { language, languages, text } from './i18n/messages';
 import { pageOf } from './routing';
+import { cappedNotice, isCapped } from './tasks/cappedNotice';
 import TaskList from './tasks/TaskList.vue';
 
 const props = defineProps<{ title: string; user: User }>();
@@ -26,9 +27,15 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
     <v-app-bar data-testid="header" density="comfortable">
       <a data-testid="title" href="/" class="title">{{ title }}</a>
       <v-btn-toggle data-testid="toggle" class="toggle" density="comfortable" variant="outlined" divided>
-        <v-btn data-testid="toggle-my-tasks" :href="text().routes.myTasks">{{ shown(text().myTasks, counts.myTasks) }}</v-btn>
-        <v-btn data-testid="toggle-all-tasks" :href="text().routes.allTasks">{{ shown(text().allTasks, counts.allTasks) }}</v-btn>
-        <v-btn data-testid="toggle-cases" :href="text().routes.cases">{{ shown(text().cases, counts.cases) }}</v-btn>
+        <v-btn data-testid="toggle-my-tasks" :href="text().routes.myTasks">{{ shown(text().myTasks, counts.myTasks) }}
+          <v-tooltip v-if="isCapped(counts.myTasks)" activator="parent" location="bottom">{{ cappedNotice() }}</v-tooltip>
+        </v-btn>
+        <v-btn data-testid="toggle-all-tasks" :href="text().routes.allTasks">{{ shown(text().allTasks, counts.allTasks) }}
+          <v-tooltip v-if="isCapped(counts.allTasks)" activator="parent" location="bottom">{{ cappedNotice() }}</v-tooltip>
+        </v-btn>
+        <v-btn data-testid="toggle-cases" :href="text().routes.cases">{{ shown(text().cases, counts.cases) }}
+          <v-tooltip v-if="isCapped(counts.cases)" activator="parent" location="bottom">{{ cappedNotice() }}</v-tooltip>
+        </v-btn>
       </v-btn-toggle>
       <v-spacer />
       <span data-testid="current-user" class="mr-2">{{ user.display ?? user.id }}</span>
