@@ -66,7 +66,7 @@ export const ACTIONS = {
 } as const;
 export const ACTIONS_WITHOUT_TIMEOUT: readonly string[] = [ACTIONS.openDialog];
 
-export const ERROR_CODES = { DISCONNECTED: 'DISCONNECTED', TIMEOUT: 'TIMEOUT', REFUSED: 'REFUSED' } as const;
+export const ERROR_CODES = { DISCONNECTED: 'DISCONNECTED', TIMEOUT: 'TIMEOUT', REFUSED: 'REFUSED', UNKNOWN_ACTION: 'UNKNOWN_ACTION', FAILED: 'FAILED' } as const;
 
 export interface BcRequestDetail { requestId: string; action: string; args?: unknown }
 export type BcResponseDetail =
