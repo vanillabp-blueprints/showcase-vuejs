@@ -16,7 +16,7 @@ const modulesFolder = new URL('../modules/', import.meta.url).pathname;
 
 type SimulatedModule = WorkflowModule & { accessibleToGroups: string[] };
 type SimulatedUser = { id: string; name: string; groups: string[]; email: string };
-type CountRequest = { path: string; mode?: string; keys: string[] };
+type CountRequest = { path: string; mode?: string; modes: string[]; keys: string[] };
 
 const userTaskFields = ['id', 'businessId', 'workflowTitle', 'title', 'taskDefinition', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt', 'createdAt', 'updatedAt'];
 
@@ -77,6 +77,18 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   const jwtFor = (user: SimulatedUser, issuedAt?: number): string => {
     const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
     return `${part({ alg: 'none' })}.${part({ sub: user.id, name: user.name, groups: user.groups, iat: issuedAt })}.simulator`;
+  };
+
+  // which tasks a primary filter lets through; without a mode the server takes OpenTasksWithFollowUp
+  const inMode = (task: UserTask, mode = 'OpenTasksWithFollowUp'): boolean => {
+    const open = !task.endedAt;
+    const putAside = Boolean(task.followUpDate) && new Date(task.followUpDate!).getTime() > Date.now();
+    if (mode === 'All') return true;
+    if (mode === 'ClosedTasksOnly') return !open;
+    if (mode === 'OpenTasksWithFollowUp') return open;
+    if (mode === 'OpenTasksWithoutFollowUp') return open && !putAside;
+    if (mode === 'OpenTaskOnlyFollowUp') return open && putAside;
+    throw new Error(`unknown mode ${mode}`);
   };
 
   const publish = (eventName: string, elements: object[]) => {
@@ -149,7 +161,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       // sort and filter paths are fields of the list, else the cockpit answers 400
       const paths = [...String(body.sort ?? '').split(',').filter(Boolean), ...((body.filters ?? []) as { key: string }[]).map((filter) => filter.key)];
       if (paths.some((path) => !/^[A-Za-z0-9_]+(\.[A-Za-z0-9_-]+)*$/.test(path) || (!path.startsWith('details.') && !userTaskFields.includes(path.split('.')[0]!)))) return send(res, 400);
-      const shown = userTasks.filter((task) => (list[1] ? task.assignee?.id === user.id : true));
+      const shown = userTasks.filter((task) => (list[1] ? task.assignee?.id === user.id : true)).filter((task) => inMode(task, body.mode as string | undefined));
       const size = Number(body.pageSize ?? 20);
       const number = Number(body.pageNumber ?? 0);
       return send(res, 200, {
@@ -176,15 +188,24 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (countPath && method === 'POST') {
       if (!userOf(req)) return send(res, 401);
       const filters = ((await readBody(req)).filters ?? []) as { key: string; mode?: string }[];
-      countRequests.push({ path, mode: filters[0]?.mode, keys: filters.map((filter) => filter.key) });
+      countRequests.push({ path, mode: filters[0]?.mode, modes: filters.map((filter) => filter.mode ?? ''), keys: filters.map((filter) => filter.key) });
       const total = countPath[2] === 'workflow' ? counts.cases : countPath[1] ? counts.myTasks : counts.allTasks;
-      return send(res, 200, { serverTimestamp: new Date().toISOString(), counts: filters.map((filter) => ({ key: filter.key, count: total })) });
+      // the toggle of the header takes the numbers a test sets, the primary filters of a list count the tasks
+      const countOf = (filter: { key: string; mode?: string }): number => {
+        if (countPath[2] === 'workflow' || filter.key === 'toggle') return total;
+        return userTasks.filter((task) => (countPath[1] ? task.assignee?.id === userOf(req)?.id : true)).filter((task) => inMode(task, filter.mode)).length;
+      };
+      return send(res, 200, { serverTimestamp: new Date().toISOString(), counts: filters.map((filter) => ({ key: filter.key, count: countOf(filter) })) });
     }
     if (path === '/simulator-api/counts' && method === 'POST') {
       counts = { ...counts, ...(await readBody(req)) };
       return send(res, 200);
     }
     if (path === '/simulator-api/count-requests') return send(res, 200, countRequests);
+    if (path === '/simulator-api/count-requests/clear' && method === 'POST') {
+      countRequests = [];
+      return send(res, 200);
+    }
     if (path === '/simulator-api/current-user' && method === 'POST') {
       namesOfCurrentUser = await readBody(req);
       return send(res, 200);

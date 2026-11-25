@@ -11,6 +11,9 @@ const fr: Messages = {
   columns: { id: 'Id', businessId: 'ID métier', caseKind: 'Type de dossier', title: 'Titre', dueDate: 'Échéance', assignee: 'Responsable', candidateUsers: 'Candidats', note: 'Notes', followUpDate: 'Rappel', endedAt: 'Terminée' },
   noTasks: 'Aucune tâche',
   listNotLoaded: "La liste n'a pas pu être chargée",
+  primaryFilter: 'Filtre principal',
+  primaryFilters: { OpenTasksWithoutFollowUp: 'Ouvertes', OpenTasksWithFollowUp: 'Toutes ouvertes', ClosedTasksOnly: 'Terminées' },
+  legend: { new: 'Nouveau', changed: 'Modifié', removed: 'Supprimé', completed: 'Terminée', cancelled: 'Annulée', suspended: 'Suspendue' },
   routes: { allTasks: '/taches', myTasks: '/mes-taches', cases: '/dossiers', notifications: '/notifications', task: '/tache' },
 };
 

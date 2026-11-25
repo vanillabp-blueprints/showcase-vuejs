@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
 import { mdiAccount, mdiAccountMultiple } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
@@ -8,25 +8,50 @@ import { dateCellDetails, dateCellText } from '../i18n/format';
 import { language, text } from '../i18n/messages';
 import { pickTranslation } from '../i18n/translatable';
 import { taskAddress } from '../routing';
+import { settingKey, settings } from '../settings/settings';
+import StatusLine from './StatusLine.vue';
+import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
 const props = defineProps<{ own: boolean; currentUserId: string }>();
 
 // the fixed columns of Q-TASK-COLUMNS, in the order of the interview
-const columns = ['id', 'businessId', 'caseKind', 'title', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt'] as const;
+const allColumns = ['id', 'businessId', 'caseKind', 'title', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt'] as const;
+
+// the follow-up column shows only for the primary filters that list tasks put aside (TL-009)
+const columns = computed(() => allColumns.filter((column) => column !== 'followUpDate' || showsFollowUp(filter.value)));
 
 // the path of the field of each column in the GUI API, which the list sorts and filters by (COL-021)
-const paths: Record<(typeof columns)[number], string> = {
+const paths: Record<(typeof allColumns)[number], string> = {
   id: 'id', businessId: 'businessId', caseKind: 'workflowTitle', title: 'title', dueDate: 'dueDate', assignee: 'assignee',
   candidateUsers: 'candidateUsers', note: 'note', followUpDate: 'followUpDate', endedAt: 'endedAt',
 };
 
 const tasks = ref<UserTask[]>([]);
 const failed = ref(false);
+const filter = ref<PrimaryFilter>(defaultPrimaryFilter);
+const counts = reactive<Partial<Record<PrimaryFilter, number>>>({});
+
+const baseUrl = (): string => (props.own ? myTasksBasePath : guiApiBasePath);
+// each list keeps the primary filter its user chose last (TL-005)
+const filterSetting = (): string => settingKey('tasks', props.own ? 'own' : 'all', 'primaryFilter');
+
+async function askCounts(filters: PrimaryFilter[]): Promise<void> {
+  try {
+    const answer = await new OfficialTasklistApi().countUserTasks(
+      { userTaskCountsRequest: { filters: filters.map((mode) => ({ key: mode, mode })) } },
+      { baseUrl: baseUrl() },
+    );
+    for (const { key, count } of answer.counts) counts[key as PrimaryFilter] = count;
+  } catch {
+    // a count which cannot be asked stays as it was
+  }
+}
 
 async function load(): Promise<void> {
-  const baseUrl = props.own ? myTasksBasePath : guiApiBasePath;
   try {
-    const answer = await new OfficialTasklistApi().getUserTasks({ userTasksRequest: { pageSize: 20 } }, { baseUrl });
+    const answer = await new OfficialTasklistApi().getUserTasks({ userTasksRequest: { pageSize: 20, mode: filter.value } }, { baseUrl: baseUrl() });
+    // the count of the chosen primary filter comes with the rows
+    if (filter.value !== countedOnMouseOver || counts[countedOnMouseOver] !== undefined) counts[filter.value] = answer.page.totalElements;
     tasks.value = answer.userTasks;
     failed.value = false;
   } catch {
@@ -35,7 +60,22 @@ async function load(): Promise<void> {
     failed.value = true;
   }
 }
-watch(() => props.own, load, { immediate: true });
+
+async function open(): Promise<void> {
+  const chosenLast = await settings.read(filterSetting());
+  filter.value = isPrimaryFilter(chosenLast) ? chosenLast : defaultPrimaryFilter;
+  delete counts[countedOnMouseOver];
+  void askCounts(['OpenTasksWithoutFollowUp', 'OpenTasksWithFollowUp']);
+  await load();
+}
+watch(() => props.own, open, { immediate: true });
+
+function choose(chosen: PrimaryFilter): void {
+  if (chosen === filter.value) return;
+  filter.value = chosen;
+  settings.write(filterSetting(), chosen);
+  void load();
+}
 
 const dateAndDetails = (value?: string): { text: string; details: string } | undefined =>
   value ? { text: dateCellText(new Date(value), language.value), details: dateCellDetails(new Date(value), language.value) } : undefined;
@@ -44,7 +84,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 </script>
 
 <template>
-  <v-table data-testid="task-list" class="task-list ma-4" fixed-header height="calc(100vh - 96px)">
+  <v-table data-testid="task-list" class="task-list ma-4" fixed-header height="calc(100vh - 144px)">
     <thead>
       <tr>
         <th
@@ -98,7 +138,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
           />
         </td>
         <td data-testid="cell-note">{{ task.note }}</td>
-        <td data-testid="cell-followUpDate">
+        <td v-if="showsFollowUp(filter)" data-testid="cell-followUpDate">
           <template v-if="dateAndDetails(task.followUpDate)">
             {{ dateAndDetails(task.followUpDate)!.text }}
             <v-tooltip activator="parent" location="bottom">
@@ -118,6 +158,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
     </tbody>
   </v-table>
   <p v-if="tasks.length === 0 && !failed" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
+  <status-line :selected="filter" :counts="counts" @choose="choose" @ask-count="askCounts([$event])" />
   <v-snackbar :model-value="failed" data-testid="list-toast" timeout="-1" color="error">{{ text().listNotLoaded }}</v-snackbar>
 </template>
 

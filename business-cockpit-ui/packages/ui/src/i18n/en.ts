@@ -11,6 +11,9 @@ const en = {
   columns: { id: 'Id', businessId: 'Business ID', caseKind: 'Case kind', title: 'Title', dueDate: 'Due', assignee: 'Assignee', candidateUsers: 'Candidate users', note: 'Notes', followUpDate: 'Follow-up', endedAt: 'Ended' },
   noTasks: 'No tasks',
   listNotLoaded: "The list could not be loaded",
+  primaryFilter: 'Primary filter',
+  primaryFilters: { OpenTasksWithoutFollowUp: 'Open', OpenTasksWithFollowUp: 'All open', ClosedTasksOnly: 'Closed' },
+  legend: { new: 'New', changed: 'Changed', removed: 'Removed', completed: 'Completed', cancelled: 'Cancelled', suspended: 'Suspended' },
   routes: { allTasks: '/tasks', myTasks: '/my-tasks', cases: '/workflows', notifications: '/notifications', task: '/tasks' },
 };
 

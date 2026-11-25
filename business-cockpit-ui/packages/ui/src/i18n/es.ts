@@ -11,6 +11,9 @@ const es: Messages = {
   columns: { id: 'Id', businessId: 'ID de negocio', caseKind: 'Tipo de caso', title: 'Título', dueDate: 'Vence', assignee: 'Responsable', candidateUsers: 'Candidatos', note: 'Notas', followUpDate: 'Seguimiento', endedAt: 'Finalizada' },
   noTasks: 'Sin tareas',
   listNotLoaded: "No se pudo cargar la lista",
+  primaryFilter: 'Filtro principal',
+  primaryFilters: { OpenTasksWithoutFollowUp: 'Abiertas', OpenTasksWithFollowUp: 'Todas abiertas', ClosedTasksOnly: 'Cerradas' },
+  legend: { new: 'Nuevo', changed: 'Modificado', removed: 'Eliminado', completed: 'Completada', cancelled: 'Cancelada', suspended: 'Suspendida' },
   routes: { allTasks: '/tareas', myTasks: '/mis-tareas', cases: '/casos', notifications: '/notificaciones', task: '/tarea' },
 };
 

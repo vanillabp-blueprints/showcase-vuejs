@@ -56,6 +56,8 @@ test('NAV-002 /my-tasks shows the user tasks where the user is the assignee', as
 test('TL-008 the fixed columns are the ones from the interview, in its order', async ({ page }) => {
   await seed(page, threeTasks);
   await page.goto('/tasks');
+  // TL-009: the follow-up column shows for All open only
+  await page.getByTestId('primary-filter-OpenTasksWithFollowUp').click();
   await expect(page.getByTestId('task-row')).toHaveCount(3);
   const headers = page.locator('[data-testid^="column-header-"]');
   expect(await headers.evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-testid')))).toEqual([
@@ -141,6 +143,8 @@ test('TL-018 a date column shows the date, or the time if the date is today, and
   await expect(page.getByTestId('date-details').filter({ hasText: timeOf(earlier) })).toBeVisible();
   await expect(page.getByTestId('date-details').filter({ hasText: timeOf(earlier) })).not.toContainText(dateOf(earlier));
   await page.mouse.move(0, 0);
+  // the follow-up column shows for All open only (TL-009)
+  await page.getByTestId('primary-filter-OpenTasksWithFollowUp').click();
   const followUp = page.getByTestId('cell-followUpDate');
   await expect(followUp).toHaveText(timeOf(now));
   await followUp.hover();
@@ -179,6 +183,9 @@ test('TL-032 the background of the list is white, partly transparent and blurred
 test('COL-015 the fixed columns are always shown, also when the list has no rows', async ({ page }) => {
   await page.goto('/tasks');
   await expect(page.getByTestId('no-tasks')).toBeVisible();
+  // the follow-up column belongs to All open only (TL-009), so the default primary filter has nine
+  await expect(page.locator('[data-testid^="column-header-"]')).toHaveCount(9);
+  await page.getByTestId('primary-filter-OpenTasksWithFollowUp').click();
   await expect(page.locator('[data-testid^="column-header-"]')).toHaveCount(10);
   await expect(page.getByTestId('column-header-title')).toBeVisible();
 });
@@ -225,6 +232,7 @@ test('COL-019 no date with a time shows the T of ISO 8601, it is the localised d
 test('COL-021 each fixed column has the path of its field in the GUI API, and the list can be sorted and filtered by it without a 400', async ({ page }) => {
   await seed(page, threeTasks);
   await page.goto('/tasks');
+  await page.getByTestId('primary-filter-OpenTasksWithFollowUp').click();
   await expect(page.getByTestId('task-row')).toHaveCount(3);
   const paths = await page.locator('[data-testid^="column-header-"]').evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-path')));
   expect(paths).toEqual(['id', 'businessId', 'workflowTitle', 'title', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt']);
@@ -250,7 +258,8 @@ test('TL-033 a list whose request fails shows no rows, keeps its header, and sho
   await expect(toast).toContainText('Die Liste konnte nicht geladen werden');
   await expect(toast).not.toContainText(/50\d|4\d\d/);
   await expect(page.getByTestId('task-row')).toHaveCount(0);
-  await expect(page.locator('[data-testid^="column-header-"]')).toHaveCount(10);
+  // nine, because the follow-up column belongs to All open only (TL-009)
+  await expect(page.locator('[data-testid^="column-header-"]')).toHaveCount(9);
   await expect(page.getByTestId('header')).toBeVisible();
   await page.request.post('/simulator-api/fail-lists', { data: { fail: false } });
   await page.goto('/tasks');
