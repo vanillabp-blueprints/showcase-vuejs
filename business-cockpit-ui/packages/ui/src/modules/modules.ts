@@ -14,7 +14,7 @@ const registry = createModuleRegistry({
     }
   },
 });
-const host = createModuleHost();
+export const host = createModuleHost();
 
 /** Reads the list of the modules the user may see; called once, after the current user is known. */
 export const startModules = (): Promise<void> => registry.start();
@@ -27,12 +27,7 @@ export async function loadPartsOf(row: RowOfModule): Promise<boolean> {
   return true;
 }
 
-/** Asks every module of the registry for its Header and draws what the modules answer into the container. */
-export async function drawHeaders(container: Element): Promise<void> {
-  const modules: ModuleRef[] = [];
-  for (const module of await registry.all()) modules.push({ workflowModuleId: module.id, webPath: `/wm/${module.id}/` });
-  const answers = await host.askModules(modules, HEADER);
-  for (const [id, descriptor] of answers) {
-    await host.draw(id, `/wm/${id}/`, descriptor as { element: string; entry: string }, container.appendChild(document.createElement('span')));
-  }
+/** The modules whose parts a page may show: every module of the registry with the folder to load it from. */
+export async function modulesToAsk(): Promise<ModuleRef[]> {
+  return (await registry.all()).map((module) => ({ workflowModuleId: module.id, webPath: `/wm/${module.id}/` }));
 }

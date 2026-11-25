@@ -19,9 +19,29 @@ export interface ModuleHostOptions {
   actions?: Record<string, ActionHandler>;
   /** Where a named entry which fails to load is reported; the default is `console.error`. */
   onProblem?: (workflowModuleId: string, error: unknown) => void;
+  /** How long the cockpit waits for a web component to be defined after its visual entry loaded; the default is 10 seconds. */
+  definedWithinMs?: number;
 }
 
-export class ModuleNameError extends Error {}
+export class ModuleNameError extends Error {
+  constructor(message: string, readonly workflowModuleId = '', readonly element = '') { super(message); }
+}
+
+/** A visual entry loaded and the web component it names was not defined within the time limit. */
+export class ElementNotDefined extends Error {
+  constructor(readonly workflowModuleId: string, readonly entry: string, readonly element: string, limitMs: number) {
+    super(`module ${workflowModuleId}: the entry ${entry} did not define the web component ${element} within ${limitMs} ms`);
+  }
+}
+
+/** The browser could not create the web component, for example because its constructor throws. */
+export class ElementCreateFailed extends Error {
+  constructor(readonly workflowModuleId: string, readonly element: string, cause?: unknown) {
+    super(`module ${workflowModuleId}: the web component ${element} could not be created${cause instanceof Error ? `: ${cause.message}` : ''}`, { cause });
+  }
+}
+
+export const DEFINED_WITHIN_MS = 10_000;
 
 /** What an action of the cockpit does; it throws `ActionRefused` when the server refuses. */
 export type ActionHandler = (args: unknown, element: HTMLElement) => unknown | Promise<unknown>;
@@ -54,20 +74,47 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
   const onProblem = options.onProblem ?? ((id: string, error: unknown) => console.error(`module ${id}:`, error));
   const manifests = new Map<string, Promise<{ manifest: BcManifest; url: string }>>();
   const files = new Map<string, Promise<Exports>>();
+  const definedWithinMs = options.definedWithinMs ?? DEFINED_WITHIN_MS;
+  const failures = new Map<string, number>();
 
-  const manifestOf = (workflowModuleId: string, webPath: string) => {
-    if (!manifests.has(workflowModuleId)) {
-      const url = new URL(`${webPath.replace(/\/?$/, '/')}${MANIFEST_FILE_NAME}`, globalThis.location?.href ?? 'http://localhost/').href;
-      manifests.set(workflowModuleId, readText(url).then((text) => ({ manifest: readManifest(text), url })));
+  /** A failure is not kept: the next call reads the manifest again and calls `import()` again. */
+  const keepUnlessFailed = <T>(cache: Map<string, Promise<T>>, key: string, make: () => Promise<T>): Promise<T> => {
+    if (!cache.has(key)) {
+      const promise = make();
+      cache.set(key, promise);
+      promise.catch(() => { if (cache.get(key) === promise) cache.delete(key); });
     }
-    return manifests.get(workflowModuleId)!;
+    return cache.get(key)!;
+  };
+
+  const manifestOf = (workflowModuleId: string, webPath: string) => keepUnlessFailed(manifests, workflowModuleId, () => {
+    const url = new URL(`${webPath.replace(/\/?$/, '/')}${MANIFEST_FILE_NAME}`, globalThis.location?.href ?? 'http://localhost/').href;
+    return readText(url).then((text) => ({ manifest: readManifest(text), url }));
+  });
+
+  // The browser keeps a failed `import()` of an address; a new query makes the second call a real one.
+  const importAgain = async (address: string) => {
+    const count = failures.get(address) ?? 0;
+    try { return await importFile(count === 0 ? address : `${address}?retry=${count}`); } catch (error) {
+      failures.set(address, count + 1);
+      throw error;
+    }
   };
 
   const load = async (workflowModuleId: string, webPath: string, entry: string) => {
     const { manifest, url } = await manifestOf(workflowModuleId, webPath);
     const address = entryUrl(manifest, entry, url);
-    if (!files.has(address)) files.set(address, importFile(address));
-    return files.get(address)!;
+    // a failed import may mean the module was deployed again: its manifest is read again as well
+    return keepUnlessFailed(files, address, () => importAgain(address).catch((error) => { manifests.delete(workflowModuleId); throw error; }));
+  };
+
+  /** Waits for the browser to define the web component, for no longer than the time limit. */
+  const defined = async (workflowModuleId: string, entry: string, element: string) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new ElementNotDefined(workflowModuleId, entry, element, definedWithinMs)), definedWithinMs);
+    });
+    try { await Promise.race([customElements.whenDefined(element), late]); } finally { clearTimeout(timer); }
   };
 
   /** Answers every `bc-request` of the element with exactly one `bc-response`. */
@@ -89,7 +136,7 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
 
   const checkName = (workflowModuleId: string, name: string) => {
     if (!isValidElementName(name) || !name.startsWith(`${elementPrefix(workflowModuleId)}-`)) {
-      throw new ModuleNameError(`module ${workflowModuleId}: the name ${name} is refused, it has to start with ${elementPrefix(workflowModuleId)}-`);
+      throw new ModuleNameError(`module ${workflowModuleId}: the name ${name} is refused, it has to start with ${elementPrefix(workflowModuleId)}-`, workflowModuleId, name);
     }
   };
 
@@ -101,12 +148,27 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
       if (isDescriptor(answer)) checkName(workflowModuleId, answer.element);
       return answer;
     },
+    /** Whether the manifest of the module names the entry; a module which does not has nothing to add. */
+    async names(workflowModuleId: string, webPath: string, entry: string): Promise<boolean> {
+      return (await manifestOf(workflowModuleId, webPath)).manifest.entries[entry] !== undefined;
+    },
+    /** Step 2: loads the visual entry, unless the web component is defined already, and waits until it is defined. */
+    async loadVisual(workflowModuleId: string, webPath: string, descriptor: BcElementDescriptor): Promise<void> {
+      checkName(workflowModuleId, descriptor.element);
+      if (customElements.get(descriptor.element)) return;
+      await load(workflowModuleId, webPath, descriptor.entry);
+      await defined(workflowModuleId, descriptor.entry, descriptor.element);
+    },
     /** Steps 2 and 3: loads the visual entry and puts the web component into the container. */
     async draw(workflowModuleId: string, webPath: string, descriptor: BcElementDescriptor, container: Element, properties: Record<string, unknown> = {}): Promise<HTMLElement> {
-      checkName(workflowModuleId, descriptor.element);
-      await load(workflowModuleId, webPath, descriptor.entry);
-      const element = document.createElement(descriptor.element);
-      Object.assign(element, properties);
+      await this.loadVisual(workflowModuleId, webPath, descriptor);
+      let element: HTMLElement;
+      try {
+        element = document.createElement(descriptor.element);
+        // a constructor which throws leaves the browser with a plain element instead of the web component
+        if (!(element instanceof customElements.get(descriptor.element)!)) throw new Error('the constructor of the web component failed');
+        Object.assign(element, properties);
+      } catch (error) { throw new ElementCreateFailed(workflowModuleId, descriptor.element, error); }
       answerRequests(element);
       container.append(element);
       return element;
