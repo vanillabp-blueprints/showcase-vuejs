@@ -162,3 +162,17 @@ test('SRCH-033 the full-text search stands in the toolbar after the tools and ta
   const wider = (await field.boundingBox())!;
   expect(wider.width).toBeGreaterThan(input.width);
 });
+
+test('SRCH-034 a sort the server refuses with 400 shows the text of the answer as it is and falls back to the default order', async ({ page }) => {
+  const refusal = 'Sorting by two fields which hold lists is not possible.';
+  await seed(page, [task('b'), task('c'), task('a')]);
+  await page.goto('/tasks');
+  await expect(rows(page)).toHaveCount(3);
+  await page.request.post('/simulator-api/refuse-sort', { data: { text: refusal } });
+  await header(page, 'businessId').click();
+  await expect(page.getByTestId('list-toast')).toHaveText(refusal);
+  await expect(titles(page)).toHaveText(['Check b', 'Check c', 'Check a']);
+  await expect(header(page, 'businessId')).not.toHaveAttribute('data-sort', /.+/);
+  await expect(page.getByTestId('sort-mark')).toHaveCount(0);
+  expect((await lastRequest(page)).body.sort).toBeUndefined();
+});

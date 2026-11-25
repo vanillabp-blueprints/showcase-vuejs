@@ -47,6 +47,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   // the user tasks the lists answer, as a workflow module reported them, and the requests of the lists
   let userTasks: UserTask[] = [];
   let listsFail = false;
+  // the text of the 400 a sorted request is answered with, as the server does for a sort it refuses (SRCH-034)
+  let sortRefusal: string | undefined;
   let listRequests: { path: string; body: Record<string, unknown>; initialTimestamp?: string; serverTimestamp?: string }[] = [];
   let suggestionRequests: { query: string; path?: string; at: number }[] = [];
   // the settings of each user, as the cockpit keeps them in customSettings, and the requests which touched them
@@ -207,6 +209,10 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       if (!user) return send(res, 401);
       if (listsFail) return send(res, 500);
       const body = await readBody(req);
+      if (sortRefusal && body.sort) {
+        res.writeHead(400, { 'content-type': 'text/plain' });
+        return res.end(sortRefusal);
+      }
       const initialTimestamp = url.searchParams.get('initialTimestamp') ?? undefined;
       const serverTimestamp = initialTimestamp ?? new Date().toISOString();
       listRequests.push({ path, body, initialTimestamp, serverTimestamp });
@@ -313,6 +319,10 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     }
     if (path === '/simulator-api/fail-lists' && method === 'POST') {
       listsFail = Boolean((await readBody(req)).fail);
+      return send(res, 200);
+    }
+    if (path === '/simulator-api/refuse-sort' && method === 'POST') {
+      sortRefusal = ((await readBody(req)).text as string | undefined) || undefined;
       return send(res, 200);
     }
     if (path === '/simulator-api/list-requests') return send(res, 200, listRequests);
@@ -468,6 +478,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       listRequests = [];
       suggestionRequests = [];
       listsFail = false;
+      sortRefusal = undefined;
       settingsOfUsers = new Map();
       settingRequests = [];
       savedAddress = undefined;

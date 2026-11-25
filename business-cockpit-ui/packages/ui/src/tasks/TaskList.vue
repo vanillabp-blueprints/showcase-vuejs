@@ -39,6 +39,8 @@ const tasks = ref<UserTask[]>([]);
 const startedAt = ref<string>();
 const sort = ref<Sort>();
 const failed = ref(false);
+// the text of a sort the server refused with 400, shown as it is (SRCH-034)
+const refusedSort = ref<string>();
 const filter = ref<PrimaryFilter>(defaultPrimaryFilter);
 const counts = reactive<Partial<Record<PrimaryFilter, number>>>({});
 
@@ -102,6 +104,7 @@ async function askCounts(filters: PrimaryFilter[]): Promise<void> {
 
 async function load(startAgain = false): Promise<void> {
   if (startAgain) startedAt.value = undefined;
+  refusedSort.value = undefined;
   try {
     const sorted = sort.value ? { sort: sortPathOf(sort.value.column, language.value), sortAscending: sort.value.ascending } : {};
     const answer = await new OfficialTasklistApi().getUserTasks(
@@ -113,7 +116,14 @@ async function load(startAgain = false): Promise<void> {
     if (filter.value !== countedOnMouseOver || counts[countedOnMouseOver] !== undefined) counts[filter.value] = answer.page.totalElements;
     tasks.value = answer.userTasks;
     failed.value = false;
-  } catch {
+  } catch (error) {
+    if (sort.value && error instanceof FailedCall && error.status === 400 && error.answer) {
+      // the list falls back to its default order, and no column carries the sort mark
+      sort.value = undefined;
+      await load(true);
+      refusedSort.value = error.answer;
+      return;
+    }
     // no rows, the toolbar stays, and the toast says it without a status code (TL-033)
     tasks.value = [];
     failed.value = true;
@@ -445,7 +455,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       </v-card-actions>
     </v-card>
   </v-dialog>
-  <v-snackbar :model-value="failed" data-testid="list-toast" timeout="-1" color="error">{{ text().listNotLoaded }}</v-snackbar>
+  <v-snackbar :model-value="failed || refusedSort !== undefined" data-testid="list-toast" timeout="-1" color="error">{{ refusedSort ?? text().listNotLoaded }}</v-snackbar>
 </template>
 
 <style scoped>
