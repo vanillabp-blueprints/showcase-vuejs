@@ -31,3 +31,11 @@ Date: 2026-11-25
 Default taken: `com.acme:business-cockpit-ui` is a dependency of `application` with scope `test`, so the runnable jar embeds no user interface (`Q-HOSTING` is `behind`) while PKG-003 to PKG-005 (applies: always) are proven.
 Why this default: project.md says `behind` needs no UI jar; the checklist says the UI jar items always apply.
 Answer: open
+
+## ASK-005 Who proves that index.html is sent with no-cache?
+
+Story: S06 (PKG-059)
+Date: 2026-11-25
+Default taken: S06 proves the bundle layout (index.html at the root, all else below `/assets/`). The header `Cache-Control: no-cache` is set by the nginx configuration, so it is proven where the nginx image is built (PKG-012, PKG-025), not in S06.
+Why this default: with `Q-HOSTING` `behind` the backend serves no file itself and no nginx image exists yet.
+Answer: open

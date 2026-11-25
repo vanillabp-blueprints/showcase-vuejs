@@ -1,0 +1,4 @@
+# The dev server of the user interface (npm run dev in the UI repository). 127.0.0.1, not
+# localhost: Java tries IPv4 first, and Vite may listen on ::1 only.
+user-interface:
+  uri: http://127.0.0.1:5173

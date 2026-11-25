@@ -139,6 +139,12 @@ class ApplicationStartTest {
     assertThat(response.body()).containsIgnoringCase("<div id=\"app\"");
   }
 
+  @Test
+  @DisplayName("BE-031 without the profile ui-dev-server the backend has no route to a dev server")
+  void BE_031_without_the_profile_ui_dev_server_the_backend_has_no_route_to_a_dev_server() {
+    assertThat(context.containsBean("userInterfaceRoute")).isFalse();
+  }
+
   private HttpResponse<String> get(final String path, final String credentials) throws Exception {
     final var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path));
     if (credentials != null) {
