@@ -65,3 +65,21 @@ Why this default: installing a second browser and a second Playwright project is
 Answer: open
 
 Update S29 (SRCH-032): two suspects are ruled out. A real row and a placeholder row are exactly 46 px (test SRCH-032), and with 1,000,000 pretended entries `scrollHeight` stays at 4,600,138 px (92 px head + 100,000 rows + notice row) over six jumps from 20 % to 95 %, with the two spacers adding up each time. The jump does not reproduce the stop; only a long wheel scroll did. Still open: the cause. Next idea: log `scrollHeight` and `scrollTop` after every wheel event of a 10 second wheel scroll.
+
+## ASK-009 Rows still have tools of their own, though a row should have only three
+
+Story: S30 (TL-029)
+Date: 2026-11-25
+Default taken: the row tools of S21 and S22 (mark read/unread, follow-up) stay, with their tests, and the toolbar adds the same actions for the selection. Propose and note stay in the row as well (candidate cell, note cell).
+Why this default: behaviour.md says a row has only claim, remove candidate and note; removing the row tools would rewrite tests of two finished stories and is outside S30.
+Answer: open
+
+## ASK-010 Bulk claim over a task held by a colleague
+
+Story: S30 (ACT-018, ACT-012)
+Date: 2026-11-25
+Default taken: after the ended/suspended question, a bulk claim asks one more question ("Some of the selected tasks are held by colleagues. Claim them anyway?") when a selected task has another assignee; the single claim question names the holder, this one cannot.
+Why this default: ACT-012 says claiming asks first every time; the checklist gives no wording for several tasks.
+Answer: open
+
+Update ASK-007 (S30, TL-031): switching lists is a page load, so the test of TL-031 passes through the reload; `open()` drops the selection too, but no test can fail on it.

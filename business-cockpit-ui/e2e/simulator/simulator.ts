@@ -49,6 +49,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let listsFail = false;
   // the text of the 400 a sorted request is answered with, as the server does for a sort it refuses (SRCH-034)
   let sortRefusal: string | undefined;
+  // what the bulk calls and the single calls of the tools asked, in order
+  let bulkRequests: { action: string; ids: string[]; query: Record<string, string>; body: Record<string, unknown> }[] = [];
   let listRequests: { path: string; body: Record<string, unknown>; initialTimestamp?: string; serverTimestamp?: string }[] = [];
   let suggestionRequests: { query: string; path?: string; at: number }[] = [];
   // the settings of each user, as the cockpit keeps them in customSettings, and the requests which touched them
@@ -259,7 +261,9 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       const found = userTasks.find((candidate) => candidate.id === decodeURIComponent(followUp[1]!));
       if (!found) return send(res, 404);
       if (found.endedAt) return send(res, 409);
-      const timestamp = (await readBody(req)).timestamp as string | undefined;
+      const body = await readBody(req);
+      bulkRequests.push({ action: 'follow-up-date', ids: [found.id], query: {}, body });
+      const timestamp = body.timestamp as string | undefined;
       found.followUpDate = timestamp ?? undefined;
       return send(res, 200, found);
     }
@@ -272,6 +276,41 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       found.read = url.searchParams.get('unread') !== 'true';
       return send(res, 200);
     }
+    // The same actions for a list of ids, like PATCH /usertask/claim of the cockpit: all or none, 409 when one task may not be changed.
+    const bulk = /^\/gui\/api\/v1(?:\/current-user)?\/usertask\/(claim|assign|mark-as-read|note)$/.exec(path);
+    if (bulk && method === 'PATCH') {
+      const user = userOf(req);
+      if (!user) return send(res, 401);
+      const body = await readBody(req);
+      const ids = (body.userTaskIds ?? []) as string[];
+      if (ids.length > 1000) return send(res, 400);
+      const action = bulk[1]!;
+      bulkRequests.push({ action, ids, query: Object.fromEntries(url.searchParams), body });
+      const found = ids.map((id) => userTasks.find((candidate) => candidate.id === id));
+      if (found.some((task) => !task)) return send(res, 404);
+      const tasks = found as UserTask[];
+      const refused = (task: UserTask) =>
+        action === 'mark-as-read' ? false : action === 'note' ? Boolean(task.endedAt) : Boolean(task.endedAt || task.suspendedAt);
+      if (tasks.some(refused)) return send(res, 409);
+      const person = (id: string): Person => {
+        const { name, email } = users.find((candidate) => candidate.id === id)!;
+        return { id, display: name, displayShort: name.split(' ')[0], email };
+      };
+      const unclaim = url.searchParams.get('unclaim') === 'true';
+      const userId = url.searchParams.get('userId') ?? '';
+      if (action === 'assign' && !users.some((candidate) => candidate.id === userId)) return send(res, 400);
+      for (const task of tasks) {
+        if (action === 'mark-as-read') task.read = url.searchParams.get('unread') !== 'true';
+        else if (action === 'note') task.note = (body.text as string | undefined) || undefined;
+        else if (action === 'claim') task.assignee = unclaim ? undefined : person(user.id);
+        else {
+          const others = (task.candidateUsers ?? []).filter((candidate) => candidate.id !== userId);
+          task.candidateUsers = url.searchParams.get('unassign') === 'true' ? others : [...others, person(userId)];
+        }
+      }
+      return send(res, 200);
+    }
+    if (path === '/simulator-api/bulk-requests') return send(res, 200, bulkRequests);
     // Claim or give back (?unclaim=true), assign or unassign (?userId=) and the note of one task, like the cockpit does it.
     const taskAction = /^\/gui\/api\/v1(?:\/current-user)?\/usertask\/([^/]+)\/(claim|assign|note)$/.exec(path);
     if (taskAction && method === 'PATCH') {
@@ -498,6 +537,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       countRequests = [];
       userTasks = [];
       listRequests = [];
+      bulkRequests = [];
       suggestionRequests = [];
       listsFail = false;
       sortRefusal = undefined;

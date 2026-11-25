@@ -45,6 +45,7 @@ onBeforeUnmount(() => clearTimeout(timer));
 <template>
   <!-- the toolbar of the list (TL-029): the search stands after the tools and takes the rest of the width (SRCH-033) -->
   <div class="search-bar" data-testid="toolbar">
+    <slot />
     <div class="search-field">
       <input
         v-model="draft"
@@ -71,9 +72,9 @@ onBeforeUnmount(() => clearTimeout(timer));
 </template>
 
 <style scoped>
-.search-bar { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 16px; margin: 0 16px; }
-.search-field { position: relative; flex: 1; display: flex; align-items: center; }
-.search-input { flex: 1; border: 1px solid #9e9e9e; border-radius: 4px; padding: 6px 8px; background: rgba(255, 255, 255, 0.85); color: #212121; }
+.search-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; margin: 0 16px; }
+.search-field { position: relative; flex: 1 1 160px; min-width: 0; display: flex; align-items: center; }
+.search-input { flex: 1; min-width: 0; width: 100%; border: 1px solid #9e9e9e; border-radius: 4px; padding: 6px 8px; background: rgba(255, 255, 255, 0.85); color: #212121; }
 .suggestions { position: absolute; z-index: 6; top: 100%; left: 0; right: 0; max-height: 400px; overflow-y: auto; background: #fff; color: #212121; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
 .suggestion { display: block; width: 100%; padding: 6px 8px; text-align: left; }
 .suggestion:hover { background: #eeeeee; }

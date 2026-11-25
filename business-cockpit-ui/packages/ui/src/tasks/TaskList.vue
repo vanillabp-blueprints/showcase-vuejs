@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { VBtn, VCard, VCardActions, VCardText, VDialog, VIcon, VProgressLinear, VSnackbar, VTable, VTooltip } from 'vuetify/components';
-import { mdiAccount, mdiAccountMultiple, mdiArrowDown, mdiArrowUp, mdiCalendarClock, mdiClose, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
+import { mdiAccount, mdiAccountMultiple, mdiAccountArrowRight, mdiAccountCheckOutline, mdiArrowDown, mdiArrowUp, mdiCalendarClock, mdiClose, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
 import { FailedCall, updateStreamUrl } from '../api/clients';
 import { guiApiBasePath, myTasksBasePath } from '../config';
@@ -18,6 +18,7 @@ import SearchBar from './SearchBar.vue';
 import { fullText, searchQueriesOf, type Suggestion } from './search';
 import { isSortable, nextSort, sortPathOf, sortsByLanguage, type Sort } from './sorting';
 import { drawnAround, listLength, pageOf, pageSize, pagesOfRows, rowHeight, scrollPauseMs, visibleRows, windowPages } from './paging';
+import { asksBeforeLeavingOut, chunksOf, hasTasksToLeaveOut, heldByOthers, targetsOf, type BulkAction } from './selection';
 import { maxListEntries } from './maxListEntries';
 import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsEnded, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
@@ -122,6 +123,24 @@ async function suggest(query: string): Promise<Suggestion[]> {
   }
 }
 
+// the selection is a set of ids; it keeps the task as the user saw it, so rows outside the window can still be acted on (TL-011)
+const selected = shallowRef(new Map<string, UserTask>());
+const selectedTasks = computed(() => [...selected.value.values()]);
+function toggleSelected(task: UserTask, on: boolean): void {
+  const next = new Map(selected.value);
+  if (on) next.set(task.id, task);
+  else next.delete(task.id);
+  selected.value = next;
+}
+function refreshSelected(rows: UserTask[]): void {
+  if (selected.value.size === 0) return;
+  const changed = rows.filter((row) => selected.value.has(row.id));
+  if (changed.length === 0) return;
+  const next = new Map(selected.value);
+  for (const row of changed) next.set(row.id, row);
+  selected.value = next;
+}
+
 const baseUrl = (): string => (props.own ? myTasksBasePath : guiApiBasePath);
 // each list keeps the primary filter its user chose last (TL-005)
 const filterSetting = (): string => settingKey('tasks', props.own ? 'own' : 'all', 'primaryFilter');
@@ -173,6 +192,7 @@ async function loadPage(pageNumber: number): Promise<void> {
     if (startedIn !== generation || !windowNumbers().includes(pageNumber)) return;
     total.value = answer.total;
     pages.value = new Map(pages.value).set(pageNumber, answer.rows);
+    refreshSelected(answer.rows);
   } catch {
     // a page which cannot be read stays a placeholder; the next scroll asks for it again
   } finally {
@@ -236,6 +256,7 @@ async function load(startAgain = false): Promise<void> {
     total.value = first.total;
     failed.value = false;
     pages.value = new Map([[firstNumber!, first.rows], ...others]);
+    for (const rows of [first.rows, ...others.map(([, other]) => other)]) refreshSelected(rows);
     await nextTick();
     measure();
     fillWindow();
@@ -260,6 +281,9 @@ async function open(): Promise<void> {
   const chosenLast = await settings.read(filterSetting());
   filter.value = isPrimaryFilter(chosenLast) ? chosenLast : defaultPrimaryFilter;
   delete counts[countedOnMouseOver];
+  // the rows of another list are other rows, so nothing stays selected (TL-031)
+  selected.value = new Map();
+  closeBulk();
   void askCounts(['OpenTasksWithoutFollowUp', 'OpenTasksWithFollowUp']);
   await load(true);
 }
@@ -396,11 +420,119 @@ async function setFollowUp(task: UserTask, day: string | undefined): Promise<voi
   ));
 }
 
+// the tools of the toolbar act on the selection (TL-019); a tool with nothing to act on is disabled (ACT-009)
+const noTarget = (action: BulkAction): boolean => targetsOf(action, selectedTasks.value).length === 0;
+const bulkOpen = ref<'propose' | 'note' | 'followUp'>();
+const bulkNote = ref('');
+const bulkDay = ref('');
+function closeBulk(): void {
+  bulkOpen.value = undefined;
+  proposals.value = [];
+  proposalsAsked.value = false;
+}
+function openBulk(tool: 'propose' | 'note' | 'followUp'): void {
+  const wasOpen = bulkOpen.value === tool;
+  closeBulk();
+  if (wasOpen) return;
+  bulkNote.value = '';
+  bulkDay.value = '';
+  bulkOpen.value = tool;
+}
+
+// a question waits for the answer of the user; yes goes on with the next question or the request (ACT-018)
+const question = ref<{ text: string; yes: () => void }>();
+function askThen(questions: string[], proceed: () => void): void {
+  const [first, ...rest] = questions;
+  if (first === undefined) return proceed();
+  question.value = { text: first, yes: () => askThen(rest, proceed) };
+}
+function answerQuestion(yes: boolean): void {
+  const asked = question.value;
+  question.value = undefined;
+  if (yes) asked?.yes();
+}
+
+// sends one action for the selection, without the tasks the action leaves out; ids go in requests of at most 1,000
+function bulk(action: BulkAction, send: (ids: string[]) => Promise<unknown>, groupSize?: number): void {
+  const all = selectedTasks.value;
+  const targets = targetsOf(action, all);
+  if (targets.length === 0) return;
+  const questions = [
+    ...(asksBeforeLeavingOut(action) && hasTasksToLeaveOut(action, all) ? [text().bulk.leaveOut[action as 'claim' | 'propose']] : []),
+    ...(action === 'claim' && heldByOthers(targets, props.currentUserId) ? [text().bulk.claimFromOthers] : []),
+  ];
+  const ids = targets.map((task) => task.id);
+  askThen(questions, () => void act(async () => {
+    for (const group of chunksOf(ids, groupSize)) await send(group);
+  }));
+}
+
+const bulkClaim = () => bulk('claim', (ids) => new OfficialTasklistApi().claimTasks({ userTaskIds: { userTaskIds: ids } }, { baseUrl: baseUrl() }));
+const bulkMarkAsRead = (unread: boolean) =>
+  bulk(unread ? 'markUnread' : 'markRead', (ids) => new OfficialTasklistApi().markTasksAsRead({ unread, userTaskIds: { userTaskIds: ids } }, { baseUrl: baseUrl() }));
+function bulkPropose(person: Person): void {
+  closeBulk();
+  bulk('propose', (ids) => new OfficialTasklistApi().assignTasks({ userId: person.id, userTaskIds: { userTaskIds: ids } }, { baseUrl: baseUrl() }));
+}
+function bulkSaveNote(): void {
+  const noteText = bulkNote.value;
+  closeBulk();
+  bulk('note', (ids) => new OfficialTasklistApi().setUserTasksNote({ userTasksNoteRequest: { userTaskIds: ids, text: noteText } }, { baseUrl: baseUrl() }));
+}
+// the GUI API has no list form for the follow-up date, so a few requests go out at once
+const requestsAtOnce = 20;
+function bulkSetFollowUp(day: string | undefined): void {
+  closeBulk();
+  bulk('followUp', (ids) => Promise.all(ids.map((userTaskId) => new OfficialTasklistApi().setFollowUpDate(
+    { userTaskId, followUpDateRequest: day ? { timestamp: startOfDay(day) } : {} },
+    { baseUrl: baseUrl() },
+  ))), requestsAtOnce);
+}
+
 const shortForm = (person: Person): string => person.displayShort ?? person.display ?? person.id;
 </script>
 
 <template>
-  <search-bar :applied="searches[fullText] ?? ''" :suggest="suggest" @apply="search(fullText, $event)" @reset="resetSearches" />
+  <search-bar :applied="searches[fullText] ?? ''" :suggest="suggest" @apply="search(fullText, $event)" @reset="resetSearches">
+    <!-- the tools (TL-029): always shown, the ones that act on the selection are disabled while nothing is selected -->
+    <div class="tools" data-testid="toolbar-tools" @keydown.esc="closeBulk">
+      <span class="selected-info"><span data-testid="selected-count">{{ selected.size }}</span> {{ text().bulk.selected }}</span>
+      <v-btn data-testid="tool-claim" size="small" variant="text" :icon="mdiAccountCheckOutline" :title="text().actions.claim" :aria-label="text().actions.claim" :disabled="noTarget('claim')" @click="bulkClaim"></v-btn>
+      <v-btn data-testid="tool-propose" size="small" variant="text" :icon="mdiAccountArrowRight" :title="text().actions.proposeTo" :aria-label="text().actions.proposeTo" :disabled="noTarget('propose')" @click="openBulk('propose')"></v-btn>
+      <v-btn data-testid="tool-mark-read" size="small" variant="text" :icon="mdiEmailOpenOutline" :title="text().actions.markRead" :aria-label="text().actions.markRead" :disabled="noTarget('markRead')" @click="bulkMarkAsRead(false)"></v-btn>
+      <v-btn data-testid="tool-mark-unread" size="small" variant="text" :icon="mdiEmailOutline" :title="text().actions.markUnread" :aria-label="text().actions.markUnread" :disabled="noTarget('markUnread')" @click="bulkMarkAsRead(true)"></v-btn>
+      <v-btn data-testid="tool-follow-up" size="small" variant="text" :icon="mdiCalendarClock" :title="text().actions.followUp" :aria-label="text().actions.followUp" :disabled="noTarget('followUp')" @click="openBulk('followUp')"></v-btn>
+      <v-btn data-testid="tool-note" size="small" variant="text" :icon="mdiNoteEditOutline" :title="text().actions.note" :aria-label="text().actions.note" :disabled="noTarget('note')" @click="openBulk('note')"></v-btn>
+      <div v-if="bulkOpen === 'propose'" class="over-list bulk-popup" data-testid="bulk-propose-popup">
+        <input
+          data-testid="bulk-propose-search"
+          class="propose-search"
+          type="search"
+          :placeholder="text().actions.proposeTo + ': ' + text().actions.searchPerson"
+          @input="searchPersons(($event.target as HTMLInputElement).value)"
+        />
+        <button v-for="person in proposals" :key="person.id" type="button" data-testid="bulk-propose-result" class="propose-result" @click="bulkPropose(person)">
+          {{ person.display ?? person.id }}
+        </button>
+        <div v-if="proposalsAsked && proposals.length === 0" data-testid="bulk-propose-none">{{ text().actions.noPerson }}</div>
+      </div>
+      <div v-if="bulkOpen === 'note'" class="over-list bulk-popup note-popup" data-testid="bulk-note-popup">
+        <textarea v-model="bulkNote" data-testid="bulk-note-input" rows="4" maxlength="10000" :aria-label="text().actions.note" />
+        <div>
+          <v-btn data-testid="bulk-note-save" size="small" @click="bulkSaveNote">{{ text().actions.save }}</v-btn>
+          <v-btn data-testid="bulk-note-cancel" size="small" variant="text" @click="closeBulk">{{ text().actions.cancel }}</v-btn>
+        </div>
+      </div>
+      <div v-if="bulkOpen === 'followUp'" class="over-list bulk-popup" data-testid="bulk-follow-up-popup">
+        <input v-model="bulkDay" type="date" data-testid="bulk-follow-up-input" :aria-label="text().actions.followUp" />
+        <div>
+          <v-btn data-testid="bulk-follow-up-save" size="small" :disabled="!bulkDay" @click="bulkSetFollowUp(bulkDay)">{{ text().actions.save }}</v-btn>
+          <v-btn data-testid="bulk-follow-up-delete" size="small" variant="text" @click="bulkSetFollowUp(undefined)">{{ text().actions.deleteFollowUp }}</v-btn>
+          <v-btn data-testid="bulk-follow-up-cancel" size="small" variant="text" @click="closeBulk">{{ text().actions.cancel }}</v-btn>
+        </div>
+      </div>
+    </div>
+  </search-bar>
   <v-progress-linear v-if="loadingFirst" data-testid="list-loading" indeterminate class="mx-4" style="width: auto" />
   <v-table
     ref="tableRef"
@@ -460,8 +592,16 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       <tr v-if="spaceAbove > 0" class="space" aria-hidden="true"><td :colspan="columns.length + 1" :style="{ height: `${spaceAbove}px` }" /></tr>
       <template v-for="{ key, task } in drawn" :key="key">
       <tr v-if="!task" data-testid="task-placeholder" class="task-row placeholder"><td :colspan="columns.length + 1" /></tr>
-      <tr v-else data-testid="task-row" :data-state="stateOf(task)" :class="['task-row', stateOf(task), { unread: !task.read }]">
-        <td data-testid="cell-id">{{ task.id }}</td>
+      <tr v-else data-testid="task-row" :data-task-id="task.id" :data-state="stateOf(task)" :class="['task-row', stateOf(task), { unread: !task.read }]">
+        <td data-testid="cell-id" class="select-cell">
+          <input
+            type="checkbox"
+            data-testid="select-row"
+            :aria-label="text().bulk.selectRow"
+            :checked="selected.has(task.id)"
+            @change="toggleSelected(task, ($event.target as HTMLInputElement).checked)"
+          />
+        </td>
         <td data-testid="cell-businessId">{{ task.businessId }}</td>
         <td data-testid="cell-caseKind">{{ pickTranslation(task.workflowTitle ?? {}, language) }}</td>
         <td data-testid="cell-title">
@@ -617,6 +757,15 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       </v-card-actions>
     </v-card>
   </v-dialog>
+  <v-dialog :model-value="Boolean(question)" max-width="420" @update:model-value="question = undefined">
+    <v-card data-testid="bulk-confirm">
+      <v-card-text>{{ question?.text }}</v-card-text>
+      <v-card-actions>
+        <v-btn data-testid="bulk-confirm-yes" @click="answerQuestion(true)">{{ text().actions.yes }}</v-btn>
+        <v-btn data-testid="bulk-confirm-no" variant="text" @click="answerQuestion(false)">{{ text().actions.no }}</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
   <v-snackbar :model-value="failed || refusedSort !== undefined" data-testid="list-toast" timeout="-1" color="error">{{ refusedSort ?? text().listNotLoaded }}</v-snackbar>
 </template>
 
@@ -651,6 +800,10 @@ th.sortable { cursor: pointer; user-select: none; }
 .tools-cell { right: 0; }
 .follow-up-popup { right: 0; left: auto; }
 .over-list { position: absolute; z-index: 5; top: 100%; left: 0; min-width: 240px; padding: 8px; text-align: left; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+.tools { position: relative; display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.selected-info { margin-right: 8px; white-space: nowrap; }
+.select-cell { width: 48px; text-align: center; }
+.bulk-popup { top: 100%; }
 .candidate-person { display: flex; align-items: center; justify-content: space-between; }
 .propose-search, .note-popup textarea { width: 100%; border: 1px solid #9e9e9e; padding: 4px; }
 .propose-result { display: block; width: 100%; padding: 4px; text-align: left; }

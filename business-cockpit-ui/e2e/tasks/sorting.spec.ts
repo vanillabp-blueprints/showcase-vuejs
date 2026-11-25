@@ -66,7 +66,7 @@ test('SRCH-008 an i18n column sorts by path and language, a person column by sor
   await page.mouse.click(700, 500);
   await expect.poll(async () => (await lastRequest(page)).body.sort).toBe('title.de');
   await expect(titles(page)).toHaveText(['Alpha', 'Zeta']);
-  await expect(page.getByTestId('cell-id').first()).toHaveText('t1');
+  await expect(page.getByTestId('cell-businessId').first()).toHaveText('B-t1');
   await header(page, 'assignee').click();
   expect(await lastRequest(page)).toMatchObject({ body: { sort: 'assignee.sort,assignee.id', sortAscending: true } });
   await expect(page.getByTestId('assignee-name')).toHaveText(['Anna Berger', 'Ben Adler']);

@@ -370,8 +370,8 @@ test('SRCH-022 a list with a million entries is 100,000 rows long in its sort, a
   expect(height).toBeLessThan(100_000 * rowHeight + 300);
   await toTheEnd(page);
   const lastRow = rows(page).last();
-  await expect(lastRow.getByTestId('cell-id')).toHaveText(/-4999$/);
-  await expect(page.getByTestId('cell-id').filter({ hasText: /-5000$/ })).toHaveCount(0);
+  await expect(lastRow).toHaveAttribute('data-task-id', /-4999$/);
+  await expect(page.locator('[data-task-id$="-5000"]')).toHaveCount(0);
   expect(Math.max(...asked.map((body) => body.pageNumber!))).toBe(4999);
   expect(asked.at(-1)).toMatchObject({ sort: 'id' });
 });
