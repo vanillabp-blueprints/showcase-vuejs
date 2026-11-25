@@ -78,6 +78,9 @@ const taskPageAreas = ['body', 'information', 'actions'];
 /** The task page is left; what was kept for its areas is dropped (TF-022). */
 export const leaveFormOf = (container: Element): void => host.leavePage(container);
 
+/** The task of the open page changed: the web components of its form get it again. */
+export const updateFormOf = (task: RowOfModule, container: Element): void => host.setData(container, USER_TASK_FORM, task);
+
 /**
  * Draws the form of the module of a task into `container`. Answers `unknown` when the cockpit cannot open the task,
  * else the areas drawn (none when the module names no form for it).

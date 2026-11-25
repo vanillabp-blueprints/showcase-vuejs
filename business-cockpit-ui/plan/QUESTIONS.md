@@ -167,3 +167,10 @@ Date: 2026-11-25
 Default taken: a list answers the question `{ question: 'list' }` on `bc-cockpit` with `{ list: true, visibility }`; the back button is on every task page (also one opened in the same page), and it never asks when the task has no assignee or another one. A tab which stays open after `window.close()` shows the hint after 100 ms. With no answer in 300 ms the tab loads the list of all tasks itself (a page load). TF-024: no case page exists yet, so only task titles, the menu and the toggle are tested. The cockpit and the simulator set no `Cross-Origin-Opener-Policy`; the backend was not touched, so whether it sets one is open. `window.open('', 'bc-list')` after the 300 ms wait may be refused by a popup blocker, the focus of an opener is the safe path.
 Answer: open
 
+## ASK-025 Task page barrier: what S48 left open
+
+Story: S48 (TF-030, TF-031, TF-035, TF-038, TF-043, TF-044)
+Date: 2026-11-25
+Default taken: the barrier is a translucent note over the page which takes no pointer, so the areas beneath stay readable and scroll with wheel and touch; the web components under it are `inert` (their host elements), their areas are not. `Q-CLAIM` = hard is a constant in taskState.ts. Every update of the open task now gives `userTask` again to the web components (also after notes or follow-up), which closes the gap named in ASK-021. A suspended task wins over the claim in the note. The touch is tested by the pointer-events value of the barrier, not by a real touch gesture. The backend and simulator needed no change. TF-036 (informal claiming) is not built.
+Answer: open
+

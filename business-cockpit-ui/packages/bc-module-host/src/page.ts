@@ -24,6 +24,7 @@ export function createPage() {
   return {
     register(area: string, element: HTMLElement) { areas.set(area, element); areaOf.set(element, area); },
     areaOf: (element: HTMLElement): string | undefined => areaOf.get(element),
+    elements: (): HTMLElement[] => [...areas.values()],
     send(element: HTMLElement, target: string, message: unknown) {
       if (!areas.has(target)) throw new ActionFailed(ERROR_CODES.NO_TARGET, `the page has no web component for the area ${target}`);
       const from = areaOf.get(element) ?? '';

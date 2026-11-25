@@ -16,6 +16,7 @@ const de: Messages = {
   listNotLoaded: "Die Liste konnte nicht geladen werden",
   cannotOpenHere: "Diese Aufgabe kann hier nicht geöffnet werden.",
   backToList: { button: "Zurück zur Liste", ask: "Eingaben können verloren gehen. Die Aufgabe verlassen?", inOtherTab: "Die Liste ist in einem anderen Tab oder Fenster." },
+  taskBarrier: { suspended: "Die Aufgabe ist angehalten. Das Formular wartet, bis sie wieder aktiviert wird.", claim: "Übernehmen Sie die Aufgabe, um daran zu arbeiten." },
   taskNotLoaded: "Die Aufgabe konnte nicht geladen werden.",
   columnsNotLoaded: "Nicht geladen",
   columnNeedsType: "Diese Spalte braucht einen Typ.",

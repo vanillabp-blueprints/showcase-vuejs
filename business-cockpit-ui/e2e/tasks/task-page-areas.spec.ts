@@ -3,6 +3,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 type SimulatedTask = Record<string, unknown>;
 
+const anna = { id: 'anna', display: 'Anna Sales', displayShort: 'Anna', email: 'anna@acme.example' };
+
 const task = (id: string, extra: SimulatedTask = {}): SimulatedTask => ({
   bpmnProcessId: 'areas',
   id,
@@ -56,7 +58,7 @@ test('TF-008 long and wide content of a task scrolls in its own area, the applic
 });
 
 test('TF-016 a message sent from one area of the page reaches the handler of the named area', async ({ page }) => {
-  await seed(page, [task('t1')]);
+  await seed(page, [task('t1', { assignee: anna })]);
   await page.goto('/tasks/t1');
   await expect(page.getByTestId('react-actions')).toBeVisible();
   await page.getByTestId('listen').click();
@@ -67,7 +69,7 @@ test('TF-016 a message sent from one area of the page reaches the handler of the
 });
 
 test('TF-022 a message sent before the area listened reaches it once it listens, none after unsubscribe', async ({ page }) => {
-  await seed(page, [task('t1')]);
+  await seed(page, [task('t1', { assignee: anna })]);
   await page.goto('/tasks/t1');
   await expect(page.getByTestId('react-actions')).toBeVisible();
   await page.getByTestId('send-to-actions').click();
@@ -82,7 +84,7 @@ test('TF-022 a message sent before the area listened reaches it once it listens,
 });
 
 test('TF-022 the messages kept for an area are not delivered on a new page of the task', async ({ page }) => {
-  await seed(page, [task('t1'), task('t2')]);
+  await seed(page, [task('t1', { assignee: anna }), task('t2', { assignee: anna })]);
   await page.goto('/tasks/t1');
   await expect(page.getByTestId('react-actions')).toBeVisible();
   await page.getByTestId('send-to-actions').click();

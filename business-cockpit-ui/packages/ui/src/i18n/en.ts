@@ -16,6 +16,7 @@ const en = {
   listNotLoaded: "The list could not be loaded",
   cannotOpenHere: "This task cannot be opened here.",
   backToList: { button: "Back to the list", ask: "Input may be lost. Leave the task?", inOtherTab: "The list is in another tab or window." },
+  taskBarrier: { suspended: "The task is suspended. The form waits until it is activated again.", claim: "Claim the task to work on it." },
   taskNotLoaded: "The task could not be loaded.",
   columnsNotLoaded: "Not loaded",
   columnNeedsType: "This column needs a type.",

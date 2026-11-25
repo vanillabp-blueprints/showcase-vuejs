@@ -338,6 +338,10 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
       }
       return drawn;
     },
+    /** The task or case of the page drawn into `container` changed (TF-031, TF-044): every web component of the page gets it again. */
+    setData(container: Element, entry: DataEntry, data: unknown): void {
+      pages.get(container)?.elements().forEach((element) => Object.assign(element, { [dataNameOf(entry)]: data }));
+    },
     /** The page drawn into `container` is left (TF-022): the messages kept for its areas are dropped. */
     leavePage(container: Element): void { pages.get(container)?.leave(); pages.delete(container); },
     /** Asks the entry once for each area (the areas of the interview, or `all`) and draws what is answered. */

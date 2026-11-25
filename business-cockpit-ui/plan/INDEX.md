@@ -54,7 +54,7 @@ Started: 2026-11-25
 | S45 | A clerk opens a task and works on it in the form of the module (3 of 4) | done | TF-025, TF-026, TF-027, TF-029, TF-039, TF-040 | `sh plan/checks/S45.sh` |
 | S46 | A clerk opens a task and works on it in the form of the module (4 of 4) | done | TF-041, TF-042 | `sh plan/checks/S46.sh` |
 | S47 | A clerk works on a task in a tab of its own and goes back to the list | done | TF-007, TF-017, TF-018, TF-024, TF-045 | `sh plan/checks/S47.sh` |
-| S48 | A clerk claims a task before working on it, and a suspended task waits | open | TF-030, TF-031, TF-035, TF-038, TF-043, TF-044 | `sh plan/checks/S48.sh` |
+| S48 | A clerk claims a task before working on it, and a suspended task waits | done | TF-030, TF-031, TF-035, TF-038, TF-043, TF-044 | `sh plan/checks/S48.sh` |
 | S49 | A clerk looks up a case in the case list (1 of 3) | open | NAV-003, WL-001, WL-002, WL-003, WL-004, WL-005 | `sh plan/checks/S49.sh` |
 | S50 | A clerk looks up a case in the case list (2 of 3) | open | WL-006, WL-007, WL-008, WL-009, WL-010, WL-012 | `sh plan/checks/S50.sh` |
 | S51 | A clerk looks up a case in the case list (3 of 3) | open | WL-013 | `sh plan/checks/S51.sh` |

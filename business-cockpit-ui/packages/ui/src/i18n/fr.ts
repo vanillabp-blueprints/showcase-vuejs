@@ -16,6 +16,7 @@ const fr: Messages = {
   listNotLoaded: "La liste n'a pas pu être chargée",
   cannotOpenHere: "Cette tâche ne peut pas être ouverte ici.",
   backToList: { button: "Retour à la liste", ask: "Des saisies peuvent être perdues. Quitter la tâche ?", inOtherTab: "La liste est dans un autre onglet ou une autre fenêtre." },
+  taskBarrier: { suspended: "La tâche est suspendue. Le formulaire attend sa réactivation.", claim: "Prenez la tâche pour y travailler." },
   taskNotLoaded: "La tâche n'a pas pu être chargée.",
   columnsNotLoaded: "Non chargé",
   columnNeedsType: "Cette colonne a besoin d'un type.",
