@@ -71,8 +71,8 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
     </v-navigation-drawer>
 
     <v-main>
-      <task-list v-if="page === 'allTasks'" :own="false" />
-      <task-list v-else-if="page === 'myTasks'" :own="true" />
+      <task-list v-if="page === 'allTasks'" :own="false" :current-user-id="user.id" />
+      <task-list v-else-if="page === 'myTasks'" :own="true" :current-user-id="user.id" />
     </v-main>
   </v-app>
 </template>
