@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { formatDate } from '../../packages/ui/src/i18n/format';
 
 type SimulatedTask = Record<string, unknown>;
 type ListRequest = { path: string; body: Record<string, unknown> };
@@ -180,4 +181,78 @@ test('COL-015 the fixed columns are always shown, also when the list has no rows
   await expect(page.getByTestId('no-tasks')).toBeVisible();
   await expect(page.locator('[data-testid^="column-header-"]')).toHaveCount(10);
   await expect(page.getByTestId('column-header-title')).toBeVisible();
+});
+
+test('COL-017 a list with more columns than the window has room for scrolls horizontally, and the header scrolls with it', async ({ page }) => {
+  await seed(page, threeTasks);
+  await page.setViewportSize({ width: 600, height: 700 });
+  await page.goto('/tasks');
+  await expect(page.getByTestId('task-row')).toHaveCount(3);
+  const scroller = page.locator('.v-table__wrapper');
+  const [scrollWidth, clientWidth] = await scroller.evaluate((element) => [element.scrollWidth, element.clientWidth]);
+  expect(scrollWidth).toBeGreaterThan(clientWidth);
+  const left = (testid: string) => page.getByTestId(testid).first().evaluate((element) => element.getBoundingClientRect().left);
+  const headerBefore = await left('column-header-endedAt');
+  const cellBefore = await left('cell-endedAt');
+  await scroller.evaluate((element) => { element.scrollLeft = 200; });
+  expect(await left('column-header-endedAt')).toBeLessThan(headerBefore);
+  expect(headerBefore - (await left('column-header-endedAt'))).toBeCloseTo(cellBefore - (await left('cell-endedAt')), 0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test('COL-018 the room for both scroll bars is reserved always, also while the list is empty', async ({ page }) => {
+  await page.goto('/tasks');
+  await expect(page.getByTestId('no-tasks')).toBeVisible();
+  const overflow = await page.locator('.v-table__wrapper').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return [style.overflowX, style.overflowY];
+  });
+  expect(overflow).toEqual(['scroll', 'scroll']);
+});
+
+test('COL-019 no date with a time shows the T of ISO 8601, it is the localised date, a space and the localised time', async ({ page }) => {
+  const day = new Date('2026-11-25T14:05:00Z');
+  expect(formatDate(day, 'en')).toBe(`${new Intl.DateTimeFormat('en', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(day)} ${new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' }).format(day)}`);
+  expect(formatDate(day, 'de')).not.toMatch(/T/);
+  expect(formatDate(day, 'en')).not.toMatch(/\dT\d/);
+  await seed(page, [task('t1', { dueDate: '2026-12-01T10:30:00Z', followUpDate: new Date().toISOString() })]);
+  await page.goto('/tasks');
+  await page.getByTestId('cell-dueDate').hover();
+  await expect(page.getByTestId('date-details').first()).toBeVisible();
+  expect(await page.locator('body').innerText()).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+});
+
+test('COL-021 each fixed column has the path of its field in the GUI API, and the list can be sorted and filtered by it without a 400', async ({ page }) => {
+  await seed(page, threeTasks);
+  await page.goto('/tasks');
+  await expect(page.getByTestId('task-row')).toHaveCount(3);
+  const paths = await page.locator('[data-testid^="column-header-"]').evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-path')));
+  expect(paths).toEqual(['id', 'businessId', 'workflowTitle', 'title', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt']);
+  for (const path of paths) {
+    const sorted = await page.request.post('/gui/api/v1/usertask', { data: { pageSize: 5, sort: path } });
+    expect(sorted.status(), `sort by ${path}`).toBe(200);
+    const filtered = await page.request.post('/gui/api/v1/usertask', { data: { pageSize: 5, filters: [{ key: path, value: 'x' }] } });
+    expect(filtered.status(), `filter by ${path}`).toBe(200);
+  }
+  expect((await page.request.post('/gui/api/v1/usertask', { data: { pageSize: 5, sort: 'taskDefinition' } })).status()).toBe(200);
+  expect((await page.request.post('/gui/api/v1/usertask', { data: { pageSize: 5, sort: 'no-such-field' } })).status()).toBe(400);
+});
+
+test('TL-033 a list whose request fails shows no rows, keeps its header, and shows a toast in the language of the user without a status code, the next load tries again', async ({ page }) => {
+  await seed(page, threeTasks);
+  await page.request.post('/simulator-api/fail-lists', { data: { fail: true } });
+  await page.goto('/tasks');
+  const toast = page.getByTestId('list-toast');
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText('The list could not be loaded');
+  await page.getByTestId('menu-button').click();
+  await page.getByTestId('language-de').click();
+  await expect(toast).toContainText('Die Liste konnte nicht geladen werden');
+  await expect(toast).not.toContainText(/50\d|4\d\d/);
+  await expect(page.getByTestId('task-row')).toHaveCount(0);
+  await expect(page.locator('[data-testid^="column-header-"]')).toHaveCount(10);
+  await expect(page.getByTestId('header')).toBeVisible();
+  await page.request.post('/simulator-api/fail-lists', { data: { fail: false } });
+  await page.goto('/tasks');
+  await expect(page.getByTestId('task-row')).toHaveCount(3);
 });

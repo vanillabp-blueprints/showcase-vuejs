@@ -18,6 +18,8 @@ type SimulatedModule = WorkflowModule & { accessibleToGroups: string[] };
 type SimulatedUser = { id: string; name: string; groups: string[]; email: string };
 type CountRequest = { path: string; mode?: string; keys: string[] };
 
+const userTaskFields = ['id', 'businessId', 'workflowTitle', 'title', 'taskDefinition', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt', 'createdAt', 'updatedAt'];
+
 const users: SimulatedUser[] = [
   { id: 'anna', name: 'Anna Sales', groups: ['sales'], email: 'anna@acme.example' },
   { id: 'ben', name: 'Ben Support', groups: ['support'], email: 'ben@acme.example' },
@@ -44,6 +46,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let countRequests: CountRequest[] = [];
   // the user tasks the lists answer, as a workflow module reported them, and the requests of the lists
   let userTasks: UserTask[] = [];
+  let listsFail = false;
   let listRequests: { path: string; body: Record<string, unknown> }[] = [];
   // the settings of each user, as the cockpit keeps them in customSettings, and the requests which touched them
   let settingsOfUsers = new Map<string, Map<string, unknown>>();
@@ -140,8 +143,12 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (list && method === 'POST') {
       const user = userOf(req);
       if (!user) return send(res, 401);
+      if (listsFail) return send(res, 500);
       const body = await readBody(req);
       listRequests.push({ path, body });
+      // sort and filter paths are fields of the list, else the cockpit answers 400
+      const paths = [...String(body.sort ?? '').split(',').filter(Boolean), ...((body.filters ?? []) as { key: string }[]).map((filter) => filter.key)];
+      if (paths.some((path) => !/^[A-Za-z0-9_]+(\.[A-Za-z0-9_-]+)*$/.test(path) || (!path.startsWith('details.') && !userTaskFields.includes(path.split('.')[0]!)))) return send(res, 400);
       const shown = userTasks.filter((task) => (list[1] ? task.assignee?.id === user.id : true));
       const size = Number(body.pageSize ?? 20);
       const number = Number(body.pageNumber ?? 0);
@@ -157,6 +164,10 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     }
     if (path === `${guiApiPath}/usertasks`) {
       return userOf(req) ? send(res, 200, { userTasks: [] }) : send(res, 401);
+    }
+    if (path === '/simulator-api/fail-lists' && method === 'POST') {
+      listsFail = Boolean((await readBody(req)).fail);
+      return send(res, 200);
     }
     if (path === '/simulator-api/list-requests') return send(res, 200, listRequests);
 
@@ -300,6 +311,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       countRequests = [];
       userTasks = [];
       listRequests = [];
+      listsFail = false;
       settingsOfUsers = new Map();
       settingRequests = [];
       savedAddress = undefined;

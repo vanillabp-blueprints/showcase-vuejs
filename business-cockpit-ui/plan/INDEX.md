@@ -22,7 +22,7 @@ Started: 2026-11-25
 | S14 | The settings of a user are kept on the server | done | SET-001, SET-002, SET-004, SET-005, SET-006 | `sh plan/checks/S14.sh` |
 | S15 | A clerk sees the tasks waiting for them (1 of 3) | done | BE-004, NAV-001, NAV-002, TL-008, TL-012, TL-013 | `sh plan/checks/S15.sh` |
 | S16 | A clerk sees the tasks waiting for them (2 of 3) | done | TL-015, TL-016, TL-018, TL-024, TL-032, COL-015 | `sh plan/checks/S16.sh` |
-| S17 | A clerk sees the tasks waiting for them (3 of 3) | open | COL-017, COL-018, COL-019, COL-021, BE-020, TL-033 | `sh plan/checks/S17.sh` |
+| S17 | A clerk sees the tasks waiting for them (3 of 3) | done | COL-017, COL-018, COL-019, COL-021, BE-020, TL-033 | `sh plan/checks/S17.sh` |
 | S18 | A clerk switches between open and closed tasks and sees the counts (1 of 2) | open | TL-001, TL-002, TL-003, TL-005, TL-006, TL-009 | `sh plan/checks/S18.sh` |
 | S19 | A clerk switches between open and closed tasks and sees the counts (2 of 2) | open | TL-010, TL-021, TL-028 | `sh plan/checks/S19.sh` |
 | S20 | A clerk sees which tasks are unread, ended or suspended | open | TL-007, TL-023 | `sh plan/checks/S20.sh` |

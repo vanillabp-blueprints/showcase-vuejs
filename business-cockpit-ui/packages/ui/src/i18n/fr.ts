@@ -10,6 +10,7 @@ const fr: Messages = {
   language: 'Langue',
   columns: { id: 'Id', businessId: 'ID métier', caseKind: 'Type de dossier', title: 'Titre', dueDate: 'Échéance', assignee: 'Responsable', candidateUsers: 'Candidats', note: 'Notes', followUpDate: 'Rappel', endedAt: 'Terminée' },
   noTasks: 'Aucune tâche',
+  listNotLoaded: "La liste n'a pas pu être chargée",
   routes: { allTasks: '/taches', myTasks: '/mes-taches', cases: '/dossiers', notifications: '/notifications', task: '/tache' },
 };
 

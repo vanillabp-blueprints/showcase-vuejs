@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { VIcon, VTable, VTooltip } from 'vuetify/components';
+import { VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
 import { mdiAccount, mdiAccountMultiple } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
 import { guiApiBasePath, myTasksBasePath } from '../config';
@@ -14,12 +14,26 @@ const props = defineProps<{ own: boolean; currentUserId: string }>();
 // the fixed columns of Q-TASK-COLUMNS, in the order of the interview
 const columns = ['id', 'businessId', 'caseKind', 'title', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt'] as const;
 
+// the path of the field of each column in the GUI API, which the list sorts and filters by (COL-021)
+const paths: Record<(typeof columns)[number], string> = {
+  id: 'id', businessId: 'businessId', caseKind: 'workflowTitle', title: 'title', dueDate: 'dueDate', assignee: 'assignee',
+  candidateUsers: 'candidateUsers', note: 'note', followUpDate: 'followUpDate', endedAt: 'endedAt',
+};
+
 const tasks = ref<UserTask[]>([]);
+const failed = ref(false);
 
 async function load(): Promise<void> {
   const baseUrl = props.own ? myTasksBasePath : guiApiBasePath;
-  const answer = await new OfficialTasklistApi().getUserTasks({ userTasksRequest: { pageSize: 20 } }, { baseUrl });
-  tasks.value = answer.userTasks;
+  try {
+    const answer = await new OfficialTasklistApi().getUserTasks({ userTasksRequest: { pageSize: 20 } }, { baseUrl });
+    tasks.value = answer.userTasks;
+    failed.value = false;
+  } catch {
+    // no rows, the toolbar stays, and the toast says it without a status code (TL-033)
+    tasks.value = [];
+    failed.value = true;
+  }
 }
 watch(() => props.own, load, { immediate: true });
 
@@ -30,13 +44,14 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 </script>
 
 <template>
-  <v-table data-testid="task-list" class="task-list ma-4">
+  <v-table data-testid="task-list" class="task-list ma-4" fixed-header height="calc(100vh - 96px)">
     <thead>
       <tr>
         <th
           v-for="column in columns"
           :key="column"
           :data-testid="`column-header-${column}`"
+          :data-path="paths[column]"
           :class="{ 'icon-cell': column === 'candidateUsers' }"
           :aria-label="column === 'candidateUsers' ? text().columns[column] : undefined"
         >
@@ -102,10 +117,14 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       </tr>
     </tbody>
   </v-table>
-  <p v-if="tasks.length === 0" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
+  <p v-if="tasks.length === 0 && !failed" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
+  <v-snackbar :model-value="failed" data-testid="list-toast" timeout="-1" color="error">{{ text().listNotLoaded }}</v-snackbar>
 </template>
 
 <style scoped>
+/* both scroll bars are always there, so the list does not draw itself again when one appears (COL-018) */
+.task-list :deep(.v-table__wrapper) { overflow: scroll; }
+.task-list :deep(table) { min-width: 1100px; }
 /* white, partly transparent, so the background shows through, blurred where the browser can (TL-032) */
 .task-list { background-color: rgba(255, 255, 255, 0.85); color: #212121; backdrop-filter: blur(8px); }
 .bar-slot { display: inline-block; width: 6px; margin-right: 6px; height: 1.2em; vertical-align: middle; }

@@ -10,6 +10,7 @@ const en = {
   language: 'Language',
   columns: { id: 'Id', businessId: 'Business ID', caseKind: 'Case kind', title: 'Title', dueDate: 'Due', assignee: 'Assignee', candidateUsers: 'Candidate users', note: 'Notes', followUpDate: 'Follow-up', endedAt: 'Ended' },
   noTasks: 'No tasks',
+  listNotLoaded: "The list could not be loaded",
   routes: { allTasks: '/tasks', myTasks: '/my-tasks', cases: '/workflows', notifications: '/notifications', task: '/tasks' },
 };
 
