@@ -53,7 +53,7 @@ test('NAV-010 counts are asked again on open, on an update event once, and on re
   expect(opened.filter((r) => r.path === '/gui/api/v1/workflow/count').map((r) => r.mode)).toEqual(['InProgress']);
 
   // a primary filter chosen last in a list never changes what the toggle asks
-  await page.evaluate(() => localStorage.setItem('tasks.primaryFilter', 'ClosedTasksOnly'));
+  await page.request.put('/gui/api/v1/app/current-user/settings/bc:tasks:primaryFilter', { data: JSON.stringify('ClosedTasksOnly'), headers: { 'content-type': 'application/json' } });
 
   // one update event of the kind UserTask: one delivery, one new request per user task count, none for cases
   await request.post('/simulator-api/counts', { data: { myTasks: 4, allTasks: 8, cases: 5 } });

@@ -42,6 +42,9 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let namesOfCurrentUser: { display?: string | null; displayShort?: string | null } = {};
   let counts = { myTasks: 0, allTasks: 0, cases: 0 };
   let countRequests: CountRequest[] = [];
+  // the settings of each user, as the cockpit keeps them in customSettings, and the requests which touched them
+  let settingsOfUsers = new Map<string, Map<string, unknown>>();
+  let settingRequests: { method: string; key: string; body?: unknown }[] = [];
   // the address a browser wanted before it was sent to the login, which the backend keeps
   let savedAddress: string | undefined;
 
@@ -93,6 +96,39 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       const displayShort = namesOfCurrentUser.displayShort === undefined ? user.name.split(' ')[0] : namesOfCurrentUser.displayShort ?? undefined;
       const body: User = { id: user.id, display, displayShort, email: user.email, groups: (groupsOfCurrentUser ?? user.groups).map((id) => ({ id })) };
       return send(res, 200, body);
+    }
+
+    // The settings of the user. The key holds letters, digits, - _ and : only, like the cockpit demands.
+    const setting = new RegExp(`^${guiApiPath}/app/current-user/settings/([^/]+)$`).exec(path);
+    if (setting) {
+      const user = userOf(req);
+      if (!user) return send(res, 401);
+      const key = decodeURIComponent(setting[1]!);
+      if (!/^[A-Za-z0-9_:-]{1,200}$/.test(key)) return send(res, 400);
+      const own = settingsOfUsers.get(user.id) ?? new Map<string, unknown>();
+      settingsOfUsers.set(user.id, own);
+      if (method === 'PUT') {
+        const text = Buffer.concat(await Array.fromAsync(req as AsyncIterable<Buffer>)).toString('utf8');
+        const body = text ? JSON.parse(text) : null;
+        if (body === null) return send(res, 400);
+        settingRequests.push({ method, key, body });
+        own.set(key, body);
+        return send(res, 200);
+      }
+      if (method === 'GET') {
+        settingRequests.push({ method, key });
+        return own.has(key) ? send(res, 200, own.get(key)) : send(res, 404);
+      }
+      if (method === 'DELETE') {
+        settingRequests.push({ method, key });
+        own.delete(key);
+        return send(res, 200);
+      }
+    }
+    if (path === '/simulator-api/setting-requests') return send(res, 200, settingRequests);
+    if (path === '/simulator-api/setting-requests/clear' && method === 'POST') {
+      settingRequests = [];
+      return send(res, 200);
     }
 
     // A list asks for a login, like the chain of the backend does.
@@ -238,6 +274,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       namesOfCurrentUser = {};
       counts = { myTasks: 0, allTasks: 0, cases: 0 };
       countRequests = [];
+      settingsOfUsers = new Map();
+      settingRequests = [];
       savedAddress = undefined;
       return send(res, 200);
     }
