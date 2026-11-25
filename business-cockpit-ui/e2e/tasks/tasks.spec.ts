@@ -59,7 +59,7 @@ test('TL-008 the fixed columns are the ones from the interview, in its order', a
   // TL-009: the follow-up column shows for All open only, TL-010: the ended column for Closed only
   await page.getByTestId('primary-filter-OpenTasksWithFollowUp').click();
   await expect(page.getByTestId('task-row')).toHaveCount(3);
-  const headers = page.locator('[data-testid^="column-header-"]');
+  const headers = page.locator('[data-testid^="column-header-"]:not([data-testid="column-header-tools"])');
   expect(await headers.evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-testid')))).toEqual([
     'column-header-id', 'column-header-businessId', 'column-header-caseKind', 'column-header-title', 'column-header-dueDate',
     'column-header-assignee', 'column-header-candidateUsers', 'column-header-note', 'column-header-followUpDate',
@@ -184,9 +184,9 @@ test('COL-015 the fixed columns are always shown, also when the list has no rows
   await page.goto('/tasks');
   await expect(page.getByTestId('no-tasks')).toBeVisible();
   // the follow-up column belongs to All open only (TL-009), the ended column to Closed only (TL-010), so the default primary filter has eight
-  await expect(page.locator('[data-testid^="column-header-"]')).toHaveCount(8);
+  await expect(page.locator('[data-testid^="column-header-"]:not([data-testid="column-header-tools"])')).toHaveCount(8);
   await page.getByTestId('primary-filter-OpenTasksWithFollowUp').click();
-  await expect(page.locator('[data-testid^="column-header-"]')).toHaveCount(9);
+  await expect(page.locator('[data-testid^="column-header-"]:not([data-testid="column-header-tools"])')).toHaveCount(9);
   await expect(page.getByTestId('column-header-title')).toBeVisible();
 });
 
@@ -234,7 +234,7 @@ test('COL-021 each fixed column has the path of its field in the GUI API, and th
   await page.goto('/tasks');
   await page.getByTestId('primary-filter-OpenTasksWithFollowUp').click();
   await expect(page.getByTestId('task-row')).toHaveCount(3);
-  const paths = await page.locator('[data-testid^="column-header-"]').evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-path')));
+  const paths = await page.locator('[data-testid^="column-header-"]:not([data-testid="column-header-tools"])').evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-path')));
   expect(paths).toEqual(['id', 'businessId', 'workflowTitle', 'title', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate']);
   await page.getByTestId('primary-filter-ClosedTasksOnly').click();
   await expect(page.getByTestId('column-header-endedAt')).toHaveAttribute('data-path', 'endedAt');
@@ -262,7 +262,7 @@ test('TL-033 a list whose request fails shows no rows, keeps its header, and sho
   await expect(toast).not.toContainText(/50\d|4\d\d/);
   await expect(page.getByTestId('task-row')).toHaveCount(0);
   // eight, because the follow-up column belongs to All open only (TL-009) and the ended column to Closed only (TL-010)
-  await expect(page.locator('[data-testid^="column-header-"]')).toHaveCount(8);
+  await expect(page.locator('[data-testid^="column-header-"]:not([data-testid="column-header-tools"])')).toHaveCount(8);
   await expect(page.getByTestId('header')).toBeVisible();
   await page.request.post('/simulator-api/fail-lists', { data: { fail: false } });
   await page.goto('/tasks');

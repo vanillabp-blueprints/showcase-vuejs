@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
-import { VBtn, VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { VBtn, VCard, VCardActions, VCardText, VDialog, VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
 import { mdiAccount, mdiAccountMultiple, mdiCalendarClock, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
+import { FailedCall, updateStreamUrl } from '../api/clients';
 import { guiApiBasePath, myTasksBasePath } from '../config';
 import { dateCellDetails, dateCellText } from '../i18n/format';
 import { language, text } from '../i18n/messages';
@@ -86,20 +87,54 @@ const dateAndDetails = (value?: string): { text: string; details: string } | und
 
 // the tools of a row (ACT-001, ACT-003, ACT-004, TL-025): each asks the server, then the list is read again so the row shows the answer
 const actionFailed = ref(false);
-async function act(call: () => Promise<unknown>): Promise<void> {
+type Failure = 'failed' | 'ended' | 'suspendedNow' | 'heldByOther';
+const failure = ref<Failure>('failed');
+// a 409 means the task ended or was suspended in the meantime (ACT-013), a 400 of unclaim that another user holds it (ACT-015);
+// the list is read again either way, and the reread row tells which of the two it was
+async function act(call: () => Promise<unknown>, about?: { task: UserTask; unclaim?: boolean }): Promise<void> {
+  let status: number | undefined;
   try {
     await call();
     actionFailed.value = false;
-  } catch {
+  } catch (error) {
+    status = error instanceof FailedCall ? error.status : undefined;
+    failure.value = 'failed';
     actionFailed.value = true;
   }
   await load();
+  if (!about || !actionFailed.value) return;
+  if (status === 409) {
+    const reread = tasks.value.find((candidate) => candidate.id === about.task.id);
+    failure.value = reread?.suspendedAt && !reread.endedAt ? 'suspendedNow' : 'ended';
+  } else if (status === 400 && about.unclaim) failure.value = 'heldByOther';
 }
 
 const claim = (task: UserTask, unclaim: boolean) =>
-  act(() => new OfficialTasklistApi().claimTask({ userTaskId: task.id, unclaim }, { baseUrl: baseUrl() }));
-// a task can be claimed while nobody holds it, and given back by the one who holds it
-const claimable = (task: UserTask): boolean => !task.assignee || task.assignee.id === props.currentUserId;
+  act(() => new OfficialTasklistApi().claimTask({ userTaskId: task.id, unclaim }, { baseUrl: baseUrl() }), { task, unclaim });
+// claiming takes a task out of a colleague's hands, so the user is asked first, every time (ACT-012)
+const claimAskedOf = ref<UserTask>();
+function claimClicked(task: UserTask, event: Event): void {
+  const box = event.target as HTMLInputElement;
+  if (task.assignee && task.assignee.id !== props.currentUserId) {
+    box.checked = false;
+    claimAskedOf.value = task;
+    return;
+  }
+  void claim(task, Boolean(task.assignee));
+}
+const holderName = computed(() => claimAskedOf.value?.assignee?.display ?? claimAskedOf.value?.assignee?.id ?? '');
+function answerClaimQuestion(yes: boolean): void {
+  const asked = claimAskedOf.value;
+  claimAskedOf.value = undefined;
+  if (yes && asked) void claim(asked, false);
+}
+// claim, unclaim, propose and remove candidate need a task that has not ended and is not suspended (ACT-009, ACT-016)
+const workedOn = (task: UserTask): boolean => Boolean(task.endedAt || task.suspendedAt);
+
+// an update of a task may show it activated again, so the rows are read again without a reload (ACT-017)
+const updates = new EventSource(updateStreamUrl());
+updates.addEventListener('UserTask', () => void load());
+onBeforeUnmount(() => updates.close());
 
 const candidatesOpenOf = ref<string>();
 const proposals = ref<Person[]>([]);
@@ -190,14 +225,13 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
         </td>
         <td data-testid="cell-assignee" class="assignee-cell">
           <input
-            v-if="claimable(task)"
             type="checkbox"
             class="claim-checkbox"
             data-testid="claim-checkbox"
             :aria-label="task.assignee ? text().actions.unclaim : text().actions.claim"
             :checked="Boolean(task.assignee)"
-            :disabled="Boolean(task.endedAt)"
-            @change="claim(task, Boolean(task.assignee))"
+            :disabled="workedOn(task)"
+            @change="claimClicked(task, $event)"
           />
           <template v-if="task.assignee">
             <span class="bar-slot"><span v-if="task.assignee.id === currentUserId" data-testid="claimed-bar" class="bar" /></span>
@@ -232,14 +266,14 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
                 size="x-small"
                 icon
                 :aria-label="text().actions.remove"
-                :disabled="Boolean(task.endedAt)"
+                :disabled="workedOn(task)"
                 @click="removeCandidate(task, person)"
               ><v-icon :icon="mdiDelete" /></v-btn>
             </div>
             <input
               data-testid="propose-search"
               class="propose-search"
-              :disabled="Boolean(task.endedAt)"
+              :disabled="workedOn(task)"
               type="search"
               :placeholder="text().actions.proposeTo + ': ' + text().actions.searchPerson"
               @input="searchPersons(($event.target as HTMLInputElement).value)"
@@ -318,7 +352,16 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
   </v-table>
   <p v-if="tasks.length === 0 && !failed" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
   <status-line :selected="filter" :counts="counts" @choose="choose" @ask-count="askCounts([$event])" />
-   <v-snackbar :model-value="actionFailed" data-testid="action-toast" timeout="4000" color="error" @update:model-value="actionFailed = false">{{ text().actions.failed }}</v-snackbar>
+   <v-snackbar :model-value="actionFailed" data-testid="action-toast" timeout="4000" color="error" @update:model-value="actionFailed = false">{{ text().actions[failure] }}</v-snackbar>
+  <v-dialog :model-value="Boolean(claimAskedOf)" max-width="420" @update:model-value="claimAskedOf = undefined">
+    <v-card data-testid="claim-confirm">
+      <v-card-text>{{ text().actions.claimFromOther.replace('{name}', holderName) }}</v-card-text>
+      <v-card-actions>
+        <v-btn data-testid="claim-confirm-yes" @click="answerClaimQuestion(true)">{{ text().actions.yes }}</v-btn>
+        <v-btn data-testid="claim-confirm-no" variant="text" @click="answerClaimQuestion(false)">{{ text().actions.no }}</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
   <v-snackbar :model-value="failed" data-testid="list-toast" timeout="-1" color="error">{{ text().listNotLoaded }}</v-snackbar>
 </template>
 

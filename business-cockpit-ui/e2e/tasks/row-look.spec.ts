@@ -72,5 +72,5 @@ test('TL-023 a task row looks as its state says; endedAt decides before suspende
   expect(await color('suspendedThenCancelled', 'cell-id')).toBe(normalText);
   expect(await strike('suspendedThenCancelled', 'task-title')).toContain('line-through');
   // no symbols (Q-STATE-MARKERS is none)
-  await expect(page.getByTestId('task-row').locator('.v-icon')).toHaveCount(0);
+  await expect(page.getByTestId('task-row').locator('td:not([data-testid="cell-tools"]):not([data-testid="cell-candidateUsers"]):not([data-testid="cell-note"]) .v-icon')).toHaveCount(0);
 });

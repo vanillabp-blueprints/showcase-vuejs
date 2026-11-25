@@ -197,7 +197,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       if (!user) return send(res, 401);
       const found = userTasks.find((candidate) => candidate.id === decodeURIComponent(taskAction[1]!));
       if (!found) return send(res, 404);
-      if (found.endedAt) return send(res, 409);
+      if (found.endedAt || found.suspendedAt) return send(res, 409);
       const person = (id: string): Person => {
         const { name, email } = users.find((candidate) => candidate.id === id)!;
         return { id, display: name, displayShort: name.split(' ')[0], email };

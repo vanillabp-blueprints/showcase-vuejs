@@ -9,7 +9,7 @@ const de: Messages = {
   logout: 'Abmelden',
   language: 'Sprache',
   columns: { id: 'Id', businessId: 'Geschäfts-ID', caseKind: 'Vorgangsart', title: 'Titel', dueDate: 'Fällig', assignee: 'Bearbeiter', candidateUsers: 'Kandidaten', note: 'Notizen', followUpDate: 'Wiedervorlage', endedAt: 'Beendet' },
-  actions: { markRead: 'Als gelesen markieren', markUnread: 'Als ungelesen markieren', followUp: 'Wiedervorlage', deleteFollowUp: 'Wiedervorlage löschen', tools: 'Werkzeuge', claim: 'Übernehmen', unclaim: 'Zurückgeben', remove: 'Entfernen', proposeTo: 'Vorschlagen an', searchPerson: 'Person suchen', noPerson: 'Keine Person gefunden', editNote: 'Notiz bearbeiten', note: 'Notiz', save: 'Speichern', cancel: 'Abbrechen', failed: 'Die Aktion ist fehlgeschlagen' },
+  actions: { markRead: 'Als gelesen markieren', markUnread: 'Als ungelesen markieren', followUp: 'Wiedervorlage', deleteFollowUp: 'Wiedervorlage löschen', tools: 'Werkzeuge', claim: 'Übernehmen', unclaim: 'Zurückgeben', remove: 'Entfernen', proposeTo: 'Vorschlagen an', searchPerson: 'Person suchen', noPerson: 'Keine Person gefunden', editNote: 'Notiz bearbeiten', note: 'Notiz', save: 'Speichern', cancel: 'Abbrechen', failed: 'Die Aktion ist fehlgeschlagen', claimFromOther: 'Diese Aufgabe übernehmen? Sie liegt bei {name}.', yes: 'Ja', no: 'Nein', ended: 'Die Aufgabe ist beendet', suspendedNow: 'Die Aufgabe wurde angehalten', heldByOther: 'Ein anderer Benutzer hat die Aufgabe' },
   noTasks: 'Keine Aufgaben',
   listNotLoaded: "Die Liste konnte nicht geladen werden",
   primaryFilter: 'Primärfilter',
