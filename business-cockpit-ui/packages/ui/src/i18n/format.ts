@@ -29,3 +29,17 @@ export const dateCellDetails = (value: Date, language: string): string => format
 
 /** A date with a time: the localised date, a space and the localised time, never the ISO 8601 form (COL-019). */
 export const formatDate = (value: Date, language: string): string => `${formatPart(value, language, 'date')} ${formatPart(value, language, 'time')}`;
+
+const secondsFormats = new Map<string, Intl.DateTimeFormat>();
+
+/** The time of a date with its seconds, for the mouse-over. */
+export function formatTimeWithSeconds(value: Date, language: string): string {
+  if (!secondsFormats.has(language)) secondsFormats.set(language, new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  return secondsFormats.get(language)!.format(value);
+}
+
+/** The localised date of a day. */
+export const formatDay = (value: Date, language: string): string => formatPart(value, language, 'date');
+
+/** The localised hour and minute. */
+export const formatHourAndMinute = (value: Date, language: string): string => formatPart(value, language, 'time');

@@ -1,4 +1,4 @@
-// COL-001, COL-003, COL-004, COL-005, COL-006, COL-007: the task list shows the columns the modules bring.
+// COL-001, COL-003 to COL-013: the task list shows the columns the modules bring.
 import { expect, test, type Page } from '@playwright/test';
 
 // A fake module: its list part gives each row the columns the row carries in `details.columns`.
@@ -147,4 +147,89 @@ test('COL-007 a boolean value cell shows Yes or No in the language of the user',
   await inGerman(page);
   await expect(page.locator('[data-task-id="t000"]').getByTestId('cell-module-details.ok')).toHaveText('Ja');
   await expect(page.locator('[data-task-id="t001"]').getByTestId('cell-module-details.ok')).toHaveText('Nein');
+});
+
+test.describe('typed cells', () => {
+  test.use({ timezoneId: 'UTC' });
+  const one = (page: Page, path: string) => page.getByTestId(`cell-module-${path}`);
+  const hover = async (page: Page, path: string) => { await one(page, path).hover(); return page.getByTestId('cell-details'); };
+
+  test('COL-008 an i18n cell shows the language of the user interface, else the default language', async ({ page }) => {
+    await fakeModule(page, 'colmod');
+    const columns = [column('details.text', 'Text', { type: 'i18n' })];
+    await seed(page, [
+      task(0, 'colmod', columns, { text: { en: 'Hello', de: 'Hallo' } }),
+      task(1, 'colmod', columns, { text: { en: 'Only English' } }),
+    ]);
+    await page.goto('/tasks');
+    await expect(page.getByTestId('task-row')).toHaveCount(2);
+    await expect(page.locator('[data-task-id="t000"]').getByTestId('cell-module-details.text')).toHaveText('Hello');
+    await inGerman(page);
+    await expect(page.locator('[data-task-id="t000"]').getByTestId('cell-module-details.text')).toHaveText('Hallo');
+    await expect(page.locator('[data-task-id="t001"]').getByTestId('cell-module-details.text')).toHaveText('Only English');
+  });
+
+  test('COL-009 a person cell shows displayShort, else email, else id, and on mouse-over display, id and email', async ({ page }) => {
+    await fakeModule(page, 'colmod');
+    const columns = [column('details.who', 'Who', { type: 'person' })];
+    await seed(page, [
+      task(0, 'colmod', columns, { who: { id: 'u1', display: 'Una Full', displayShort: 'UF', email: 'una@example.org' } }),
+      task(1, 'colmod', columns, { who: { id: 'u2', email: 'two@example.org' } }),
+      task(2, 'colmod', columns, { who: { id: 'u3' } }),
+    ]);
+    await page.goto('/tasks');
+    await expect(page.getByTestId('task-row')).toHaveCount(3);
+    const cell = (id: string) => page.locator(`[data-task-id="${id}"]`).getByTestId('cell-module-details.who');
+    await expect(cell('t000')).toHaveText('UF');
+    await expect(cell('t001')).toHaveText('two@example.org');
+    await expect(cell('t002')).toHaveText('u3');
+    await cell('t000').hover();
+    const details = page.getByTestId('cell-details').filter({ hasText: 'Una Full' });
+    await expect(details).toContainText('Una Full');
+    await expect(details).toContainText('u1');
+    await expect(details).toContainText('una@example.org');
+  });
+
+  test('COL-010 a date cell shows the localised date', async ({ page }) => {
+    await fakeModule(page, 'colmod');
+    await seed(page, [task(0, 'colmod', [column('details.day', 'Day', { type: 'date' })], { day: '2026-11-20' })]);
+    await page.goto('/tasks');
+    await expect(one(page, 'details.day')).toHaveText('11/20/2026');
+    await inGerman(page);
+    await expect(one(page, 'details.day')).toHaveText('20.11.2026');
+  });
+
+  test('COL-011 a date-time cell shows date, space, hour and minute, no T, and the seconds on mouse-over', async ({ page }) => {
+    await fakeModule(page, 'colmod');
+    await seed(page, [task(0, 'colmod', [column('details.at', 'At', { type: 'date-time' })], { at: '2026-11-20T14:05:42Z' })]);
+    await page.goto('/tasks');
+    await expect(one(page, 'details.at')).toHaveText('11/20/2026 02:05 PM');
+    await expect(one(page, 'details.at')).not.toContainText('T');
+    await expect(await hover(page, 'details.at')).toContainText('02:05:42');
+  });
+
+  test('COL-012 a time cell shows hour and minute, and the seconds on mouse-over if present', async ({ page }) => {
+    await fakeModule(page, 'colmod');
+    const columns = [column('details.at', 'At', { type: 'time' })];
+    await seed(page, [task(0, 'colmod', columns, { at: '14:05:42' }), task(1, 'colmod', columns, { at: '14:07' })]);
+    await page.goto('/tasks');
+    await expect(page.getByTestId('task-row')).toHaveCount(2);
+    const cell = (id: string) => page.locator(`[data-task-id="${id}"]`).getByTestId('cell-module-details.at');
+    await expect(cell('t000')).toHaveText('02:05 PM');
+    await expect(cell('t001')).toHaveText('02:07 PM');
+    await cell('t000').hover();
+    await expect(page.getByTestId('cell-details')).toContainText('02:05:42');
+    await page.mouse.move(0, 0);
+    await cell('t001').hover();
+    await expect(page.getByTestId('cell-details')).toBeHidden();
+  });
+
+  test('COL-013 a cell whose value is an object shows a short note, not [object Object]', async ({ page }) => {
+    await fakeModule(page, 'colmod');
+    await seed(page, [task(0, 'colmod', [column('details.thing', 'Thing')], { thing: { a: 1 } })]);
+    await page.goto('/tasks');
+    await expect(one(page, 'details.thing')).toBeVisible();
+    await expect(one(page, 'details.thing')).not.toContainText('[object Object]');
+    await expect(one(page, 'details.thing')).toHaveText('This column needs a type.');
+  });
 });

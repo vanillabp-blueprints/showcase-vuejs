@@ -1,5 +1,5 @@
 import type { Column } from '@acme/bc-types';
-import { formatDate, formatNumber } from '../i18n/format';
+import { formatDate, formatDay, formatHourAndMinute, formatNumber, formatTimeWithSeconds } from '../i18n/format';
 import { pickTranslation } from '../i18n/translatable';
 import type { ColumnsOfRow } from '../modules/modules';
 
@@ -24,6 +24,8 @@ export interface Cell {
   integer?: string;
   fraction?: string;
   align: 'left' | 'right';
+  /** What the mouse-over shows, if there is more to show. */
+  details?: string;
 }
 
 const empty: Cell = { kind: 'text', text: '', align: 'left' };
@@ -33,15 +35,34 @@ export function cellOf(row: unknown, column: Column, language: string, words: { 
   const value = valueAt(row, column.path);
   if (value === undefined || value === null) return empty;
   if (column.type === 'i18n') return { kind: 'text', text: pickTranslation(value as Record<string, string>, language), align: 'left' };
-  if (column.type === 'person') {
-    const person = value as { displayShort?: string; email?: string; id?: string };
-    return { kind: 'text', text: person.displayShort ?? person.email ?? person.id ?? '', align: 'left' };
+  if (column.type === 'person') return personCell(value as { id?: string; display?: string; displayShort?: string; email?: string });
+  if (column.type === 'date' && typeof value === 'string') return { kind: 'text', text: formatDay(dayOf(value), language), align: 'left' };
+  if (column.type === 'date-time' && typeof value === 'string') {
+    const moment = new Date(value);
+    return { kind: 'text', text: formatDate(moment, language), details: formatTimeWithSeconds(moment, language), align: 'left' };
   }
-  if (column.type === 'date-time' && typeof value === 'string') return { kind: 'text', text: formatDate(new Date(value), language), align: 'left' };
+  if (column.type === 'time' && typeof value === 'string') return timeCell(value, language);
   if (typeof value === 'object') return { kind: 'needs-a-type', text: '', align: 'left' };
   if (typeof value === 'boolean') return { kind: 'text', text: value ? words.yes : words.no, align: 'right' };
   if (typeof value === 'number') return numberCell(value, language);
   return { kind: 'text', text: String(value), align: 'left' };
+}
+
+/** A date without a time is a day, not a moment: it must not shift with the time zone. */
+const dayOf = (value: string): Date => {
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  return new Date(year!, month! - 1, day);
+};
+
+function personCell(person: { id?: string; display?: string; displayShort?: string; email?: string }): Cell {
+  const details = [person.display, person.id, person.email].filter(Boolean).join('\n');
+  return { kind: 'text', text: person.displayShort ?? person.email ?? person.id ?? '', details: details || undefined, align: 'left' };
+}
+
+function timeCell(value: string, language: string): Cell {
+  const [hours, minutes, seconds] = value.split(':').map(Number);
+  const moment = new Date(2000, 0, 1, hours ?? 0, minutes ?? 0, seconds ?? 0);
+  return { kind: 'text', text: formatHourAndMinute(moment, language), details: seconds === undefined ? undefined : formatTimeWithSeconds(moment, language), align: 'left' };
 }
 
 function numberCell(value: number, language: string): Cell {

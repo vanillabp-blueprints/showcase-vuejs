@@ -759,7 +759,12 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
           <template v-else-if="cellFor(task, column).kind === 'number'"
             >{{ cellFor(task, column).integer }}<span class="fraction" :style="{ width: `${fractionWidths[column.path]! + 1}ch` }"><span v-if="cellFor(task, column).fraction" class="mark">{{ cellFor(task, column).fraction!.slice(0, 1) }}</span>{{ cellFor(task, column).fraction!.slice(1) }}</span></template>
           <span v-else-if="cellFor(task, column).kind === 'needs-a-type'" class="cannot-open">{{ text().columnNeedsType }}</span>
-          <template v-else>{{ cellFor(task, column).text }}</template>
+          <template v-else>
+            {{ cellFor(task, column).text }}
+            <v-tooltip v-if="cellFor(task, column).details" activator="parent" location="bottom">
+              <span data-testid="cell-details" style="white-space: pre-line">{{ cellFor(task, column).details }}</span>
+            </v-tooltip>
+          </template>
         </td>
         <td data-testid="cell-tools" class="tools-cell">
           <v-btn
