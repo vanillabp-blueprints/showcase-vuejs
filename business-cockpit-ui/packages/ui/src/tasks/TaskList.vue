@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { VBtn, VCard, VCardActions, VCardText, VDialog, VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
-import { mdiAccount, mdiAccountMultiple, mdiCalendarClock, mdiClose, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
+import { mdiAccount, mdiAccountMultiple, mdiArrowDown, mdiArrowUp, mdiCalendarClock, mdiClose, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
 import { FailedCall, updateStreamUrl } from '../api/clients';
 import { guiApiBasePath, myTasksBasePath } from '../config';
@@ -15,6 +15,7 @@ import { dayOf, startOfDay } from './followUp';
 import StatusLine from './StatusLine.vue';
 import SearchBar from './SearchBar.vue';
 import { fullText, searchQueriesOf, type Suggestion } from './search';
+import { isSortable, nextSort, sortPathOf, sortsByLanguage, type Sort } from './sorting';
 import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsEnded, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
 const props = defineProps<{ own: boolean; currentUserId: string }>();
@@ -34,6 +35,9 @@ const paths: Record<(typeof allColumns)[number], string> = {
 };
 
 const tasks = ref<UserTask[]>([]);
+// the moment the user started to look at this list; a new sort, a new search and opening the list start it again (SRCH-027)
+const startedAt = ref<string>();
+const sort = ref<Sort>();
 const failed = ref(false);
 const filter = ref<PrimaryFilter>(defaultPrimaryFilter);
 const counts = reactive<Partial<Record<PrimaryFilter, number>>>({});
@@ -47,8 +51,20 @@ const filterable: (typeof allColumns)[number][] = ['id', 'businessId', 'caseKind
 function search(path: string, query: string): void {
   if (query === '') delete searches[path];
   else searches[path] = query;
-  void load();
+  void load(true);
 }
+// a click on a sortable header sorts by it, a second turns the direction, a third goes back to the default (SRCH-007)
+function sortBy(column: (typeof allColumns)[number]): void {
+  if (!isSortable(column)) return;
+  sort.value = nextSort(sort.value, column);
+  void load(true);
+}
+const sortMarkOf = (column: (typeof allColumns)[number]): 'asc' | 'desc' | undefined =>
+  sort.value?.column === column ? (sort.value.ascending ? 'asc' : 'desc') : undefined;
+// an i18n column sorts by the language the list shows, so a new language sorts again
+watch(language, () => {
+  if (sort.value && sortsByLanguage(sort.value.column)) void load(true);
+});
 const setColumnFilter = (column: (typeof allColumns)[number]) => search(paths[column], (columnDrafts[column] ?? '').trim());
 function clearColumnFilter(column: (typeof allColumns)[number]): void {
   columnDrafts[column] = '';
@@ -57,7 +73,7 @@ function clearColumnFilter(column: (typeof allColumns)[number]): void {
 function resetSearches(): void {
   for (const path of Object.keys(searches)) delete searches[path];
   for (const column of Object.keys(columnDrafts)) delete columnDrafts[column];
-  void load();
+  void load(true);
 }
 async function suggest(query: string): Promise<Suggestion[]> {
   const others = searchQueriesOf({ ...searches, [fullText]: '' });
@@ -84,9 +100,15 @@ async function askCounts(filters: PrimaryFilter[]): Promise<void> {
   }
 }
 
-async function load(): Promise<void> {
+async function load(startAgain = false): Promise<void> {
+  if (startAgain) startedAt.value = undefined;
   try {
-    const answer = await new OfficialTasklistApi().getUserTasks({ userTasksRequest: { pageSize: 20, mode: filter.value, searchQueries: searchQueriesOf(searches) } }, { baseUrl: baseUrl() });
+    const sorted = sort.value ? { sort: sortPathOf(sort.value.column, language.value), sortAscending: sort.value.ascending } : {};
+    const answer = await new OfficialTasklistApi().getUserTasks(
+      { initialTimestamp: startedAt.value, userTasksRequest: { pageSize: 20, mode: filter.value, searchQueries: searchQueriesOf(searches), ...sorted } },
+      { baseUrl: baseUrl() },
+    );
+    startedAt.value ??= answer.serverTimestamp;
     // the count of the chosen primary filter comes with the rows
     if (filter.value !== countedOnMouseOver || counts[countedOnMouseOver] !== undefined) counts[filter.value] = answer.page.totalElements;
     tasks.value = answer.userTasks;
@@ -103,7 +125,7 @@ async function open(): Promise<void> {
   filter.value = isPrimaryFilter(chosenLast) ? chosenLast : defaultPrimaryFilter;
   delete counts[countedOnMouseOver];
   void askCounts(['OpenTasksWithoutFollowUp', 'OpenTasksWithFollowUp']);
-  await load();
+  await load(true);
 }
 watch(() => props.own, open, { immediate: true });
 
@@ -231,11 +253,15 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
           :key="column"
           :data-testid="`column-header-${column}`"
           :data-path="paths[column]"
-          :class="{ 'icon-cell': column === 'candidateUsers' }"
+          :data-sortable="isSortable(column)"
+          :data-sort="sortMarkOf(column)"
+          @click="sortBy(column)"
+          :class="{ 'icon-cell': column === 'candidateUsers', sortable: isSortable(column) }"
           :aria-label="column === 'candidateUsers' ? text().columns[column] : undefined"
         >
           <v-icon v-if="column === 'candidateUsers'" data-testid="candidate-header-icon" :icon="mdiAccountMultiple" />
           <template v-else>{{ text().columns[column] }}</template>
+          <v-icon v-if="sortMarkOf(column)" data-testid="sort-mark" size="small" :icon="sortMarkOf(column) === 'asc' ? mdiArrowUp : mdiArrowDown" />
         </th>
         <th data-testid="column-header-tools" class="tools-header" :aria-label="text().actions.tools" />
       </tr>
@@ -423,6 +449,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 </template>
 
 <style scoped>
+th.sortable { cursor: pointer; user-select: none; }
 .filter-cell { position: sticky; top: 56px; z-index: 2; padding: 0 4px !important; height: 36px !important; }
 .column-filter { width: 100%; border: 1px solid #bdbdbd; border-radius: 4px; padding: 2px 24px 2px 6px; font-size: 0.85em; }
 .filter-cell .v-btn { position: absolute; right: 6px; top: 6px; }

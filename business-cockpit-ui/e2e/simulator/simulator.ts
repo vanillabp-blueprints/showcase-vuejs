@@ -47,7 +47,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   // the user tasks the lists answer, as a workflow module reported them, and the requests of the lists
   let userTasks: UserTask[] = [];
   let listsFail = false;
-  let listRequests: { path: string; body: Record<string, unknown> }[] = [];
+  let listRequests: { path: string; body: Record<string, unknown>; initialTimestamp?: string; serverTimestamp?: string }[] = [];
   let suggestionRequests: { query: string; path?: string; at: number }[] = [];
   // the settings of each user, as the cockpit keeps them in customSettings, and the requests which touched them
   let settingsOfUsers = new Map<string, Map<string, unknown>>();
@@ -105,6 +105,29 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   const matches = (task: UserTask, search: Query): boolean => {
     const value = valueAt(task, search.path);
     return search.caseInsensitive ? value.toLowerCase().includes(search.query.toLowerCase()) : value.includes(search.query);
+  };
+  // the value a sort path stands for: a person sorts by its name (the stored field `sort`) and its id
+  const sortValue = (task: UserTask, path: string): string => {
+    const [field, key] = [path.split('.')[0]!, path.split('.').slice(1).join('.')];
+    const value = (task as Record<string, unknown>)[field];
+    if (value && typeof value === 'object') {
+      const part = (value as Record<string, string | undefined>)[key === 'sort' ? 'display' : key];
+      return part ?? '';
+    }
+    return String(value ?? '');
+  };
+  // no sort keeps the order of the list
+  const sortedBy = (tasks: UserTask[], sort: string, ascending: boolean): UserTask[] => {
+    const paths = sort.split(',').filter(Boolean);
+    if (paths.length === 0) return tasks;
+    const compare = (a: UserTask, b: UserTask): number => {
+      for (const path of paths) {
+        const [left, right] = [sortValue(a, path), sortValue(b, path)];
+        if (left !== right) return left < right ? -1 : 1;
+      }
+      return 0;
+    };
+    return [...tasks].sort((a, b) => (ascending ? compare(a, b) : compare(b, a)));
   };
   // the words that contain the query with their counts: the most frequent first, then alphabetical, 21 at most
   const suggestionsFor = (tasks: UserTask[], query: string, path: string | undefined): { item: string; count: number }[] => {
@@ -184,7 +207,9 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       if (!user) return send(res, 401);
       if (listsFail) return send(res, 500);
       const body = await readBody(req);
-      listRequests.push({ path, body });
+      const initialTimestamp = url.searchParams.get('initialTimestamp') ?? undefined;
+      const serverTimestamp = initialTimestamp ?? new Date().toISOString();
+      listRequests.push({ path, body, initialTimestamp, serverTimestamp });
       // sort and filter paths are fields of the list, else the cockpit answers 400
       const searches = (body.searchQueries ?? []) as Query[];
       const paths = [
@@ -200,12 +225,13 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
         .filter((task) => (list[1] ? task.assignee?.id === user.id : true))
         .filter((task) => inMode(task, body.mode as string | undefined))
         .filter((task) => searches.every((search) => matches(task, search)));
+      const sorted = sortedBy(shown, String(body.sort ?? ''), body.sortAscending !== false);
       const size = Number(body.pageSize ?? 20);
       const number = Number(body.pageNumber ?? 0);
       return send(res, 200, {
-        serverTimestamp: new Date().toISOString(),
+        serverTimestamp,
         page: { totalElements: shown.length, totalPages: Math.ceil(shown.length / size), number, size },
-        userTasks: shown.slice(number * size, (number + 1) * size),
+        userTasks: sorted.slice(number * size, (number + 1) * size),
       });
     }
     // The suggestions of a search field, like OPTIONS /usertask: over open tasks, not over the primary filter.

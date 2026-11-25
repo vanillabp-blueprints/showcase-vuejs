@@ -43,7 +43,8 @@ onBeforeUnmount(() => clearTimeout(timer));
 </script>
 
 <template>
-  <div class="search-bar" data-testid="search-bar">
+  <!-- the toolbar of the list (TL-029): the search stands after the tools and takes the rest of the width (SRCH-033) -->
+  <div class="search-bar" data-testid="toolbar">
     <div class="search-field">
       <input
         v-model="draft"
