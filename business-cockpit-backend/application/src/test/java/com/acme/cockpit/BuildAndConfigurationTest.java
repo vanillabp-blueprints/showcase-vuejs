@@ -89,14 +89,53 @@ class BuildAndConfigurationTest {
   }
 
   @Test
-  @DisplayName("BE-002 application depends on the cockpit library and not on a ui jar")
-  void BE_002_application_depends_on_the_cockpit_library_and_not_on_a_ui_jar() {
+  @DisplayName("BE-002 application depends on the cockpit library and ships no ui jar")
+  void BE_002_application_depends_on_the_cockpit_library_and_ships_no_ui_jar() {
     final var dependencies = dependenciesOf(applicationPom);
 
     assertThat(dependencies).containsKey("business-cockpit");
     assertThat(dependencies.get("business-cockpit")).isNull();
-    // The interview says the user interface runs behind its own nginx, so no UI jar is embedded.
-    assertThat(dependencies.keySet()).doesNotContain("business-cockpit-ui");
+    // The interview says the user interface runs behind its own nginx, so the runnable jar
+    // embeds no UI jar. The UI jar is a test dependency only, see PKG-005.
+    assertThat(scopesOf(applicationPom).get("business-cockpit-ui")).isEqualTo("test");
+  }
+
+  @Test
+  @DisplayName("PKG-005 backend builds with maven and takes the ui jar as an ordinary dependency")
+  void PKG_005_backend_builds_with_maven_and_takes_the_ui_jar_as_an_ordinary_dependency() {
+    final var uiJar = dependenciesOf(applicationPom);
+
+    assertThat(uiJar).containsKey("business-cockpit-ui");
+    assertThat(uiJar.get("business-cockpit-ui")).isEqualTo("${ui.version}");
+    final var uiJarElement = childrenOf(childOf(applicationPom, "dependencies")).stream()
+        .filter(dependency -> "business-cockpit-ui".equals(textOf(dependency, "artifactId")))
+        .findFirst()
+        .orElseThrow();
+    assertThat(textOf(uiJarElement, "groupId")).isEqualTo("com.acme");
+    assertThat(textOf(uiJarElement, "systemPath")).isNull();
+    assertThat(new File("../pom.xml")).exists();
+    assertThat(new File("../build.gradle.kts")).doesNotExist();
+    assertThat(new File("../settings.gradle.kts")).doesNotExist();
+  }
+
+  @Test
+  @DisplayName("BE-028 application yaml names mongodb, the languages, the default locale and the mail")
+  void BE_028_application_yaml_names_mongodb_the_languages_the_default_locale_and_the_mail() {
+    final var yaml = new YamlPropertiesFactoryBean();
+    yaml.setResources(new ClassPathResource("config/application.yaml"));
+    final Properties configuration = yaml.getObject();
+
+    assertThat(configuration.getProperty("spring.mongodb.uri")).isNotBlank();
+    assertThat(configuration).doesNotContainKey("spring.data.mongodb.uri");
+    assertThat(configuration.getProperty("business-cockpit.additional-properties.languages"))
+        .isEqualTo("en,de,fr,es");
+    assertThat(configuration.getProperty("business-cockpit.default-locale")).isEqualTo("en");
+    assertThat(configuration.getProperty("spring.mail.host")).isNotBlank();
+    assertThat(configuration.getProperty("spring.mail.port")).isNotBlank();
+    assertThat(configuration.get("business-cockpit.notification.smtp.enabled")).isEqualTo(true);
+    assertThat(configuration.getProperty("business-cockpit.notification.smtp.from"))
+        .contains("@");
+    assertThat(configuration.getProperty("business-cockpit.notification.interval")).isNotBlank();
   }
 
   @Test
@@ -192,6 +231,15 @@ class BuildAndConfigurationTest {
         .filter(plugin -> artifactId.equals(textOf(plugin, "artifactId")))
         .findFirst()
         .orElseThrow();
+  }
+
+  /** The artifact id of each dependency with the scope it names, or null for the default. */
+  private static java.util.Map<String, String> scopesOf(final Element pom) {
+    final var scopeByArtifact = new java.util.HashMap<String, String>();
+    for (final var dependency : childrenOf(childOf(pom, "dependencies"))) {
+      scopeByArtifact.put(textOf(dependency, "artifactId"), textOf(dependency, "scope"));
+    }
+    return scopeByArtifact;
   }
 
   /** The artifact id of each dependency, with its version or null when the BOM gives it. */

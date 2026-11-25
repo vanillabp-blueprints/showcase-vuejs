@@ -1,0 +1,22 @@
+spring:
+  # Spring Boot 4 reads spring.mongodb, not spring.data.mongodb.
+  # directConnection is needed because the Mongo of docker-compose.yaml is a single node replica
+  # set. It advertises its member as "business-cockpit-mongo:27017", and that name does not
+  # resolve outside the compose network.
+  mongodb:
+    uri: mongodb://business-cockpit:business-cockpit@localhost:27017/business-cockpit?directConnection=true
+  mail:
+    host: localhost
+    port: 1025
+
+# For a developer's machine only.
+bpms-api:
+  username: local
+  password: "{noop}local"
+
+business-cockpit:
+  application-uri: http://localhost:8080
+  notification:
+    interval: PT10S
+  jwt:
+    hmacSHA256-base64: 4FTHgU8uHPy/ahy8IhXHj/K/BVlh7snSUtf3m1XWLkg=

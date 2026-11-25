@@ -23,3 +23,11 @@ Date: 2026-11-25
 Default taken: SRCH-034 got its own story S25b right after S25, not added to `plan/slices.txt`.
 Why this default: the skill's fixed list leaves out this id; the split rule allows a `b` story.
 Answer: open
+
+## ASK-004 Does the UI jar belong in the backend when the user interface runs behind nginx?
+
+Story: S05
+Date: 2026-11-25
+Default taken: `com.acme:business-cockpit-ui` is a dependency of `application` with scope `test`, so the runnable jar embeds no user interface (`Q-HOSTING` is `behind`) while PKG-003 to PKG-005 (applies: always) are proven.
+Why this default: project.md says `behind` needs no UI jar; the checklist says the UI jar items always apply.
+Answer: open

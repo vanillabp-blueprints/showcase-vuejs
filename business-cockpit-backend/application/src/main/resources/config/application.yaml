@@ -8,6 +8,9 @@ spring:
       enabled: true
   mongodb:
     uri: ${MONGODB_URI:mongodb://localhost:27017/business-cockpit}
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
 
 bpms-api:
   realm-name: BPMS-API
@@ -23,3 +26,8 @@ business-cockpit:
     languages: en,de,fr,es
   jwt:
     hmacSHA256-base64: ${COCKPIT_JWT_KEY}
+  notification:
+    interval: PT1M
+    smtp:
+      enabled: true
+      from: ${MAIL_FROM:business-cockpit@localhost}
