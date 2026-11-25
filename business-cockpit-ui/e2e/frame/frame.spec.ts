@@ -36,7 +36,7 @@ test('NAV-009 every text uses the word Case from the interview and no other word
   expect(texts).toContain('Cases');
   expect(texts).not.toMatch(/workflow|process|dossier|vorgang|instance/i);
   // the word stands in one place of the source, the texts of the user interface
-  const messages = readFileSync('packages/ui/src/i18n/messages.ts', 'utf8');
+  const messages = readFileSync('packages/ui/src/i18n/en.ts', 'utf8');
   expect(messages).toMatch(/Cases/);
   expect(messages).not.toMatch(/Process|Workflow|Instance/);
   await page.getByTestId('language-de').click();

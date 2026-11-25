@@ -17,7 +17,7 @@ Started: 2026-11-25
 | S09 | A user logs in and out (3 of 4) | done | AUTH-006, AUTH-008, AUTH-009, AUTH-010, AUTH-007, BE-032 | `sh plan/checks/S09.sh` |
 | S10 | A user logs in and out (4 of 4) | done | BE-033, BE-034 | `sh plan/checks/S10.sh` |
 | S11 | The user sees the header and the menu (1 of 3) | done | NAV-006, NAV-009, NAV-010, NAV-011, NAV-013, NAV-029 | `sh plan/checks/S11.sh` |
-| S12 | The user sees the header and the menu (2 of 3) | open | NAV-031, NAV-032, I18N-001, I18N-002, I18N-004, I18N-005 | `sh plan/checks/S12.sh` |
+| S12 | The user sees the header and the menu (2 of 3) | done | NAV-031, NAV-032, I18N-001, I18N-002, I18N-004, I18N-005 | `sh plan/checks/S12.sh` |
 | S13 | The user sees the header and the menu (3 of 3) | open | I18N-006 | `sh plan/checks/S13.sh` |
 | S14 | The settings of a user are kept on the server | open | SET-001, SET-002, SET-004, SET-005, SET-006 | `sh plan/checks/S14.sh` |
 | S15 | A clerk sees the tasks waiting for them (1 of 3) | open | BE-004, NAV-001, NAV-002, TL-008, TL-012, TL-013 | `sh plan/checks/S15.sh` |

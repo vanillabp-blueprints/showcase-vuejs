@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watchEffect } from 'vue';
 import { VApp, VAppBar, VAvatar, VBtn, VBtnToggle, VDivider, VList, VListItem, VMain, VNavigationDrawer, VSpacer, VTooltip } from 'vuetify/components';
 import { mdiMenu } from '@mdi/js';
 import type { User } from './generated/official-gui-api';
 import { counts } from './counts/counts';
 import { initialsOf } from './initials';
+import { formatNumber } from './i18n/format';
 import { language, languages, text } from './i18n/messages';
 
 const props = defineProps<{ title: string; user: User }>();
 
 const menuOpen = ref(false);
+// the page says which language it is in
+watchEffect(() => { document.documentElement.lang = language.value; });
 const shortForm = computed(() => props.user.displayShort ?? props.user.display ?? props.user.id);
 const initials = computed(() => initialsOf(props.user.display, props.user.id));
-const shown = (label: string, count?: number): string => (count === undefined ? label : `${label} (${count})`);
+const shown = (label: string, count?: number): string => (count === undefined ? label : `${label} (${formatNumber(count, language.value)})`);
 </script>
 
 <template>
