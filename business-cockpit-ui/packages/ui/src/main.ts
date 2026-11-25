@@ -13,6 +13,8 @@ async function start(): Promise<void> {
     render: () => h('header', [
       h('h1', cockpitTitle),
       h('span', { 'data-testid': 'current-user' }, user.display ?? user.id),
+      // the groups come from current-user, never from the token
+      h('span', { 'data-testid': 'groups' }, (user.groups ?? []).map((group) => group.id).join(', ')),
       h('a', { 'data-testid': 'logout', href: '/logout' }, 'Log out'),
     ]),
   }).mount('#app');

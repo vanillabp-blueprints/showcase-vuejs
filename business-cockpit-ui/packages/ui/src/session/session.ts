@@ -20,12 +20,16 @@ export async function currentUser(): Promise<User | undefined> {
   return user;
 }
 
-/** Any later request answered with 401 sends the browser to the login, whoever made the request. */
+/**
+ * Any later request answered with 401 loads the current address again as a whole page. The backend
+ * asks for the login before every page and keeps the address, so after the login the user is back
+ * on the same screen.
+ */
 export function sendToLoginOnUnauthorized(): void {
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (...args) => {
     const response = await originalFetch(...args);
-    if (response.status === 401) goToLogin();
+    if (response.status === 401) window.location.assign(window.location.href);
     return response;
   };
 }

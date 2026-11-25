@@ -9,6 +9,7 @@ import type { User, WorkflowModule, WorkflowModules } from '../../packages/ui/sr
 export const guiApiPath = '/gui/api/v1';
 export const officialGuiApiPath = '/official-api/gui/api/v1';
 const cookieName = 'bc';
+const idTokenCookieName = 'bc-id-token';
 const testModules = ['react-module', 'vue-module', 'angular-module'];
 const uiFolder = new URL('../../packages/ui/dist/', import.meta.url).pathname;
 const modulesFolder = new URL('../modules/', import.meta.url).pathname;
@@ -31,6 +32,14 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   const streams = new Set<ServerResponse>();
   // every login before this moment has ended, the way a login ends after its maximal duration
   let sessionsEndedAt = 0;
+  // the session at the identity provider, which a logout has to end
+  let providerSession = false;
+  let loginPrompts = 0;
+  let endSessions: Record<string, string>[] = [];
+  let protectPages = true;
+  let groupsOfCurrentUser: string[] | undefined;
+  // the address a browser wanted before it was sent to the login, which the backend keeps
+  let savedAddress: string | undefined;
 
   const send = (res: ServerResponse, status: number, body?: unknown, headers: Record<string, string> = {}) => {
     res.writeHead(status, { 'content-type': 'application/json', ...headers });
@@ -76,7 +85,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (path === `${guiApiPath}/app/current-user`) {
       const user = userOf(req);
       if (!user) return send(res, 200);
-      const body: User = { id: user.id, display: user.name, groups: user.groups.map((id) => ({ id })) };
+      const body: User = { id: user.id, display: user.name, groups: (groupsOfCurrentUser ?? user.groups).map((id) => ({ id })) };
       return send(res, 200, body);
     }
 
@@ -85,18 +94,58 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       return userOf(req) ? send(res, 200, { userTasks: [] }) : send(res, 401);
     }
 
-    // The login at the identity provider, then back to the screen the user was on.
+    // The login at the identity provider, then back to the screen the user was on. An identity
+    // provider with a session of its own logs in without a question, otherwise it asks once.
     if (path === '/oauth2/authorization/keycloak') {
-      const back = new URL(req.headers.referer ?? '/', 'http://simulator');
+      const referer = req.headers.referer ? new URL(req.headers.referer) : undefined;
+      const back = savedAddress ?? (referer ? referer.pathname + referer.search : '/');
+      savedAddress = undefined;
       sessionsEndedAt = 0;
-      return send(res, 302, undefined, {
-        location: back.pathname + back.search,
-        'set-cookie': `${cookieName}=${jwtFor(users[0], Date.now())}; Path=/; HttpOnly`,
+      if (!providerSession) loginPrompts += 1;
+      providerSession = true;
+      const user = users[0];
+      const cookie = (name: string, value: string, extra: string) => `${name}=${value}; Path=${extra}; HttpOnly`;
+      res.writeHead(302, {
+        location: back,
+        'set-cookie': [
+          cookie(cookieName, jwtFor(user, Date.now()), '/'),
+          cookie(idTokenCookieName, jwtFor(user, Date.now()), '/logout'),
+        ],
       });
+      return void res.end();
     }
 
+    // Ends the cockpit's login, then the one at the provider, which sends the browser back.
     if (path === '/logout') {
-      return send(res, 302, undefined, { location: '/', 'set-cookie': `${cookieName}=; Path=/; HttpOnly; Max-Age=0` });
+      const idToken = /(?:^|;\s*)bc-id-token=([^;]+)/.exec(req.headers.cookie ?? '')?.[1];
+      const endSession = new URL('/simulator-idp/end-session', 'http://simulator');
+      if (idToken) endSession.searchParams.set('id_token_hint', idToken);
+      endSession.searchParams.set('client_id', 'business-cockpit');
+      endSession.searchParams.set('post_logout_redirect_uri', `http://${req.headers.host}/`);
+      res.writeHead(302, {
+        location: endSession.pathname + endSession.search,
+        'set-cookie': [
+          `${cookieName}=; Path=/; HttpOnly; Max-Age=0`,
+          `${idTokenCookieName}=; Path=/logout; HttpOnly; Max-Age=0`,
+        ],
+      });
+      return void res.end();
+    }
+
+    if (path === '/simulator-idp/end-session') {
+      providerSession = false;
+      endSessions.push(Object.fromEntries(url.searchParams));
+      return send(res, 302, undefined, { location: url.searchParams.get('post_logout_redirect_uri') ?? '/' });
+    }
+
+    if (path === '/simulator-api/state') return send(res, 200, { loginPrompts, endSessions });
+    if (path === '/simulator-api/protect-pages' && method === 'POST') {
+      protectPages = (await readBody(req)).on !== false;
+      return send(res, 200);
+    }
+    if (path === '/simulator-api/groups' && method === 'POST') {
+      groupsOfCurrentUser = (await readBody(req)).groups as string[];
+      return send(res, 200);
     }
 
     if (path === '/simulator-api/expire-sessions' && method === 'POST') {
@@ -150,6 +199,12 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (path === '/simulator-api/reset' && method === 'POST') {
       modules = new Map();
       sessionsEndedAt = 0;
+      providerSession = false;
+      loginPrompts = 0;
+      endSessions = [];
+      protectPages = true;
+      groupsOfCurrentUser = undefined;
+      savedAddress = undefined;
       return send(res, 200);
     }
 
@@ -163,8 +218,13 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       }
     }
 
-    // The built user interface: files below /assets/, index.html for every other path of a page.
-    if (method === 'GET' && !/^\/(gui|official-api|bpms|dev-shell|simulator-api|wm)\//.test(path)) {
+    // The built user interface: files below /assets/ stay open, index.html for every other path of
+    // a page asks for a login first, before any deep link.
+    if (method === 'GET' && !/^\/(gui|official-api|bpms|dev-shell|simulator-api|simulator-idp|wm)\//.test(path)) {
+      if (!path.startsWith('/assets/') && protectPages && !userOf(req)) {
+        savedAddress = path + url.search;
+        return send(res, 302, undefined, { location: '/oauth2/authorization/keycloak' });
+      }
       const file = join(uiFolder, path.startsWith('/assets/') ? path : 'index.html');
       if (!file.includes('..') && existsSync(file)) {
         const types: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html' };

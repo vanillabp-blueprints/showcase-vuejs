@@ -10,7 +10,6 @@ import static org.springframework.security.web.servlet.util.matcher.PathPatternR
 
 import io.vanillabp.cockpit.config.properties.ApplicationProperties;
 import io.vanillabp.cockpit.support.security.jwt.JwtAuthenticationToken;
-import io.vanillabp.cockpit.support.security.jwt.JwtLogoutSuccessHandler;
 import io.vanillabp.cockpit.support.security.jwt.JwtMapper;
 import io.vanillabp.cockpit.support.security.jwt.JwtRenewalFilter;
 import io.vanillabp.cockpit.support.security.jwt.JwtSecurityContextRepository;
@@ -92,6 +91,8 @@ public class GuiSecurityConfiguration {
         .oauth2Login(login -> login
             .authorizationEndpoint(endpoint -> endpoint
                 .authorizationRequestResolver(authorizationRequests))
+            // the ID token stays in a cookie of its own, for the logout at the provider
+            .successHandler(new KeepTheIdTokenForTheLogout())
             // writing the login to the repository of the chain would keep it in the HTTP session,
             // so the post processor replaces it after Spring Security has built the filter
             .withObjectPostProcessor(new ObjectPostProcessor<OAuth2LoginAuthenticationFilter>() {
@@ -103,21 +104,13 @@ public class GuiSecurityConfiguration {
             }))
         .logout(logout -> logout
             .logoutUrl("/logout")
-            .logoutSuccessHandler(jwtLogoutSuccessHandler()))
+            .logoutSuccessHandler(new LogoutAtTheProvider(properties.getJwt(), clientRegistrationRepository)))
         .addFilterAfter(new PassiveJwtSecurityFilter(properties.getJwt(), jwtMapper),
             BasicAuthenticationFilter.class)
         .addFilterAfter(new JwtRenewalFilter(properties.getJwt(), jwtMapper, updatesRequestMatcher),
             PassiveJwtSecurityFilter.class);
 
     return http.build();
-
-  }
-
-  private JwtLogoutSuccessHandler jwtLogoutSuccessHandler() {
-
-    final var handler = new JwtLogoutSuccessHandler(properties.getJwt());
-    handler.setDefaultTargetUrl("/");
-    return handler;
 
   }
 

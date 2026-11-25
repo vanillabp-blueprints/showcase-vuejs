@@ -80,7 +80,7 @@ final class TestBrowser {
     return followRedirects(sent);
   }
 
-  private HttpResponse<String> followRedirects(final HttpResponse<String> first) throws Exception {
+  HttpResponse<String> followRedirects(final HttpResponse<String> first) throws Exception {
     var response = first;
     while (response.statusCode() >= 300 && response.statusCode() < 400) {
       final var next = response.uri().resolve(response.headers().firstValue("Location").orElseThrow());
