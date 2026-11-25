@@ -170,6 +170,16 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
         userTasks: shown.slice(number * size, (number + 1) * size),
       });
     }
+    // Put a task on follow-up, or clear the date, like PATCH /usertask/{id}/follow-up-date of the cockpit.
+    const followUp = /^\/gui\/api\/v1\/usertask\/([^/]+)\/follow-up-date$/.exec(path);
+    if (followUp && method === 'PATCH') {
+      if (!userOf(req)) return send(res, 401);
+      const found = userTasks.find((candidate) => candidate.id === decodeURIComponent(followUp[1]!));
+      if (!found) return send(res, 404);
+      const timestamp = (await readBody(req)).timestamp as string | undefined;
+      found.followUpDate = timestamp ?? undefined;
+      return send(res, 200, found);
+    }
     if (path === '/simulator-api/user-tasks' && method === 'POST') {
       userTasks = ((await readBody(req)).userTasks ?? []) as UserTask[];
       return send(res, 200);

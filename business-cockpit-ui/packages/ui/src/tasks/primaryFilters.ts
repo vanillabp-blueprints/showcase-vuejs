@@ -13,3 +13,6 @@ export const isPrimaryFilter = (value: unknown): value is PrimaryFilter => prima
 
 /** The follow-up column shows only where tasks put aside are part of the list (TL-009). */
 export const showsFollowUp = (filter: PrimaryFilter): boolean => filter === 'OpenTasksWithFollowUp';
+
+/** The ended column shows only for the tasks which have ended (TL-010). */
+export const showsEnded = (filter: PrimaryFilter): boolean => filter === 'ClosedTasksOnly';

@@ -10,15 +10,17 @@ import { pickTranslation } from '../i18n/translatable';
 import { taskAddress } from '../routing';
 import { settingKey, settings } from '../settings/settings';
 import StatusLine from './StatusLine.vue';
-import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsFollowUp, type PrimaryFilter } from './primaryFilters';
+import { countedOnMouseOver, defaultPrimaryFilter, isPrimaryFilter, showsEnded, showsFollowUp, type PrimaryFilter } from './primaryFilters';
 
 const props = defineProps<{ own: boolean; currentUserId: string }>();
 
 // the fixed columns of Q-TASK-COLUMNS, in the order of the interview
 const allColumns = ['id', 'businessId', 'caseKind', 'title', 'dueDate', 'assignee', 'candidateUsers', 'note', 'followUpDate', 'endedAt'] as const;
 
-// the follow-up column shows only for the primary filters that list tasks put aside (TL-009)
-const columns = computed(() => allColumns.filter((column) => column !== 'followUpDate' || showsFollowUp(filter.value)));
+// the follow-up column shows only for the primary filters that list tasks put aside (TL-009), the ended column only for closed tasks (TL-010)
+const columns = computed(() =>
+  allColumns.filter((column) => (column !== 'followUpDate' || showsFollowUp(filter.value)) && (column !== 'endedAt' || showsEnded(filter.value))),
+);
 
 // the path of the field of each column in the GUI API, which the list sorts and filters by (COL-021)
 const paths: Record<(typeof allColumns)[number], string> = {
@@ -146,7 +148,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
             </v-tooltip>
           </template>
         </td>
-        <td data-testid="cell-endedAt">
+        <td v-if="showsEnded(filter)" data-testid="cell-endedAt">
           <template v-if="dateAndDetails(task.endedAt)">
             {{ dateAndDetails(task.endedAt)!.text }}
             <v-tooltip activator="parent" location="bottom">
