@@ -4,12 +4,13 @@ Model: Claude Sonnet 5.5 (`claude-sonnet-5-5`). Prices from https://platform.cla
 
 | Base input | 5-min cache write | Cache read | Output |
 |---|---|---|---|
-| $2 | $2.50 | $0.10 | $10 |
+| $2 | $2.50 (1 h: $4) | $0.10 | $10 |
 
-Est. cost = (Input × 2 + Cache write × 2.50 + Cache read × 0.10 + Output × 10) / 1,000,000. Cache writes are counted at the 5-minute price.
+Est. cost = (Input × 2 + Cache write × 4 + Cache read × 0.10 + Output × 10) / 1,000,000.
 
-The harness does not show the main session's token counters to the agent. Sub-agents report one total (`subagent_tokens`) only. Where a column says `n/a`, the number was not available and no value is invented.
+Numbers come from the usage records in the session log (`~/.claude/projects/.../*.jsonl`, main session and `subagents/`), one record per API request, de-duplicated by request id. A story row is its sub-agent plus the main-session requests between the story start and its end. `# Messages` counts API requests (assistant turns). Duration is wall-clock.
 
 | Story | Duration | # Messages | Input tokens | Cache write | Cache read | Output tokens | Est. cost USD |
 |-------|----------|------------|--------------|-------------|------------|---------------|---------------|
-| Interview and plan (no story, main session) | ~35 min | ~150 | n/a | n/a | n/a | n/a | n/a |
+| Interview and plan (main session, incl. pricing sub-agent) | 47 min | 94 | 188 | 162,186 | 10,545,741 | 49,568 | $2.20 |
+| S01 | 4 min | 25 | 50 | 88,519 | 1,891,966 | 16,094 | $0.70 |

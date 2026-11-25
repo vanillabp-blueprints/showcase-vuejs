@@ -1,8 +1,9 @@
 // Tests of the shape of the UI repository. Run them with `npm test` after `npm run build`.
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -83,4 +84,202 @@ test('PKG-062 the generator is pinned exactly, Node 24 is required and the types
   assert.ok(existsSync(join(root, typesGenerated, 'types.gen.ts')), 'run npm run build first');
   assert.ok(!existsSync(join(root, typesGenerated, 'sdk.gen.ts')));
   execSync(`git check-ignore ${typesGenerated}/types.gen.ts`, { cwd: root });
+});
+
+const workspaceFolders = () => workspacesInBuildOrder.flatMap((path) => path.endsWith('*')
+  ? readdirSync(join(root, dirname(path))).filter((name) => name.startsWith('bc-dev-shell-')).sort().map((name) => `${dirname(path)}/${name}`)
+  : [path]);
+const manifestsByName = () => Object.fromEntries(workspaceFolders().map((folder) => {
+  const manifest = readJson(`${folder}/package.json`);
+  return [manifest.name, { folder, manifest }];
+}));
+
+function sourceFilesBelow(folder) {
+  return readdirSync(join(root, folder), { withFileTypes: true }).flatMap((entry) => {
+    const path = `${folder}/${entry.name}`;
+    if (entry.name === 'generated' || entry.name === 'node_modules' || entry.name === 'dist') return [];
+    return entry.isDirectory() ? sourceFilesBelow(path) : [path];
+  });
+}
+
+test('PKG-055 the base path of the GUI API is one configuration value of the user interface', () => {
+  const config = readFileSync(join(root, 'packages/ui/src/config.ts'), 'utf8');
+  assert.match(config, /guiApiBasePath[^\n]*'\/gui\/api\/v1'/);
+});
+
+test('PKG-055 both generated clients and the update stream take the base path', () => {
+  const clients = readFileSync(join(root, 'packages/ui/src/api/clients.ts'), 'utf8');
+  assert.match(clients, /officialClient\.setConfig\(\{ baseUrl: basePath \}\)/);
+  assert.match(clients, /cockpitClient\.setConfig\(\{ baseUrl: basePath \}\)/);
+  assert.match(clients, /return `\$\{basePath\}\/updates`/);
+});
+
+test('PKG-055 no other code names the path', () => {
+  const sources = ['packages/ui', 'packages/bc-module-kit', 'packages/bc-module-host', 'packages/bc-theme', 'packages/bc-types']
+    .flatMap((folder) => sourceFilesBelow(`${folder}/src`))
+    .filter((path) => path !== 'packages/ui/src/config.ts');
+  assert.ok(sources.length > 0);
+  for (const path of sources) {
+    assert.doesNotMatch(readFileSync(join(root, path), 'utf8'), /gui\/api\/v1/, path);
+  }
+});
+
+test('PKG-047 each workspace names the workspaces it depends on with their exact version', () => {
+  const workspaces = manifestsByName();
+  const expected = {
+    '@acme/bc-module-kit': ['@acme/bc-types'],
+    '@acme/bc-module-host': ['@acme/bc-module-kit'],
+    '@acme/bc-ui': ['@acme/bc-module-host', '@acme/bc-module-kit', '@acme/bc-theme'],
+    '@acme/bc-dev-shell-vue': ['@acme/bc-module-kit', '@acme/bc-theme'],
+    '@acme/bc-dev-shell-react': ['@acme/bc-module-kit', '@acme/bc-theme'],
+    '@acme/bc-dev-shell-angular': ['@acme/bc-module-kit', '@acme/bc-theme'],
+  };
+  for (const [name, { manifest }] of Object.entries(workspaces)) {
+    const own = Object.keys(manifest.dependencies ?? {}).filter((dependency) => dependency in workspaces);
+    assert.deepEqual(own.sort(), (expected[name] ?? []).sort(), name);
+    for (const dependency of own) assert.equal(manifest.dependencies[dependency], rootPackage.version, `${name} -> ${dependency}`);
+  }
+});
+
+test('PKG-047 npm ci links the workspaces from the repository instead of downloading them', () => {
+  const lock = readJson('package-lock.json');
+  for (const name of Object.keys(manifestsByName()).filter((workspace) => workspace.startsWith('@acme/'))) {
+    assert.deepEqual(lock.packages[`node_modules/${name}`]?.link, true, name);
+  }
+});
+
+test('PKG-046 every workspace has the version of the root package.json', () => {
+  for (const [name, { manifest }] of Object.entries(manifestsByName())) {
+    assert.equal(manifest.version, rootPackage.version, name);
+  }
+});
+
+test('PKG-046 the libraries are published in build order and the rest is private', () => {
+  const workspaces = Object.values(manifestsByName());
+  const published = workspaces.filter(({ manifest }) => !manifest.private).map(({ manifest }) => manifest.name);
+  assert.deepEqual(published, [
+    '@acme/bc-types', '@acme/bc-module-kit', '@acme/bc-module-host', '@acme/bc-theme',
+    '@acme/bc-dev-shell-angular', '@acme/bc-dev-shell-react', '@acme/bc-dev-shell-vue',
+  ]);
+  assert.equal(rootPackage.private, true);
+  for (const name of ['@acme/bc-ui', '@acme/bc-e2e-compare']) {
+    assert.equal(manifestsByName()[name].manifest.private, true, name);
+  }
+});
+
+test('PKG-046 set-version.mjs writes a new version into every package.json and the dependencies between workspaces', () => {
+  const copy = mkdtempSync(join(tmpdir(), 'set-version-'));
+  const manifests = ['package.json', ...workspaceFolders().map((folder) => `${folder}/package.json`)];
+  for (const path of manifests) {
+    mkdirSync(join(copy, dirname(path)), { recursive: true });
+    copyFileSync(join(root, path), join(copy, path));
+  }
+  try {
+    execSync('node scripts/set-version.mjs 7.8.9-SNAPSHOT --no-install', { cwd: root, env: { ...process.env, REPOSITORY_ROOT: copy } });
+    for (const path of manifests) {
+      const manifest = JSON.parse(readFileSync(join(copy, path), 'utf8'));
+      assert.equal(manifest.version, '7.8.9-SNAPSHOT', path);
+      for (const [dependency, version] of Object.entries(manifest.dependencies ?? {})) {
+        if (dependency.startsWith('@acme/')) assert.equal(version, '7.8.9-SNAPSHOT', `${path} ${dependency}`);
+      }
+    }
+  } finally {
+    rmSync(copy, { recursive: true, force: true });
+  }
+});
+
+test('PKG-014 the UI repository has no pom.xml or Gradle file and the backend repository no package.json', () => {
+  const tracked = (folder, pattern) => execSync(`git ls-files "${pattern}"`, { cwd: join(root, folder), encoding: 'utf8' }).trim();
+  assert.equal(tracked('.', '*pom.xml'), '');
+  assert.equal(tracked('.', '*build.gradle*'), '');
+  assert.equal(tracked('.', '*settings.gradle*'), '');
+  assert.equal(tracked('../business-cockpit-backend', '*package.json'), '');
+});
+
+test('PKG-008 INTERVIEW.md and CHECKLIST.md are in the project and name the version of the reference', () => {
+  for (const file of ['INTERVIEW.md', 'CHECKLIST.md']) {
+    assert.match(readFileSync(join(root, file), 'utf8'), /^(Reference:|Reference version:) 1\.0\.0$/m, file);
+  }
+});
+
+test('PKG-052 INTERVIEW.md has a section with an answer for every question of the interview', () => {
+  const questions = [
+  'Q-FRAMEWORK',
+  'Q-DESIGN-LIBRARY',
+  'Q-MODULE-FRAMEWORKS',
+  'Q-BUNDLER',
+  'Q-THEME',
+  'Q-THEME-TOKENS',
+  'Q-STATE-MARKERS',
+  'Q-WORDING',
+  'Q-CASE-KIND',
+  'Q-AVATARS',
+  'Q-LANGUAGE-DEFAULT',
+  'Q-LANGUAGE-SWITCH',
+  'Q-LANGUAGES',
+  'Q-SCREENS',
+  'Q-DASHBOARD',
+  'Q-NOTIFICATIONS',
+  'Q-SUB-LISTS',
+  'Q-ROUTES',
+  'Q-VISIBLE-GROUPS',
+  'Q-FOLLOW-UP',
+  'Q-CLOSED-TASKS',
+  'Q-PRIMARY-FILTERS',
+  'Q-WORKFLOW-FILTERS',
+  'Q-NOTES',
+  'Q-TASK-COLUMNS',
+  'Q-WORKFLOW-COLUMNS',
+  'Q-MODULE-COLUMNS',
+  'Q-BULK-ACTIONS',
+  'Q-CLAIM',
+  'Q-PAGE-SIZE',
+  'Q-MAX-LIST-ENTRIES',
+  'Q-HEADER',
+  'Q-TASK-PAGE-AREAS',
+  'Q-WORKFLOW-PAGE-AREAS',
+  'Q-TASK-INFORMATION-AREA',
+  'Q-TASK-HEADER-INFO',
+  'Q-TASK-HEADER-ACTIONS',
+  'Q-WORKFLOW-HEADER-INFO',
+  'Q-WORKFLOW-HEADER-ACTIONS',
+  'Q-OWN-WINDOW',
+  'Q-LIVE-MODE',
+  'Q-EXTENSION-POINTS',
+  'Q-CELL-RENDERING',
+  'Q-UI-URI-TYPE',
+  'Q-DATA-ENTRY-LIMIT',
+  'Q-BACKEND',
+  'Q-BACKEND-FRAMEWORK',
+  'Q-BUILD-TOOL',
+  'Q-LOGIN-KIND',
+  'Q-TOKEN',
+  'Q-HOSTING',
+  'Q-LOGIN',
+  'Q-COCKPIT-VERSION',
+  'Q-COCKPIT-REPOSITORY',
+  'Q-UI-JAR',
+  'Q-TYPES-JAR',
+  'Q-MAVEN-REPOSITORY',
+  'Q-NPM-SCOPE',
+  'Q-BACKEND-COORDINATES',
+  'Q-JAVA-VERSION',
+  'Q-OIDC-PROVIDER',
+  'Q-USER-DIRECTORY',
+  'Q-AVATAR-SOURCE',
+  'Q-AVATAR-CACHE',
+  'Q-LIST-CONTROLLERS',
+  'Q-BPMS-API-USER',
+  'Q-KAFKA',
+  'Q-MAIL',
+  'Q-E2E-TOOL',
+  'Q-MEMORY-LIMIT'
+  ];
+  const interview = readFileSync(join(root, 'INTERVIEW.md'), 'utf8');
+  assert.ok(questions.length >= 70);
+  for (const question of questions) {
+    const section = interview.split(`\n## ${question}\n`)[1]?.split(/\n## /)[0];
+    assert.ok(section, `no section ${question}`);
+    assert.match(section, /^(Answer:|Not asked)/m, question);
+  }
 });

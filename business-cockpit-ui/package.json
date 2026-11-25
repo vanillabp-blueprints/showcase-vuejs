@@ -19,7 +19,8 @@
     "build": "npm run build --workspaces --if-present && npm run build:jars",
     "build:jars": "node jars/build-jars.mjs",
     "fetch:openapi": "node scripts/fetch-openapi.mjs",
-    "test": "node --test e2e/repository.test.mjs"
+    "test": "node --test e2e/repository.test.mjs",
+    "set-version": "node scripts/set-version.mjs"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.99.0",
