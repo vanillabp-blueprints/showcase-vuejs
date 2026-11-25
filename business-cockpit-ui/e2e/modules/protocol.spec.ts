@@ -207,3 +207,42 @@ test('EXT-059 the proxy passes the caching headers of a module on and answers a 
   expect((await request.get(url, { headers: { 'if-modified-since': headers['last-modified'] } })).status()).toBe(304);
   expect((await request.get(url, { headers: { 'if-none-match': '"other"' } })).status()).toBe(200);
 });
+
+test('TF-022 the messages kept for an area are dropped when the page is left', async ({ page }) => {
+  await pageModule(page, ['body', 'actions']);
+  await withCockpitCode(page);
+  const result = await page.evaluate(async (hostCode) => {
+    const host = eval(hostCode);
+    const listenAfter = async (leave: boolean) => {
+      const container = document.body.appendChild(document.createElement('div'));
+      const drawn = await host.drawPage('fake-module', '/wm/fake-module/', 'UserTaskForm', { id: 't1' }, ['body', 'actions'], container);
+      await drawn.body.sendTo('actions', 'kept');
+      if (leave) host.leavePage(container);
+      const got: unknown[] = [];
+      await drawn.actions.receiveMessage((message: unknown) => got.push(message)).ready;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return got;
+    };
+    return { staying: await listenAfter(false), leaving: await listenAfter(true) };
+  }, hostOf);
+  expect(result).toEqual({ staying: ['kept'], leaving: [] });
+});
+
+test('TF-022 after the host unsubscribed an area no message reaches it, whatever the web component does', async ({ page }) => {
+  await pageModule(page, ['body', 'actions']);
+  await withCockpitCode(page);
+  const got = await page.evaluate(async (hostCode) => {
+    const host = eval(hostCode);
+    const drawn = await host.drawPage('fake-module', '/wm/fake-module/', 'UserTaskForm', { id: 't1' }, ['body', 'actions'], document.body);
+    const seen: unknown[] = [];
+    // the listener of the web component stays; only the host's subscription ends
+    drawn.actions.addEventListener('bc-message', (event: Event) => seen.push((event as CustomEvent).detail.message));
+    const { subscriptionId } = await drawn.actions.request('page.subscribe');
+    await drawn.body.sendTo('actions', 'one');
+    await drawn.actions.request('page.unsubscribe', { subscriptionId });
+    await drawn.body.sendTo('actions', 'two');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return seen;
+  }, hostOf);
+  expect(got).toEqual(['one']);
+});

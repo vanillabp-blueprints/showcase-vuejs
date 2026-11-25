@@ -143,3 +143,11 @@ Date: 2026-11-25
 The page draws the form through `host.drawPage`, not through `ModulePart`, so the note and retry of ASK-015 are not on the page (EXT-035 and EXT-037 are not repeated there); the page shows `cannot open here` for a module the cockpit does not know or a type other than `ES_MODULES`, and `external` rows are not opened (no redirect). The interview gives no information for the header of a task (Q-TASK-HEADER-INFO: nothing), so the cut with "..." of TF-005 has no value to show and is untested. The react test module names only `all`, so a test of the three areas on the page needs another module. After an action the header reads the task again but the form is not given the new task (no `update` of the properties). ACT-019: the list reads its whole window again for any task named on `bc-cockpit`, not only the one row. The task page loads its task with the base path of the list of all tasks.
 Answer: open
 
+
+## ASK-022 Task page: what S44 left open
+
+Story: S44 (TF-008, TF-016, TF-019, TF-020, TF-022, TF-023)
+Date: 2026-11-25
+
+The task page scrolls in its own area (`height: calc(100vh - var(--v-layout-top))`); the case page does not exist yet, so TF-008 is proven on the task page only. The react test module names the three areas only for a task of the process `areas`; any other task still gets `all`. An external task opens through the link of the list (`target=_blank`); opening it does not mark it as read, and the address `/tasks/<id>` of an external task still shows `cannot open here` (ASK-021). The note is saved on Enter and when the field loses focus; a note typed and then overwritten by an update of the task from another tab is replaced only after the save. `leavePage` drops the kept messages when the task page unmounts; a full reload of the browser tab drops them with the page. TF-023 is built for `Q-NOTES` = yes only.
+Answer: open

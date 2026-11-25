@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { updateStreamUrl } from '../api/clients';
 import { text } from '../i18n/messages';
-import { drawFormOf } from '../modules/modules';
+import { drawFormOf, leaveFormOf } from '../modules/modules';
 import { loadTask, openTask, openTaskFailed, tellTaskChanged } from './openTask';
 
 const props = defineProps<{ id: string }>();
@@ -14,7 +14,7 @@ const state = ref<'loading' | 'drawn' | 'unopenable' | 'failed'>('loading');
 // an update of the task shows in the header at once, for example a task activated again (ACT-017)
 const updates = new EventSource(updateStreamUrl());
 updates.addEventListener('UserTask', () => void loadTask(props.id, false));
-onBeforeUnmount(() => updates.close());
+onBeforeUnmount(() => { updates.close(); if (container.value) leaveFormOf(container.value); });
 
 onMounted(async () => {
   await loadTask(props.id, true);
@@ -38,3 +38,8 @@ onMounted(async () => {
     <div ref="container" class="ma-4" />
   </div>
 </template>
+
+<style scoped>
+/* long and wide content scrolls here; the application header stays and the frame keeps the height of the window */
+.task-page { height: calc(100vh - var(--v-layout-top, 0px)); overflow: auto; }
+</style>

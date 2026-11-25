@@ -110,3 +110,12 @@ test('EXT-029 one page shows parts of a React and an Angular module in the Vue c
   await expect(page.getByTestId('module-header').locator('> span')).toHaveCount(2);
   expect(await page.evaluate(() => (document.querySelector('#app') as any).__vue_app__ !== undefined)).toBe(true);
 });
+
+test('TF-020 the address of a task is its uiUri when it is whole, else /wm/<workflowModuleId>/ plus uiUri, whatever its type', () => {
+  for (const uiUriType of ['EXTERNAL', 'ES_MODULES', 'OTHER']) {
+    expect(addressOf({ workflowModuleId: 'm', uiUriType, uiUri: 'https://x.example/a?b=1' })).toBe('https://x.example/a?b=1');
+    expect(addressOf({ workflowModuleId: 'm', uiUriType, uiUri: 'http://x.example/a' })).toBe('http://x.example/a');
+    expect(addressOf({ workflowModuleId: 'm', uiUriType, uiUri: '/form.html' })).toBe('/wm/m/form.html');
+    expect(addressOf({ workflowModuleId: 'm', uiUriType, uiUri: 'form.html' })).toBe('/wm/m/form.html');
+  }
+});

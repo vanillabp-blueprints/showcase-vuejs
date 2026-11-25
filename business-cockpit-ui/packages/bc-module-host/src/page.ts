@@ -40,6 +40,8 @@ export function createPage() {
       return subscriptionId;
     },
     unsubscribe(subscriptionId: string) { subscriptions.delete(subscriptionId); },
+    /** The page is left: nothing is kept for an area and nobody is subscribed any more. */
+    leave() { kept.clear(); subscriptions.clear(); },
   };
 }
 

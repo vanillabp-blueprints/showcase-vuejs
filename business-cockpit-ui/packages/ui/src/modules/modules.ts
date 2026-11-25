@@ -1,5 +1,5 @@
-import { createModuleHost, createModuleRegistry, type ModuleHost, type ModuleRef, type RowOfModule } from '@acme/bc-module-host';
-import { HEADER, USER_TASK_FORM, USER_TASK_LIST } from '@acme/bc-module-kit';
+import { addressOf, createModuleHost, createModuleRegistry, type ModuleHost, type ModuleRef, type RowOfModule } from '@acme/bc-module-host';
+import { HEADER, UI_URI_TYPE_EXTERNAL, USER_TASK_FORM, USER_TASK_LIST } from '@acme/bc-module-kit';
 import type { Column as ModuleColumn } from '@acme/bc-types';
 import { OfficialWorkflowModulesApi } from '../generated/official-gui-api';
 import { FailedCall } from '../api/clients';
@@ -61,6 +61,12 @@ export async function loadPartsOf(row: RowOfModule): Promise<boolean> {
   return (await registry.opening(row)).kind !== 'unknown';
 }
 
+/** The address of a task: its `uiUri` when that is whole, else a path of its module (TF-020). */
+export const addressOfTask = (task: RowOfModule): string => addressOf(task);
+
+/** A task which the cockpit does not draw: its address opens in a tab of its own (TF-019). */
+export const isExternal = (task: RowOfModule): boolean => task.uiUriType === UI_URI_TYPE_EXTERNAL;
+
 /** The modules whose parts a page may show: every module of the registry with the folder to load it from. */
 export async function modulesToAsk(): Promise<ModuleRef[]> {
   return (await registry.all()).map((module) => ({ workflowModuleId: module.id, webPath: `/wm/${module.id}/` }));
@@ -68,6 +74,9 @@ export async function modulesToAsk(): Promise<ModuleRef[]> {
 
 /** The areas of the cockpit on the page of a user task (Q-TASK-PAGE-AREAS). */
 const taskPageAreas = ['body', 'information', 'actions'];
+
+/** The task page is left; what was kept for its areas is dropped (TF-022). */
+export const leaveFormOf = (container: Element): void => host.leavePage(container);
 
 /**
  * Draws the form of the module of a task into `container`. Answers `unknown` when the cockpit cannot open the task,

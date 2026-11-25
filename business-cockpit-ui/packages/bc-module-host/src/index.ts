@@ -122,6 +122,7 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
   const definedWithinMs = options.definedWithinMs ?? DEFINED_WITHIN_MS;
   const failures = new Map<string, number>();
   const placed = new WeakMap<HTMLElement, ModuleRef>();
+  const pages = new WeakMap<Element, Page>();
 
   /** A failure is not kept: the next call reads the manifest again and calls `import()` again. */
   const keepUnlessFailed = <T>(cache: Map<string, Promise<T>>, key: string, make: () => Promise<T>): Promise<T> => {
@@ -327,6 +328,7 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
       const areas = known.length ? known : Object.hasOwn(named, AREA_ALL) ? [AREA_ALL] : [];
       const drawn: Record<string, HTMLElement> = {};
       const page = createPage();
+      pages.set(container, page);
       for (const area of areas) {
         const slot = container.appendChild(document.createElement('div'));
         slot.dataset.area = area;
@@ -334,6 +336,8 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
       }
       return drawn;
     },
+    /** The page drawn into `container` is left (TF-022): the messages kept for its areas are dropped. */
+    leavePage(container: Element): void { pages.get(container)?.leave(); pages.delete(container); },
     /** Asks the entry once for each area (the areas of the interview, or `all`) and draws what is answered. */
     async drawAreas(workflowModuleId: string, webPath: string, entry: DataEntry, data: unknown, areas: readonly string[], container: Element): Promise<Record<string, HTMLElement>> {
       const drawn: Record<string, HTMLElement> = {};

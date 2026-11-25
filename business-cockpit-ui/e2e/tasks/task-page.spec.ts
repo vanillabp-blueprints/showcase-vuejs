@@ -90,9 +90,8 @@ test('TF-006 the header offers claim and give back, propose, follow-up, note and
   await page.getByTestId('task-propose-result').filter({ hasText: 'Ben Support' }).click();
   await expect.poll(async () => ((await stored(page, 't1')).candidateUsers as { id: string }[] | undefined)?.map((one) => one.id)).toEqual(['ben']);
 
-  await action(page, 'note').click();
   await page.getByTestId('task-note-input').fill('call back');
-  await page.getByTestId('task-note-save').click();
+  await page.getByTestId('task-note-input').press('Enter');
   await expect.poll(async () => (await stored(page, 't1')).note).toBe('call back');
 
   await action(page, 'follow-up').click();
@@ -130,9 +129,8 @@ test('ACT-019 what a task tab does shows in the list of another tab at once', as
   await expect(row).not.toHaveClass(/unread/);
   await tab.getByTestId('header').getByTestId('task-action-mark-unread').click();
   await expect(row).toHaveClass(/unread/);
-  await tab.getByTestId('header').getByTestId('task-action-note').click();
   await tab.getByTestId('task-note-input').fill('from the tab');
-  await tab.getByTestId('task-note-save').click();
+  await tab.getByTestId('task-note-input').press('Enter');
   await expect(row.getByTestId('cell-note')).toContainText('from the tab');
   await tab.getByTestId('header').getByTestId('task-action-claim').click();
   await expect(row.getByTestId('assignee-name')).toHaveText('Anna');

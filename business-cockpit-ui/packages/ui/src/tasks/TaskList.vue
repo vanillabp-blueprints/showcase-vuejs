@@ -10,7 +10,7 @@ import { dateCellDetails, dateCellText } from '../i18n/format';
 import { language, text } from '../i18n/messages';
 import { pickTranslation } from '../i18n/translatable';
 import { taskAddress } from '../routing';
-import { columnsOfRow, loadPartsOf, type ColumnsOfRow } from '../modules/modules';
+import { addressOfTask, columnsOfRow, isExternal, loadPartsOf, type ColumnsOfRow } from '../modules/modules';
 import { cellOf, fractionDigits, mergeColumns, type Cell } from './moduleColumns';
 import { settingKey, settings } from '../settings/settings';
 import { stateOf } from './taskState';
@@ -137,6 +137,8 @@ watch(pages, () => {
 
 // only the first load shows the loading sign; the pages that follow load without one
 // what the central loader made of each row which was drawn (a row without a type is of a module which reports none)
+/** An external task opens its address in a tab of its own (TF-019); any other task opens its page. */
+const linkOf = (task: UserTask): string => (isExternal(task) ? addressOfTask(task) : taskAddress(task.id));
 const partsOf = reactive<Record<string, 'loading' | 'loaded' | 'unopenable'>>({});
 function loadPartsOfRows(rows: { task?: UserTask }[]): void {
   for (const { task } of rows) {
@@ -698,7 +700,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
         <td data-testid="cell-businessId">{{ task.businessId }}</td>
         <td data-testid="cell-caseKind">{{ pickTranslation(task.workflowTitle ?? {}, language) }}</td>
         <td data-testid="cell-title">
-          <a data-testid="task-title" :href="taskAddress(task.id)">{{ pickTranslation(task.title, language) }}</a>
+          <a data-testid="task-title" :href="linkOf(task)" :target="isExternal(task) ? '_blank' : undefined" :rel="isExternal(task) ? 'noopener' : undefined">{{ pickTranslation(task.title, language) }}</a>
           <span v-if="partsOf[task.id] === 'unopenable'" data-testid="cannot-open" class="cannot-open">{{ text().cannotOpenHere }}</span>
           <span v-if="columnsFailedOf(task) && moduleColumns.length === 0" data-testid="columns-not-loaded" class="cannot-open">{{ text().columnsNotLoaded }}</span>
         </td>

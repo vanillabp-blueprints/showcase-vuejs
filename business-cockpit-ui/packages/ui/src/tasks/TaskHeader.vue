@@ -54,11 +54,14 @@ function propose(person: Person): void {
   void act(() => tasks().assignTask({ userTaskId: task.value!.id, userId: person.id }));
 }
 
-const noteOpen = ref(false);
-const noteDraft = ref('');
+// The note is an input field of the header, visible at once (TF-023); it is saved on Enter and when the field loses focus.
+const typed = ref<string>();
+const note = computed({ get: () => typed.value ?? task.value?.note ?? '', set: (value: string) => { typed.value = value; } });
 function saveNote(): void {
-  noteOpen.value = false;
-  void act(() => tasks().setUserTaskNote({ userTaskId: task.value!.id, noteRequest: { text: noteDraft.value } }));
+  if (typed.value === undefined || typed.value === (task.value?.note ?? '')) { typed.value = undefined; return; }
+  const text = typed.value;
+  typed.value = undefined;
+  void act(() => tasks().setUserTaskNote({ userTaskId: task.value!.id, noteRequest: { text } }));
 }
 
 const followUpOpen = ref(false);
@@ -97,18 +100,11 @@ const claimLabel = computed(() => (held.value ? text().actions.unclaim : text().
         </v-card>
       </v-menu>
     </v-btn>
-    <v-btn data-testid="task-action-note" size="small" variant="text" icon :title="text().actions.note" :aria-label="text().actions.note" :disabled="ended" @click="noteDraft = task.note ?? ''">
-      <v-icon :icon="mdiNoteEditOutline" />
-      <v-menu v-model="noteOpen" activator="parent" :close-on-content-click="false">
-        <v-card data-testid="task-note-popup" class="popup">
-          <textarea v-model="noteDraft" data-testid="task-note-input" rows="4" maxlength="10000" :aria-label="text().actions.note" />
-          <div>
-            <v-btn data-testid="task-note-save" size="small" @click="saveNote">{{ text().actions.save }}</v-btn>
-            <v-btn data-testid="task-note-cancel" size="small" variant="text" @click="noteOpen = false">{{ text().actions.cancel }}</v-btn>
-          </div>
-        </v-card>
-      </v-menu>
-    </v-btn>
+    <span data-testid="task-action-note" class="note">
+      <v-icon :icon="mdiNoteEditOutline" size="small" />
+      <input data-testid="task-note-input" type="text" maxlength="10000" :value="note" :disabled="ended" :placeholder="text().actions.note" :aria-label="text().actions.note"
+        @input="note = ($event.target as HTMLInputElement).value" @keydown.enter="saveNote" @blur="saveNote" />
+    </span>
     <v-btn data-testid="task-action-mark-unread" size="small" variant="text" :icon="mdiEmailOutline" :title="text().actions.markUnread" :aria-label="text().actions.markUnread" @click="markUnread" />
     <span v-if="failed" data-testid="task-action-failed" role="alert" class="failed">{{ text().actions.failed }}</span>
   </span>
@@ -125,6 +121,8 @@ const claimLabel = computed(() => (held.value ? text().actions.unclaim : text().
 
 <style scoped>
 .task-actions { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; }
+.note { display: inline-flex; align-items: center; gap: 4px; }
+.note input { border: 1px solid; padding: 2px 6px; width: 160px; font-size: 0.85rem; }
 .failed { font-size: 0.8rem; color: rgb(var(--v-theme-error)); }
 .popup { display: flex; flex-direction: column; gap: 8px; padding: 8px; min-width: 240px; }
 .popup input, .popup textarea { border: 1px solid; padding: 4px; }
