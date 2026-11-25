@@ -174,3 +174,10 @@ Date: 2026-11-25
 Default taken: the barrier is a translucent note over the page which takes no pointer, so the areas beneath stay readable and scroll with wheel and touch; the web components under it are `inert` (their host elements), their areas are not. `Q-CLAIM` = hard is a constant in taskState.ts. Every update of the open task now gives `userTask` again to the web components (also after notes or follow-up), which closes the gap named in ASK-021. A suspended task wins over the claim in the note. The touch is tested by the pointer-events value of the barrier, not by a real touch gesture. The backend and simulator needed no change. TF-036 (informal claiming) is not built.
 Answer: open
 
+
+## ASK-026 Case list: what S49 left open
+
+Story: S49 (NAV-003, WL-001, WL-002, WL-003, WL-004, WL-005)
+Date: 2026-11-26
+Default taken: the case list is its own component, not a mode of TaskList.vue; it appends pages of 20 as the user scrolls and has no virtual window yet (SRCH-010 to SRCH-014 for cases, and the carry-over of SRCH-001 to SRCH-006 from S24, are open). The id column is empty (no selection column until WL-010 is decided), the title is plain text until the page of a case exists (NAV-004), the chosen primary filter is not kept as a setting (WL-009), the toolbar and search field are missing. The ended column shows only for Done as WL-013 asks, tested only through WL-002. The backend needed no change.
+Answer: open

@@ -10,6 +10,7 @@ import { language, languages, text } from './i18n/messages';
 import { pageOf, taskIdOf } from './routing';
 import { cappedNotice, isCapped } from './tasks/cappedNotice';
 import TaskList from './tasks/TaskList.vue';
+import CaseList from './cases/CaseList.vue';
 import ModuleHeader from './modules/ModuleHeader.vue';
 import BackToList from './tasks/BackToList.vue';
 import TaskHeader from './tasks/TaskHeader.vue';
@@ -106,6 +107,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
     <v-main>
       <task-list v-if="page === 'allTasks'" :own="false" :current-user-id="user.id" />
       <task-list v-else-if="page === 'myTasks'" :own="true" :current-user-id="user.id" />
+      <case-list v-else-if="page === 'cases'" />
       <task-page v-else-if="page === 'task' && taskId" :id="taskId" :key="taskId" :current-user-id="user.id" />
     </v-main>
   </v-app>

@@ -1,5 +1,5 @@
 import { addressOf, createModuleHost, createModuleRegistry, type ModuleHost, type ModuleRef, type RowOfModule } from '@acme/bc-module-host';
-import { HEADER, UI_URI_TYPE_EXTERNAL, USER_TASK_FORM, USER_TASK_LIST } from '@acme/bc-module-kit';
+import { HEADER, UI_URI_TYPE_EXTERNAL, USER_TASK_FORM, USER_TASK_LIST, WORKFLOW_LIST } from '@acme/bc-module-kit';
 import type { Column as ModuleColumn } from '@acme/bc-types';
 import { OfficialWorkflowModulesApi } from '../generated/official-gui-api';
 import { FailedCall } from '../api/clients';
@@ -45,13 +45,18 @@ export type ColumnsOfRow = { columns: ModuleColumn[] } | { failed: true };
  * Loads the list part of the module of a row, once, and calls its column function with the row. A module which names no
  * list part brings no columns; a part which cannot be loaded or throws is a failure, so the row shows a note.
  */
-export async function columnsOfRow(row: RowOfModule): Promise<ColumnsOfRow | undefined> {
+export const columnsOfRow = (row: RowOfModule): Promise<ColumnsOfRow | undefined> => columnsOfRowIn(row, USER_TASK_LIST);
+
+/** The same for a case: the case list asks the case entry of the module (WL-003), never its task entry. */
+export const columnsOfCase = (row: RowOfModule): Promise<ColumnsOfRow | undefined> => columnsOfRowIn(row, WORKFLOW_LIST);
+
+async function columnsOfRowIn(row: RowOfModule, entry: typeof USER_TASK_LIST | typeof WORKFLOW_LIST): Promise<ColumnsOfRow | undefined> {
   try {
     const opening = await registry.opening(row);
     if (opening.kind !== 'parts') return undefined;
     const { workflowModuleId, webPath } = opening.module;
-    if (!(await host.names(workflowModuleId, webPath, USER_TASK_LIST))) return { columns: [] };
-    const answer = await host.ask(workflowModuleId, webPath, USER_TASK_LIST, row);
+    if (!(await host.names(workflowModuleId, webPath, entry))) return { columns: [] };
+    const answer = await host.ask(workflowModuleId, webPath, entry, row);
     return { columns: Array.isArray(answer) ? (answer as ModuleColumn[]) : [] };
   } catch { return { failed: true }; }
 }

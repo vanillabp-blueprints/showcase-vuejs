@@ -1,6 +1,6 @@
 import { languages, messagesOf, text } from './i18n/messages';
 
-export type Page = 'allTasks' | 'myTasks' | 'task' | 'none';
+export type Page = 'allTasks' | 'myTasks' | 'cases' | 'task' | 'none';
 
 /** Every path of the interview works in every language, so the page is found in the paths of all languages. */
 export function pageOf(pathname: string): Page {
@@ -8,6 +8,7 @@ export function pageOf(pathname: string): Page {
     const routes = messagesOf(code).routes;
     if (pathname === routes.allTasks) return 'allTasks';
     if (pathname === routes.myTasks) return 'myTasks';
+    if (pathname === routes.cases) return 'cases';
   }
   return taskIdOf(pathname) === undefined ? 'none' : 'task';
 }

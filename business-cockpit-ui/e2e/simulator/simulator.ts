@@ -6,7 +6,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import type { AppInformation } from '../../packages/ui/src/generated/cockpit-gui-api/types.gen.ts';
-import type { Person, User, UserTask, WorkflowModule, WorkflowModules } from '../../packages/ui/src/generated/official-gui-api/types.gen.ts';
+import type { Person, User, UserTask, Workflow, WorkflowModule, WorkflowModules } from '../../packages/ui/src/generated/official-gui-api/types.gen.ts';
 
 export const guiApiPath = '/gui/api/v1';
 export const officialGuiApiPath = '/official-api/gui/api/v1';
@@ -65,6 +65,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let countRequests: CountRequest[] = [];
   // the user tasks the lists answer, as a workflow module reported them, and the requests of the lists
   let userTasks: UserTask[] = [];
+  // the cases the case list answers
+  let workflows: Workflow[] = [];
   let listsFail = false;
   // the text of the 400 a sorted request is answered with, as the server does for a sort it refuses (SRCH-034)
   let sortRefusal: string | undefined;
@@ -112,6 +114,13 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (mode === 'OpenTasksWithFollowUp') return open;
     if (mode === 'OpenTasksWithoutFollowUp') return open && !putAside;
     if (mode === 'OpenTaskOnlyFollowUp') return open && putAside;
+    throw new Error(`unknown mode ${mode}`);
+  };
+
+  const inWorkflowMode = (one: Workflow, mode = 'All'): boolean => {
+    if (mode === 'All') return true;
+    if (mode === 'Done') return Boolean(one.endedAt);
+    if (mode === 'InProgress') return !one.endedAt;
     throw new Error(`unknown mode ${mode}`);
   };
 
@@ -403,6 +412,27 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       });
       return send(res, 200);
     }
+    if (path === '/simulator-api/workflows' && method === 'POST') {
+      workflows = ((await readBody(req)).workflows ?? []) as Workflow[];
+      return send(res, 200);
+    }
+    // The case list: the modes of a case list are All, InProgress (not ended, suspended cases included) and Done.
+    if (path === `${guiApiPath}/workflow` && method === 'POST') {
+      if (!userOf(req)) return send(res, 401);
+      if (listsFail) return send(res, 500);
+      const body = await readBody(req);
+      const initialTimestamp = url.searchParams.get('initialTimestamp') ?? undefined;
+      const serverTimestamp = initialTimestamp ?? new Date().toISOString();
+      listRequests.push({ path, body, initialTimestamp, serverTimestamp });
+      const shown = workflows.filter((one) => inWorkflowMode(one, body.mode as string | undefined));
+      const size = Number(body.pageSize ?? 20);
+      const number = Number(body.pageNumber ?? 0);
+      return send(res, 200, {
+        serverTimestamp,
+        page: { totalElements: shown.length, totalPages: Math.ceil(shown.length / size), number, size },
+        workflows: shown.slice(number * size, (number + 1) * size),
+      });
+    }
     if (path === `${guiApiPath}/usertasks`) {
       return userOf(req) ? send(res, 200, { userTasks: [] }) : send(res, 401);
     }
@@ -425,7 +455,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       const total = countPath[2] === 'workflow' ? counts.cases : countPath[1] ? counts.myTasks : counts.allTasks;
       // the toggle of the header takes the numbers a test sets, the primary filters of a list count the tasks
       const countOf = (filter: { key: string; mode?: string }): number => {
-        if (countPath[2] === 'workflow' || filter.key === 'toggle') return total;
+        if (filter.key === 'toggle') return total;
+        if (countPath[2] === 'workflow') return workflows.filter((one) => inWorkflowMode(one, filter.mode)).length;
         return userTasks.filter((task) => (countPath[1] ? task.assignee?.id === userOf(req)?.id : true)).filter((task) => inMode(task, filter.mode)).length;
       };
       return send(res, 200, { serverTimestamp: new Date().toISOString(), counts: filters.map((filter) => ({ key: filter.key, count: countOf(filter) })) });
@@ -572,6 +603,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       counts = { myTasks: 0, allTasks: 0, cases: 0 };
       countRequests = [];
       userTasks = [];
+      workflows = [];
       listRequests = [];
       bulkRequests = [];
       suggestionRequests = [];
