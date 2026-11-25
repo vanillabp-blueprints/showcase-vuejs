@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
-import { VBtn, VBtnToggle, VProgressLinear, VSnackbar, VTable, VTooltip } from 'vuetify/components';
+import { mdiNoteEditOutline } from '@mdi/js';
+import { VBtn, VBtnToggle, VIcon, VProgressLinear, VSnackbar, VTable, VTooltip } from 'vuetify/components';
 import type { Column } from '@acme/bc-types';
 import { OfficialWorkflowlistApi, type Workflow } from '../generated/official-gui-api';
 import { dateCellDetails, dateCellText, formatNumber } from '../i18n/format';
@@ -9,6 +10,8 @@ import { pickTranslation } from '../i18n/translatable';
 import { columnsOfCase, type ColumnsOfRow } from '../modules/modules';
 import { cellOf, fractionDigits, mergeColumns, type Cell } from '../tasks/moduleColumns';
 import { pageSize } from '../tasks/paging';
+import { idsPerRequest } from '../tasks/selection';
+import { caseAddress } from '../routing';
 import { stateOf } from '../tasks/taskState';
 import LegendOfRows from '../tasks/Legend.vue';
 import { caseColumns, caseFilters, defaultCaseFilter, showsEndedOfCases, type CaseFilter } from './caseFilters';
@@ -26,7 +29,7 @@ let generation = 0;
 let nextPage = 0;
 let loadingMore = false;
 
-// the ended column shows only where an ended case can be; the id column holds no text, the selection of S50 stands there
+// the ended column shows only where an ended case can be; the id column holds no text, the selection stands there
 const columns = computed(() => caseColumns.filter((column) => column.key !== 'endedAt' || showsEndedOfCases(filter.value)));
 
 // what the case entry of the module of each loaded case answered (WL-003)
@@ -116,9 +119,59 @@ function scrolled(event: Event): void {
   if (area.scrollTop + area.clientHeight >= area.scrollHeight - 200) void loadMore();
 }
 
+// the selection holds the ids of the cases the user ticked; another list is other rows, so nothing stays selected (WL-010)
+const selected = ref(new Set<string>());
+function toggleSelected(id: string, on: boolean): void {
+  const next = new Set(selected.value);
+  if (on) next.add(id);
+  else next.delete(id);
+  selected.value = next;
+}
+
+// a note changes with the answer of the server, then the list starts again with the rows as they are now (WL-008)
+const actionFailed = ref(false);
+async function act(call: () => Promise<unknown>): Promise<void> {
+  try {
+    await call();
+    actionFailed.value = false;
+  } catch {
+    actionFailed.value = true;
+  }
+  await load();
+}
+const noteHoveredOf = ref<string>();
+const noteEditedOf = ref<string>();
+const noteDraft = ref('');
+function editNote(one: Workflow): void {
+  noteDraft.value = one.note ?? '';
+  noteEditedOf.value = one.id;
+}
+async function saveNote(one: Workflow): Promise<void> {
+  noteEditedOf.value = undefined;
+  await act(() => new OfficialWorkflowlistApi().setWorkflowNote({ workflowId: one.id, noteRequest: { text: noteDraft.value } }));
+}
+const bulkNoteOpen = ref(false);
+const bulkNote = ref('');
+function openBulkNote(): void {
+  bulkNote.value = '';
+  bulkNoteOpen.value = !bulkNoteOpen.value;
+}
+async function saveBulkNote(): Promise<void> {
+  const workflowIds = [...selected.value];
+  bulkNoteOpen.value = false;
+  const text = bulkNote.value;
+  await act(async () => {
+    for (let from = 0; from < workflowIds.length; from += idsPerRequest) {
+      await new OfficialWorkflowlistApi().setWorkflowsNote({ workflowsNoteRequest: { workflowIds: workflowIds.slice(from, from + idsPerRequest), text } });
+    }
+  });
+}
+
 function choose(chosen: CaseFilter): void {
   if (chosen === filter.value) return;
   filter.value = chosen;
+  selected.value = new Set();
+  bulkNoteOpen.value = false;
   void load();
 }
 
@@ -134,8 +187,19 @@ onMounted(() => {
 </script>
 
 <template>
+  <div class="tools" data-testid="toolbar-tools" @keydown.esc="bulkNoteOpen = false">
+    <span class="selected-info"><span data-testid="selected-count">{{ selected.size }}</span> {{ text().bulk.selected }}</span>
+    <v-btn data-testid="tool-note" size="small" variant="text" :icon="mdiNoteEditOutline" :title="text().actions.note" :aria-label="text().actions.note" :disabled="selected.size === 0" @click="openBulkNote"></v-btn>
+    <div v-if="bulkNoteOpen" class="over-list note-popup" data-testid="bulk-note-popup">
+      <textarea v-model="bulkNote" data-testid="bulk-note-input" rows="4" maxlength="10000" :aria-label="text().actions.note" />
+      <div>
+        <v-btn data-testid="bulk-note-save" size="small" @click="saveBulkNote">{{ text().actions.save }}</v-btn>
+        <v-btn data-testid="bulk-note-cancel" size="small" variant="text" @click="bulkNoteOpen = false">{{ text().actions.cancel }}</v-btn>
+      </div>
+    </div>
+  </div>
   <v-progress-linear v-if="loadingFirst" data-testid="list-loading" indeterminate class="mx-4" style="width: auto" />
-  <v-table data-testid="case-list" class="case-list ma-4" fixed-header height="calc(100vh - 192px)" @scroll.capture="scrolled">
+  <v-table data-testid="case-list" class="case-list ma-4" fixed-header height="calc(100vh - 240px)" @scroll.capture="scrolled">
     <thead>
       <tr>
         <th
@@ -151,10 +215,30 @@ onMounted(() => {
     </thead>
     <tbody>
       <tr v-for="one in rows" :key="one.id" data-testid="case-row" :data-case-id="one.id" :data-state="stateOf(one)" :class="['case-row', stateOf(one)]">
-        <td data-testid="cell-id" class="select-cell" />
+        <td data-testid="cell-id" class="select-cell">
+          <input type="checkbox" data-testid="select-row" :aria-label="text().bulk.selectRow" :checked="selected.has(one.id)" @change="toggleSelected(one.id, ($event.target as HTMLInputElement).checked)" />
+        </td>
         <td data-testid="cell-businessId">{{ one.businessId }}</td>
-        <td data-testid="cell-title">{{ pickTranslation(one.title, language) }}</td>
-        <td data-testid="cell-note">{{ one.note }}</td>
+        <td data-testid="cell-title"><a data-testid="case-title" :href="caseAddress(one.id)">{{ pickTranslation(one.title, language) }}</a></td>
+        <td data-testid="cell-note" class="note-cell" @mouseenter="noteHoveredOf = one.id" @mouseleave="noteHoveredOf = undefined">
+          <span>{{ one.note }}</span>
+          <v-btn
+            v-if="noteHoveredOf === one.id && noteEditedOf !== one.id"
+            data-testid="note-edit"
+            class="note-edit"
+            size="x-small"
+            variant="text"
+            :aria-label="text().actions.editNote"
+            @click="editNote(one)"
+          ><v-icon :icon="mdiNoteEditOutline" /></v-btn>
+          <div v-if="noteEditedOf === one.id" class="over-list note-popup" data-testid="note-popup">
+            <textarea v-model="noteDraft" data-testid="note-input" rows="4" maxlength="10000" :aria-label="text().actions.note" />
+            <div>
+              <v-btn data-testid="note-save" size="small" @click="saveNote(one)">{{ text().actions.save }}</v-btn>
+              <v-btn data-testid="note-cancel" size="small" variant="text" @click="noteEditedOf = undefined">{{ text().actions.cancel }}</v-btn>
+            </div>
+          </div>
+        </td>
         <td data-testid="cell-createdAt">
           {{ dateAndDetails(one.createdAt)!.text }}
           <v-tooltip activator="parent" location="bottom"><span data-testid="date-details">{{ dateAndDetails(one.createdAt)!.details }}</span></v-tooltip>
@@ -195,6 +279,12 @@ onMounted(() => {
 .case-list .fraction { display: inline-block; text-align: left; }
 .case-list .module-cell { font-variant-numeric: tabular-nums; }
 .select-cell { width: 48px; text-align: center; }
+.note-cell { position: relative; }
+.over-list { position: absolute; z-index: 5; top: 100%; left: 0; min-width: 240px; padding: 8px; text-align: left; background: #fff; color: #212121; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); white-space: normal; }
+.tools { position: relative; display: flex; align-items: center; gap: 2px; margin: 8px 16px 0; height: 40px; }
+.selected-info { margin-right: 8px; white-space: nowrap; }
+.note-popup textarea { width: 100%; border: 1px solid #9e9e9e; padding: 4px; }
+.case-list a { color: inherit; }
 .tools-header, .tools-cell { width: 96px; }
 /* the look of a state as in the rows of the task list (TL-023) */
 .case-row.completed, .case-row.cancelled { background-color: #e0e0e0; }

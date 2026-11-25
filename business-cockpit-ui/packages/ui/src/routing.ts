@@ -1,6 +1,6 @@
 import { languages, messagesOf, text } from './i18n/messages';
 
-export type Page = 'allTasks' | 'myTasks' | 'cases' | 'task' | 'none';
+export type Page = 'allTasks' | 'myTasks' | 'cases' | 'case' | 'task' | 'none';
 
 /** Every path of the interview works in every language, so the page is found in the paths of all languages. */
 export function pageOf(pathname: string): Page {
@@ -10,6 +10,7 @@ export function pageOf(pathname: string): Page {
     if (pathname === routes.myTasks) return 'myTasks';
     if (pathname === routes.cases) return 'cases';
   }
+  if (caseIdOf(pathname) !== undefined) return 'case';
   return taskIdOf(pathname) === undefined ? 'none' : 'task';
 }
 
@@ -20,6 +21,20 @@ export const taskAddress = (id: string): string => `${text().routes.task}/${enco
 export function taskIdOf(pathname: string): string | undefined {
   for (const code of languages) {
     const prefix = `${messagesOf(code).routes.task}/`;
+    if (pathname.startsWith(prefix) && pathname.length > prefix.length && !pathname.slice(prefix.length).includes('/')) {
+      return decodeURIComponent(pathname.slice(prefix.length));
+    }
+  }
+  return undefined;
+}
+
+/** The address of the page of one case, in the language in use. */
+export const caseAddress = (id: string): string => `${text().routes.case}/${encodeURIComponent(id)}`;
+
+/** The id of the case whose page the address names, in the path of any language; `undefined` for another address. */
+export function caseIdOf(pathname: string): string | undefined {
+  for (const code of languages) {
+    const prefix = `${messagesOf(code).routes.case}/`;
     if (pathname.startsWith(prefix) && pathname.length > prefix.length && !pathname.slice(prefix.length).includes('/')) {
       return decodeURIComponent(pathname.slice(prefix.length));
     }

@@ -181,3 +181,10 @@ Story: S49 (NAV-003, WL-001, WL-002, WL-003, WL-004, WL-005)
 Date: 2026-11-26
 Default taken: the case list is its own component, not a mode of TaskList.vue; it appends pages of 20 as the user scrolls and has no virtual window yet (SRCH-010 to SRCH-014 for cases, and the carry-over of SRCH-001 to SRCH-006 from S24, are open). The id column is empty (no selection column until WL-010 is decided), the title is plain text until the page of a case exists (NAV-004), the chosen primary filter is not kept as a setting (WL-009), the toolbar and search field are missing. The ended column shows only for Done as WL-013 asks, tested only through WL-002. The backend needed no change.
 Answer: open
+
+## ASK-027 Case list: what S50 left open
+
+Story: S50 (WL-006, WL-007, WL-008, WL-009, WL-010, WL-012)
+Date: 2026-11-26
+Default taken: the title is a real link to the case address (/workflows/<id> and the paths of the other languages); the case page itself is not built, so a click shows an empty main area until the case page story. The toolbar of the case list holds only the selection count and the note tool (no search field yet, SRCH-001 to SRCH-006 for cases stay open from ASK-026). The note is written through the GUI API calls setWorkflowNote and setWorkflowsNote; the backend needed no change, the endpoints come with the business-cockpit library, and ListControllersTest does not cover them. The primary filter of the case list is still not kept as a setting (WL-009 asks only for the default).
+Answer: open

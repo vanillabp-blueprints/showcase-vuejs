@@ -39,7 +39,7 @@ const es: Messages = {
   primaryFilters: { OpenTasksWithoutFollowUp: 'Abiertas', OpenTasksWithFollowUp: 'Todas abiertas', ClosedTasksOnly: 'Cerradas' },
   caseFilters: { InProgress: 'En curso', Done: 'Finalizados' },
   legend: { new: 'Nuevo', changed: 'Modificado', removed: 'Eliminado', completed: 'Completada', cancelled: 'Cancelada', suspended: 'Suspendida' },
-  routes: { allTasks: '/tareas', myTasks: '/mis-tareas', cases: '/casos', notifications: '/notificaciones', task: '/tarea' },
+  routes: { allTasks: '/tareas', myTasks: '/mis-tareas', cases: '/casos', notifications: '/notificaciones', task: '/tarea', case: '/caso' },
 };
 
 export default es;

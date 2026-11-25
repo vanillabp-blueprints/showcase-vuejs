@@ -39,7 +39,7 @@ const en = {
   primaryFilters: { OpenTasksWithoutFollowUp: 'Open', OpenTasksWithFollowUp: 'All open', ClosedTasksOnly: 'Closed' },
   caseFilters: { InProgress: 'In progress', Done: 'Done' },
   legend: { new: 'New', changed: 'Changed', removed: 'Removed', completed: 'Completed', cancelled: 'Cancelled', suspended: 'Suspended' },
-  routes: { allTasks: '/tasks', myTasks: '/my-tasks', cases: '/workflows', notifications: '/notifications', task: '/tasks' },
+  routes: { allTasks: '/tasks', myTasks: '/my-tasks', cases: '/workflows', notifications: '/notifications', task: '/tasks', case: '/workflows' },
 };
 
 export type Messages = typeof en;

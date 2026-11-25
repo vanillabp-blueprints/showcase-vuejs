@@ -1,4 +1,4 @@
-// NAV-003, WL-001 to WL-005: the case list.
+// NAV-003, WL-001 to WL-010, WL-012: the case list.
 import { expect, test, type Page } from '@playwright/test';
 
 type SimulatedCase = Record<string, unknown>;
@@ -144,4 +144,113 @@ test('WL-005 accessibleToUsers and accessibleToGroups are not shown as columns',
   await expect(page.locator('[data-testid="case-list"]')).not.toContainText(/accessibleTo|Anna Sales|sales/);
   expect((await headerKeys(page)).filter((key) => /accessible/i.test(key))).toEqual([]);
   await expect(page.locator('[data-path^="accessibleTo"]')).toHaveCount(0);
+});
+
+const caseRow = (page: Page, id: string) => page.locator(`[data-case-id="${id}"]`);
+const bulkRequests = async (page: Page): Promise<{ action: string; ids: string[]; body: Record<string, unknown> }[]> => (await page.request.get('/simulator-api/bulk-requests')).json();
+
+test('WL-006 the title opens the case page, and open in new tab works on it', async ({ page, context }) => {
+  await seed(page, cases);
+  await page.goto('/workflows');
+  const title = caseRow(page, 'c1').getByTestId('case-title');
+  await expect(title).toHaveAttribute('href', '/workflows/c1');
+  // open in new tab: the modified click leaves the list where it is and the link works on its own
+  const [other] = await Promise.all([context.waitForEvent('page'), title.click({ modifiers: ['ControlOrMeta'] })]);
+  await other.waitForLoadState();
+  expect(new URL(other.url()).pathname).toBe('/workflows/c1');
+  await expect(page).toHaveURL(/\/workflows$/);
+  // a plain click goes to the case page
+  await title.click();
+  await expect(page).toHaveURL(/\/workflows\/c1$/);
+  await expect(page.getByTestId('case-list')).toHaveCount(0);
+  // in another language the case page has the path of that language
+  await page.goto('/workflows');
+  await inGerman(page);
+  await expect(caseRow(page, 'c1').getByTestId('case-title')).toHaveAttribute('href', '/vorgang/c1');
+});
+
+test('WL-007 a case row looks as its state says, like a task row', async ({ page }) => {
+  await seed(page, [...cases, aCase('d2', { endedAt: '2026-11-22T08:00:00Z', endReason: 'CANCELLED' })]);
+  await page.goto('/workflows');
+  const look = (id: string) => caseRow(page, id).evaluate((row) => {
+    const style = getComputedStyle(row);
+    const cell = getComputedStyle(row.querySelector('[data-testid="cell-title"]')!);
+    return { background: style.backgroundColor, color: cell.color, line: cell.textDecorationLine };
+  });
+  await expect(caseRow(page, 'c1')).toBeVisible();
+  const active = await look('c1');
+  const suspended = await look('c3');
+  expect(suspended.background).toBe(active.background);
+  expect(suspended.color).not.toBe(active.color);
+  expect(suspended.line).toBe('none');
+  await page.getByTestId('primary-filter-Done').click();
+  await expect(page.getByTestId('case-row')).toHaveCount(2);
+  const completed = await look('d1');
+  const cancelled = await look('d2');
+  expect(completed.background).not.toBe(active.background);
+  expect(completed.color).toBe(active.color);
+  expect(completed.line).toBe('none');
+  expect(cancelled.background).toBe(completed.background);
+  expect(cancelled.line).toBe('line-through');
+  await expect(caseRow(page, 'd1').getByTestId('cell-businessId')).toHaveCSS('text-decoration-line', 'none');
+  await expect(caseRow(page, 'd2')).toHaveAttribute('data-state', 'cancelled');
+});
+
+test('WL-008 a note is written per row and for all selected cases at once', async ({ page }) => {
+  await seed(page, cases);
+  await page.goto('/workflows');
+  const noteCell = caseRow(page, 'c2').getByTestId('cell-note');
+  await noteCell.hover();
+  await noteCell.getByTestId('note-edit').click();
+  await noteCell.getByTestId('note-input').fill('ring Anna');
+  await noteCell.getByTestId('note-save').click();
+  await expect(noteCell).toContainText('ring Anna');
+  expect((await bulkRequests(page)).at(-1)).toMatchObject({ action: 'case-note', ids: ['c2'], body: { text: 'ring Anna' } });
+  await caseRow(page, 'c1').getByTestId('select-row').check();
+  await caseRow(page, 'c3').getByTestId('select-row').check();
+  await page.getByTestId('tool-note').click();
+  await page.getByTestId('bulk-note-input').fill('all together');
+  await page.getByTestId('bulk-note-save').click();
+  await expect(caseRow(page, 'c1').getByTestId('cell-note')).toContainText('all together');
+  await expect(caseRow(page, 'c3').getByTestId('cell-note')).toContainText('all together');
+  await expect(caseRow(page, 'c2').getByTestId('cell-note')).toContainText('ring Anna');
+  expect((await bulkRequests(page)).at(-1)).toMatchObject({ action: 'cases-note', ids: ['c1', 'c3'], body: { text: 'all together' } });
+});
+
+test('WL-009 the default primary filter of the case list is the one of the interview, In progress', async ({ page }) => {
+  await seed(page, cases);
+  await page.goto('/workflows');
+  await expect(page.getByTestId('case-row')).toHaveCount(3);
+  await expect(page.getByTestId('primary-filter-InProgress')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('primary-filter-Done')).toHaveAttribute('aria-pressed', 'false');
+  expect((await listRequests(page))[0]!.body.mode).toBe('InProgress');
+});
+
+test('WL-010 the case list has a selection column for the note, and no read function', async ({ page }) => {
+  await seed(page, cases);
+  await page.goto('/workflows');
+  await expect(page.getByTestId('case-row')).toHaveCount(3);
+  await expect(page.getByTestId('column-header-id')).toHaveCount(1);
+  await expect(page.getByTestId('select-row')).toHaveCount(3);
+  await expect(page.getByTestId('cell-id')).toHaveCount(3);
+  await expect(page.getByTestId('cell-id').first()).toHaveText('');
+  await expect(page.getByTestId('selected-count')).toHaveText('0');
+  await expect(page.getByTestId('tool-note')).toBeDisabled();
+  for (const name of ['mark-read', 'mark-unread', 'claim', 'propose', 'follow-up']) await expect(page.getByTestId(`tool-${name}`)).toHaveCount(0);
+  await caseRow(page, 'c1').getByTestId('select-row').check();
+  await expect(page.getByTestId('selected-count')).toHaveText('1');
+  await expect(page.getByTestId('tool-note')).toBeEnabled();
+  // another list is other rows, nothing stays selected
+  await page.getByTestId('primary-filter-Done').click();
+  await expect(page.getByTestId('selected-count')).toHaveText('0');
+});
+
+test('WL-012 the status line of the case list shows the legend of new, changed, removed, completed, cancelled and suspended rows', async ({ page }) => {
+  await seed(page, cases);
+  await page.goto('/workflows');
+  await expect(page.getByTestId('case-row')).toHaveCount(3);
+  const legend = page.getByTestId('status-line').getByTestId('legend');
+  await expect(legend.locator('[data-legend]')).toHaveText(['New', 'Changed', 'Removed', 'Completed', 'Cancelled', 'Suspended']);
+  await inGerman(page);
+  await expect(legend.locator('[data-legend]')).toHaveText(['Neu', 'Geändert', 'Entfernt', 'Erledigt', 'Abgebrochen', 'Ausgesetzt']);
 });

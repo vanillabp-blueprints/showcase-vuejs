@@ -347,6 +347,19 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       }
       return send(res, 200);
     }
+    // The note of one case and of a list of cases, like PATCH /workflow/{id}/note and /workflow/note of the cockpit.
+    const caseNote = /^\/gui\/api\/v1\/workflow\/(?:([^/]+)\/note|note)$/.exec(path);
+    if (caseNote && method === 'PATCH') {
+      if (!userOf(req)) return send(res, 401);
+      const body = await readBody(req);
+      const ids = caseNote[1] ? [decodeURIComponent(caseNote[1])] : ((body.workflowIds ?? []) as string[]);
+      if (ids.length > 1000) return send(res, 400);
+      const found = ids.map((id) => workflows.find((candidate) => candidate.id === id));
+      if (found.some((one) => !one)) return send(res, 404);
+      bulkRequests.push({ action: caseNote[1] ? 'case-note' : 'cases-note', ids, query: {}, body });
+      for (const one of found as Workflow[]) one.note = (body.text as string | undefined) || undefined;
+      return send(res, 200);
+    }
     if (path === '/simulator-api/bulk-requests') return send(res, 200, bulkRequests);
     // Claim or give back (?unclaim=true), assign or unassign (?userId=) and the note of one task, like the cockpit does it.
     const taskAction = /^\/gui\/api\/v1(?:\/current-user)?\/usertask\/([^/]+)\/(claim|assign|note)$/.exec(path);
