@@ -23,6 +23,10 @@ const de: Messages = {
   columnNeedsType: "Diese Spalte braucht einen Typ.",
   noFormForTask: "Dieses Modul hat kein Formular für die Aufgabe.",
   taskLoading: { task: "Die Aufgabe wird geladen…", form: "Das Formular wird geladen…", visual: "Die Ansicht des Formulars wird geladen…" },
+  caseLoading: { case: "Der Vorgang wird geladen…", page: "Die Seite wird geladen…", visual: "Die Ansicht der Seite wird geladen…" },
+  caseNotLoaded: "Der Vorgang konnte nicht geladen werden.",
+  cannotOpenCaseHere: "Dieser Vorgang kann hier nicht geöffnet werden.",
+  noPageForCase: "Dieses Modul hat keine Seite für den Vorgang.",
   partNotes: {
     askFailed: 'Der Teil {entry} des Moduls {module} konnte nicht geladen werden.',
     loadFailed: 'Der sichtbare Teil {entry} des Moduls {module} konnte nicht geladen werden.',

@@ -23,6 +23,10 @@ const en = {
   columnNeedsType: "This column needs a type.",
   noFormForTask: "This module has no form for the task.",
   taskLoading: { task: "Loading the task…", form: "Loading the form…", visual: "Loading the view of the form…" },
+  caseLoading: { case: "Loading the case…", page: "Loading the page…", visual: "Loading the view of the page…" },
+  caseNotLoaded: "The case could not be loaded.",
+  cannotOpenCaseHere: "This case cannot be opened here.",
+  noPageForCase: "This module has no page for the case.",
   partNotes: {
     askFailed: 'The part {entry} of module {module} could not be loaded.',
     loadFailed: 'The visual part {entry} of module {module} could not be loaded.',

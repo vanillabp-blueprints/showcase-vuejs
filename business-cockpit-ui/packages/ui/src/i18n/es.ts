@@ -23,6 +23,10 @@ const es: Messages = {
   columnNeedsType: "Esta columna necesita un tipo.",
   noFormForTask: "Este módulo no tiene formulario para la tarea.",
   taskLoading: { task: "Cargando la tarea…", form: "Cargando el formulario…", visual: "Cargando la vista del formulario…" },
+  caseLoading: { case: "Cargando el caso…", page: "Cargando la página…", visual: "Cargando la vista de la página…" },
+  caseNotLoaded: "No se pudo cargar el caso.",
+  cannotOpenCaseHere: "Este caso no se puede abrir aquí.",
+  noPageForCase: "Este módulo no tiene página para el caso.",
   partNotes: {
     askFailed: 'No se pudo cargar la parte {entry} del módulo {module}.',
     loadFailed: 'No se pudo cargar la parte visible {entry} del módulo {module}.',

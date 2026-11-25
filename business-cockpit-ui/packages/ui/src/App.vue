@@ -7,10 +7,12 @@ import { counts } from './counts/counts';
 import { initialsOf } from './initials';
 import { formatNumber } from './i18n/format';
 import { language, languages, text } from './i18n/messages';
-import { pageOf, taskIdOf } from './routing';
+import { caseIdOf, pageOf, taskIdOf } from './routing';
 import { cappedNotice, isCapped } from './tasks/cappedNotice';
 import TaskList from './tasks/TaskList.vue';
 import CaseList from './cases/CaseList.vue';
+import CaseHeader from './cases/CaseHeader.vue';
+import CasePage from './cases/CasePage.vue';
 import ModuleHeader from './modules/ModuleHeader.vue';
 import BackToList from './tasks/BackToList.vue';
 import TaskHeader from './tasks/TaskHeader.vue';
@@ -21,16 +23,17 @@ import { stateOf } from './tasks/taskState';
 const props = defineProps<{ title: string; user: User }>();
 
 const menuOpen = ref(false);
-// A link to a task opens it in this page, so what the loader kept is used again (TF-039); the back button and the actions of the modules use the same way.
+// A link to a task or a case opens it in this page, so what the loader kept is used again (TF-039); the back button and the actions of the modules use the same way.
 const path = ref(window.location.pathname);
 const page = computed(() => pageOf(path.value));
 const taskId = computed(() => taskIdOf(path.value));
+const caseId = computed(() => caseIdOf(path.value));
 window.addEventListener('popstate', () => { path.value = window.location.pathname; });
 window.addEventListener('click', (event) => {
   const link = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
   const plain = event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
   if (!link || !plain || event.defaultPrevented || (link.target && link.target !== '_self') || link.origin !== window.location.origin) return;
-  if (taskIdOf(link.pathname) === undefined) return;
+  if (taskIdOf(link.pathname) === undefined && caseIdOf(link.pathname) === undefined) return;
   event.preventDefault();
   window.history.pushState({}, '', link.pathname + link.search);
   path.value = link.pathname;
@@ -63,6 +66,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
       <module-header />
       <!-- right of the parts of the modules, so late parts do not move the actions -->
       <task-header v-if="page === 'task'" :current-user-id="user.id" />
+      <case-header v-else-if="page === 'case'" />
       <span data-testid="current-user" class="mr-2">{{ user.display ?? user.id }}</span>
       <!-- a task tab has no menu, its way out is the way back to the list (TF-007) -->
       <back-to-list v-if="page === 'task'" :current-user-id="user.id" />
@@ -109,6 +113,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
       <task-list v-else-if="page === 'myTasks'" :own="true" :current-user-id="user.id" />
       <case-list v-else-if="page === 'cases'" />
       <task-page v-else-if="page === 'task' && taskId" :id="taskId" :key="taskId" :current-user-id="user.id" />
+      <case-page v-else-if="page === 'case' && caseId" :id="caseId" :key="caseId" />
     </v-main>
   </v-app>
 </template>

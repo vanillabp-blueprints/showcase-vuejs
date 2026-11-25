@@ -23,6 +23,10 @@ const fr: Messages = {
   columnNeedsType: "Cette colonne a besoin d'un type.",
   noFormForTask: "Ce module n'a pas de formulaire pour la tâche.",
   taskLoading: { task: "Chargement de la tâche…", form: "Chargement du formulaire…", visual: "Chargement de la vue du formulaire…" },
+  caseLoading: { case: "Chargement du dossier…", page: "Chargement de la page…", visual: "Chargement de la vue de la page…" },
+  caseNotLoaded: "Le dossier n'a pas pu être chargé.",
+  cannotOpenCaseHere: "Ce dossier ne peut pas être ouvert ici.",
+  noPageForCase: "Ce module n'a pas de page pour le dossier.",
   partNotes: {
     askFailed: 'La partie {entry} du module {module} n’a pas pu être chargée.',
     loadFailed: 'La partie visible {entry} du module {module} n’a pas pu être chargée.',

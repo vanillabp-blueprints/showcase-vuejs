@@ -1,7 +1,7 @@
 import { minimumActions, type CockpitActions, type ModuleHost } from '@acme/bc-module-host';
 import type { BcNotification } from '@acme/bc-module-kit';
 import { OfficialTasklistApi, OfficialWorkflowlistApi } from '../generated/official-gui-api';
-import { taskAddress } from '../routing';
+import { caseAddress, taskAddress } from '../routing';
 
 // What the actions of a part do in the cockpit. The user interface only changes a task through the GUI API
 // the way a user does with a click; it never completes a task and never calls a module (EXT-057).
@@ -56,13 +56,13 @@ export function cockpitActions(host: () => ModuleHost) {
     openUserTask: (userTaskId) => navigate(taskAddress(userTaskId)),
     navigateToWorkflowOfUserTask: async (userTaskId) => {
       const { workflowId } = await tasks().getUserTask({ userTaskId });
-      if (workflowId) navigate(`/workflows/${encodeURIComponent(workflowId)}`);
+      if (workflowId) navigate(caseAddress(workflowId));
     },
     claim: async (userTaskId) => void (await tasks().claimTask({ userTaskId })),
     unclaim: async (userTaskId) => void (await tasks().claimTask({ userTaskId, unclaim: true })),
     assign: async (userTaskId, userId) => void (await tasks().assignTask({ userTaskId, userId })),
     unassign: async (userTaskId, userId) => void (await tasks().assignTask({ userTaskId, userId, unassign: true })),
-    navigateToWorkflow: (workflowId) => navigate(`/workflows/${encodeURIComponent(workflowId)}`),
+    navigateToWorkflow: (workflowId) => navigate(caseAddress(workflowId)),
     getUserTasks: async (workflowId, activeOnly, limit) => {
       const answer = await new OfficialWorkflowlistApi().getUserTasksOfWorkflow({ workflowId, llatcup: limit, userTasksRequest: { mode: 'All' } });
       return activeOnly ? answer.userTasks.filter((task) => !task.endedAt) : answer.userTasks;

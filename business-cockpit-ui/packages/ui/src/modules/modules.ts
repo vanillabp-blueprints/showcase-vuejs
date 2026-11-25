@@ -1,5 +1,5 @@
 import { addressOf, createModuleHost, createModuleRegistry, type ModuleHost, type ModuleRef, type RowOfModule } from '@acme/bc-module-host';
-import { HEADER, UI_URI_TYPE_EXTERNAL, USER_TASK_FORM, USER_TASK_LIST, WORKFLOW_LIST } from '@acme/bc-module-kit';
+import { HEADER, UI_URI_TYPE_EXTERNAL, USER_TASK_FORM, USER_TASK_LIST, WORKFLOW_LIST, WORKFLOW_PAGE } from '@acme/bc-module-kit';
 import type { Column as ModuleColumn } from '@acme/bc-types';
 import { OfficialWorkflowModulesApi } from '../generated/official-gui-api';
 import { FailedCall } from '../api/clients';
@@ -77,24 +77,33 @@ export async function modulesToAsk(): Promise<ModuleRef[]> {
   return (await registry.all()).map((module) => ({ workflowModuleId: module.id, webPath: `/wm/${module.id}/` }));
 }
 
-/** The areas of the cockpit on the page of a user task (Q-TASK-PAGE-AREAS). */
-const taskPageAreas = ['body', 'information', 'actions'];
+/** The areas of the cockpit on the page of a user task (Q-TASK-PAGE-AREAS) and of a case (Q-WORKFLOW-PAGE-AREAS). */
+const pageAreas = ['body', 'information', 'actions'];
 
-/** The task page is left; what was kept for its areas is dropped (TF-022). */
+/** The page is left; what was kept for its areas is dropped (TF-022). */
 export const leaveFormOf = (container: Element): void => host.leavePage(container);
 
 /** The task of the open page changed: the web components of its form get it again. */
 export const updateFormOf = (task: RowOfModule, container: Element): void => host.setData(container, USER_TASK_FORM, task);
 
+/** The case of the open page changed: the web components of its page get it again. */
+export const updateCasePageOf = (workflow: RowOfModule, container: Element): void => host.setData(container, WORKFLOW_PAGE, workflow);
+
 /**
- * Draws the form of the module of a task into `container`. Answers `unknown` when the cockpit cannot open the task,
- * else the areas drawn (none when the module names no form for it).
+ * Draws the part `entry` of the module of a row into `container`. Answers `unknown` when the cockpit cannot open the row,
+ * else the areas drawn (none when the module names no part for it).
  * `onLoadingVisual` is called when the visual entry has to be loaded.
  */
-export async function drawFormOf(task: RowOfModule, container: Element, onLoadingVisual?: (entry: string) => void): Promise<'unknown' | string[]> {
-  const opening = await registry.opening(task);
+async function drawPageOf(entry: typeof USER_TASK_FORM | typeof WORKFLOW_PAGE, row: RowOfModule, container: Element, onLoadingVisual?: (entry: string) => void): Promise<'unknown' | string[]> {
+  const opening = await registry.opening(row);
   if (opening.kind !== 'parts') return 'unknown';
   const { workflowModuleId, webPath } = opening.module;
-  if (!(await host.names(workflowModuleId, webPath, USER_TASK_FORM))) return [];
-  return Object.keys(await host.drawPage(workflowModuleId, webPath, USER_TASK_FORM, task, taskPageAreas, container, onLoadingVisual));
+  if (!(await host.names(workflowModuleId, webPath, entry))) return [];
+  return Object.keys(await host.drawPage(workflowModuleId, webPath, entry, row, pageAreas, container, onLoadingVisual));
 }
+
+/** The form of the module of a task (the areas drawn, `unknown` or none). */
+export const drawFormOf = (task: RowOfModule, container: Element, onLoadingVisual?: (entry: string) => void) => drawPageOf(USER_TASK_FORM, task, container, onLoadingVisual);
+
+/** The page of the module of a case, drawn the same way. */
+export const drawCasePageOf = (workflow: RowOfModule, container: Element, onLoadingVisual?: (entry: string) => void) => drawPageOf(WORKFLOW_PAGE, workflow, container, onLoadingVisual);

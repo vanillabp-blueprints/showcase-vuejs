@@ -195,3 +195,10 @@ Story: S51 (WL-013)
 Date: 2026-11-26
 Default taken: WL-013 has its own test now; the primary filter of the case list is kept as the setting bc:cases:primaryFilter. Still open from ASK-026 and ASK-027: the search field and search of the case list (carry-over of SRCH-001 to SRCH-006) and the virtual window of the case list (SRCH-010 to SRCH-014, reuse of tasks/paging.ts); the list still appends pages of 20 without dropping far pages. The primary filter All does not exist in the case list (Q-WORKFLOW-FILTERS has InProgress and Done only).
 Answer: open
+
+## ASK-029 Case page: what S52 left open
+
+Story: S52 (NAV-004, TF-013, WP-001, WP-003, WP-007, WP-008)
+Date: 2026-11-26
+Default taken: the page of a case mirrors the task page (CasePage.vue, drawPage with `WorkflowPage`, the areas body, information, actions, else `all`); a click on a case title and the actions `navigateToWorkflow` open it in the same page with pushState (App.vue), in the path of the language in use. The header shows the note as the only action and no information (Q-WORKFLOW-HEADER-*). A case which cannot be loaded shows a note with retry. The case page does not listen to the update stream, so a case changed elsewhere is not shown until it is opened again (LIVE stories). No red back button and no own window for cases. The backend needed no change (GET /workflow/{id} and POST /workflow/{id}/usertasks come with the library); only the simulator gained both routes. WP-009 to WP-015 stay with S53. The vue test module names only `all`, so the areas of WP-008 are proven with a module made in the test.
+Answer: open

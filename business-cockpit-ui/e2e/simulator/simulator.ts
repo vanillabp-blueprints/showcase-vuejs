@@ -347,6 +347,17 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       }
       return send(res, 200);
     }
+    // One case and the user tasks of one case, like GET /workflow/{id} and POST /workflow/{id}/usertasks of the cockpit.
+    const oneCase = /^\/gui\/api\/v1\/workflow\/([^/]+)(\/usertasks)?$/.exec(path);
+    if (oneCase && oneCase[1] !== 'note' && ((!oneCase[2] && method === 'GET') || (oneCase[2] && method === 'POST'))) {
+      if (!userOf(req)) return send(res, 401);
+      const id = decodeURIComponent(oneCase[1]!);
+      const found = workflows.find((candidate) => candidate.id === id);
+      if (!found) return send(res, 404);
+      if (!oneCase[2]) return send(res, 200, found);
+      const ofCase = userTasks.filter((task) => (task as Record<string, unknown>).workflowId === id);
+      return send(res, 200, { serverTimestamp: new Date().toISOString(), page: { totalElements: ofCase.length, totalPages: 1, number: 0, size: 100 }, userTasks: ofCase });
+    }
     // The note of one case and of a list of cases, like PATCH /workflow/{id}/note and /workflow/note of the cockpit.
     const caseNote = /^\/gui\/api\/v1\/workflow\/(?:([^/]+)\/note|note)$/.exec(path);
     if (caseNote && method === 'PATCH') {
