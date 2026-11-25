@@ -552,7 +552,9 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (modulePart && testModules.includes(modulePart[1])) {
       const file = join(modulesFolder, modulePart[1], 'dist', modulePart[2]);
       if (!file.includes('..') && existsSync(file)) {
-        res.writeHead(200, { 'content-type': file.endsWith('.js') ? 'text/javascript' : 'application/octet-stream' });
+        // The manifest has a fixed name, so it is never cached.
+        const type = file.endsWith('.js') ? 'text/javascript' : file.endsWith('.json') ? 'application/json' : 'application/octet-stream';
+        res.writeHead(200, { 'content-type': type, ...(file.endsWith('bc-manifest.json') ? { 'cache-control': 'no-cache' } : {}) });
         return void res.end(readFileSync(file));
       }
     }

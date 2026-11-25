@@ -18,6 +18,7 @@ const workspacesInBuildOrder = [
   'packages/ui',
   'packages/bc-dev-shell-*',
   'e2e/compare',
+  'e2e/modules',
 ];
 
 test('PKG-044 the root lists every workspace and the one lock file lies at the root', () => {
@@ -133,6 +134,7 @@ test('PKG-047 each workspace names the workspaces it depends on with their exact
     '@acme/bc-dev-shell-vue': ['@acme/bc-module-kit', '@acme/bc-theme'],
     '@acme/bc-dev-shell-react': ['@acme/bc-module-kit', '@acme/bc-theme'],
     '@acme/bc-dev-shell-angular': ['@acme/bc-module-kit', '@acme/bc-theme'],
+    '@acme/e2e-modules': ['@acme/bc-module-kit'],
   };
   for (const [name, { manifest }] of Object.entries(workspaces)) {
     const own = Object.keys(manifest.dependencies ?? {}).filter((dependency) => dependency in workspaces);
@@ -162,7 +164,7 @@ test('PKG-046 the libraries are published in build order and the rest is private
     '@acme/bc-dev-shell-angular', '@acme/bc-dev-shell-react', '@acme/bc-dev-shell-vue',
   ]);
   assert.equal(rootPackage.private, true);
-  for (const name of ['@acme/bc-ui', '@acme/bc-e2e-compare']) {
+  for (const name of ['@acme/bc-ui', '@acme/bc-e2e-compare', '@acme/e2e-modules']) {
     assert.equal(manifestsByName()[name].manifest.private, true, name);
   }
 });

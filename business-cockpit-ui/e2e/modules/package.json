@@ -1,0 +1,22 @@
+{
+  "name": "@acme/e2e-modules",
+  "version": "0.1.0-SNAPSHOT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@acme/bc-module-kit": "0.1.0-SNAPSHOT",
+    "@angular/compiler": "22.3.0",
+    "@angular/core": "22.3.0",
+    "@angular/platform-browser": "22.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "rxjs": "7.8.2",
+    "vue": "3.5.46"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

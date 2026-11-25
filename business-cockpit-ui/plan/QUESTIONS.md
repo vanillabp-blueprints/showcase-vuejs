@@ -87,3 +87,13 @@ Update ASK-007 (S30, TL-031): switching lists is a page load, so the test of TL-
 ## ASK-011 The three test modules do not exist yet, so PKG-040 cannot run against them
 
 PKG-040 names the three test modules and the conformance modules. They are built in S33 (PKG-056). In S32 the check is proven on synthetic modules and over every `bc-manifest.json` found in the repository (none yet). Whoever builds `e2e/modules/` in S33 must make `bc-check-entries` run over them, and the PKG-040 test then stops being vacuous.
+
+Resolved in S33: `e2e/modules/build.mjs` runs `bc-check-entries` on each module and the PKG-040 test scans the built manifests (run `npm run build` first).
+
+## ASK-012 The event protocol of the module kit is only partly built
+
+S33 built `requestFromCockpit`, `rejectOpenRequests`, `defineBcElement`, the event and manifest constants and the manifest functions. Not built: `sendTo`, `receiveMessage`, `showNotification`, `openDialog`, `closeDialog`, `toBcUserTask`, `toBcWorkflow`, the host side of the protocol (answering `bc-request`), the manifest re-read after a minute and the registry. The stories of the EXT block (loading parts into the cockpit) must build them; none of the five ids of S33 asks for them.
+
+## ASK-013 The Angular test module is built with esbuild in JIT mode
+
+`e2e/modules/angular-module` uses `@angular/compiler` at run time (JIT) and esbuild with decorators, not `ng build`. It runs in the newest Angular (22.3.0) and passes the end-to-end test, but the build is not the AOT build of the Angular CLI. Decide in a later story whether the module must be built with `ng build`.

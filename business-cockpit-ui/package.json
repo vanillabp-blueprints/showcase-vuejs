@@ -13,7 +13,8 @@
     "packages/bc-theme",
     "packages/ui",
     "packages/bc-dev-shell-*",
-    "e2e/compare"
+    "e2e/compare",
+    "e2e/modules"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present && npm run build:jars",

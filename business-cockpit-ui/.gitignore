@@ -5,3 +5,4 @@ build/
 *.tsbuildinfo
 test-results/
 playwright-report/
+e2e/modules/*/src/bc-build.js

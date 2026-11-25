@@ -47,3 +47,39 @@ export const EXPORT_NAMES = {
 
 /** The entries which carry no framework; bc-check-entries checks their size and content. */
 export const DATA_ENTRIES = Object.freeze(Object.keys(EXPORT_NAMES)) as readonly (keyof typeof EXPORT_NAMES)[];
+
+// The event protocol between a part and the cockpit (module-loading.md, The event protocol)
+export const REQUEST_EVENT = 'bc-request';
+export const RESPONSE_EVENT = 'bc-response';
+export const MESSAGE_EVENT = 'bc-message';
+export const DEFAULT_TIMEOUT_MS = 30_000;
+export const MANIFEST_FILE_NAME = 'bc-manifest.json';
+export const MANIFEST_VERSION = 1;
+
+export const ACTIONS = {
+  openDialog: 'cockpit.openDialog',
+  showNotification: 'cockpit.showNotification',
+  claim: 'userTask.claim',
+  sendTo: 'page.sendTo',
+  subscribe: 'page.subscribe',
+  unsubscribe: 'page.unsubscribe',
+} as const;
+export const ACTIONS_WITHOUT_TIMEOUT: readonly string[] = [ACTIONS.openDialog];
+
+export const ERROR_CODES = { DISCONNECTED: 'DISCONNECTED', TIMEOUT: 'TIMEOUT', REFUSED: 'REFUSED' } as const;
+
+export interface BcRequestDetail { requestId: string; action: string; args?: unknown }
+export type BcResponseDetail =
+  | { requestId: string; ok: true; result?: unknown }
+  | { requestId: string; ok: false; error: { code: string; status?: number; message?: string } };
+
+export interface BcManifest {
+  manifestVersion: 1;
+  buildVersion?: string;
+  buildTimestamp?: string;
+  /** Entry name -> file, relative to the manifest. */
+  entries: { [entry: string]: string };
+}
+
+/** What a data entry answers: the web component to draw and the visual entry that defines it. */
+export interface BcElementDescriptor { element: string; entry: string }
