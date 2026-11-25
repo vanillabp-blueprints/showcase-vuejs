@@ -25,6 +25,7 @@ const de: Messages = {
   taskLoading: { task: "Die Aufgabe wird geladen…", form: "Das Formular wird geladen…", visual: "Die Ansicht des Formulars wird geladen…" },
   caseLoading: { case: "Der Vorgang wird geladen…", page: "Die Seite wird geladen…", visual: "Die Ansicht der Seite wird geladen…" },
   caseNotLoaded: "Der Vorgang konnte nicht geladen werden.",
+  caseChangedByOther: "{name} hat diesen Vorgang geändert. Bitte sprechen Sie sich mit ihr oder ihm ab, bevor Sie weitermachen, damit keine Daten verloren gehen.",
   cannotOpenCaseHere: "Dieser Vorgang kann hier nicht geöffnet werden.",
   noPageForCase: "Dieses Modul hat keine Seite für den Vorgang.",
   partNotes: {

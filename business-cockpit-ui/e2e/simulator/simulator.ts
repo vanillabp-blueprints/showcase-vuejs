@@ -501,7 +501,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     // One delivery of the update stream: one event with the given number of elements.
     if (path === '/simulator-api/publish' && method === 'POST') {
       const body = await readBody(req);
-      publish(String(body.event), Array.from({ length: Number(body.elements ?? 1) }, () => ({ id: crypto.randomUUID() })));
+      // `items` are the elements as they are, else `elements` ones with an id each
+      publish(String(body.event), (body.items as object[] | undefined) ?? Array.from({ length: Number(body.elements ?? 1) }, () => ({ id: crypto.randomUUID() })));
       return send(res, 200);
     }
 

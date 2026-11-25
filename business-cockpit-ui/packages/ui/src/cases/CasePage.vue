@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { updateStreamUrl } from '../api/clients';
 import { text } from '../i18n/messages';
+import { toast } from '../modules/actions';
 import { drawCasePageOf, leaveFormOf, updateCasePageOf } from '../modules/modules';
 import { noteOf, type NoteKind, type Step } from '../modules/partNote';
 import { WORKFLOW_PAGE } from '@acme/bc-module-kit';
 import { loadCase, openCase, openCaseFailed } from './openCase';
 
-const props = defineProps<{ id: string }>();
+const props = defineProps<{ id: string; currentUserId: string }>();
 
 const container = ref<HTMLElement>();
 // `loading-case`, `loading-page` (the data entry) and `loading-visual` (the visual entry and its web components) are the loading states;
@@ -15,7 +17,16 @@ type State = 'loading-case' | 'loading-page' | 'loading-visual' | 'drawn' | 'uno
 const state = ref<State>('loading-case');
 const note = ref<{ kind: NoteKind | 'case-failed'; message: string }>();
 
-onBeforeUnmount(() => { if (container.value) leaveFormOf(container.value); });
+// An update of the open case reads it again; the toast comes from the event alone, only for a change of another user (WP-014).
+const updates = new EventSource(updateStreamUrl());
+updates.addEventListener('Workflow', (message) => {
+  const mine = (JSON.parse((message as MessageEvent<string>).data) as { event: { id: string; initiatorKind?: string; initiator?: string } }[]).map(({ event }) => event).filter((event) => event.id === props.id);
+  if (mine.length === 0) return;
+  void loadCase(props.id);
+  const other = mine.find((event) => event.initiatorKind === 'USER' && event.initiator !== props.currentUserId);
+  if (other) toast({ level: 'warning', sticky: true, text: text().caseChangedByOther.replace('{name}', other.initiator ?? '') });
+});
+onBeforeUnmount(() => { updates.close(); if (container.value) leaveFormOf(container.value); });
 
 async function open(): Promise<void> {
   if (container.value) { leaveFormOf(container.value); container.value.replaceChildren(); }

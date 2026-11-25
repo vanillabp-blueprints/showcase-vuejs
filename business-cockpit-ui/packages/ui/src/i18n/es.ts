@@ -25,6 +25,7 @@ const es: Messages = {
   taskLoading: { task: "Cargando la tarea…", form: "Cargando el formulario…", visual: "Cargando la vista del formulario…" },
   caseLoading: { case: "Cargando el caso…", page: "Cargando la página…", visual: "Cargando la vista de la página…" },
   caseNotLoaded: "No se pudo cargar el caso.",
+  caseChangedByOther: "{name} ha cambiado este caso. Hable con esa persona antes de seguir, para no perder datos.",
   cannotOpenCaseHere: "Este caso no se puede abrir aquí.",
   noPageForCase: "Este módulo no tiene página para el caso.",
   partNotes: {

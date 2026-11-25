@@ -59,7 +59,7 @@ Started: 2026-11-25
 | S50 | A clerk looks up a case in the case list (2 of 3) | done | WL-006, WL-007, WL-008, WL-009, WL-010, WL-012 | `sh plan/checks/S50.sh` |
 | S51 | A clerk looks up a case in the case list (3 of 3) | done | WL-013 | `sh plan/checks/S51.sh` |
 | S52 | A clerk opens the page of a case (1 of 2) | done | NAV-004, TF-013, WP-001, WP-003, WP-007, WP-008 | `sh plan/checks/S52.sh` |
-| S53 | A clerk opens the page of a case (2 of 2) | open | WP-009, WP-010, WP-011, WP-012, WP-014, WP-015 | `sh plan/checks/S53.sh` |
+| S53 | A clerk opens the page of a case (2 of 2) | done | WP-009, WP-010, WP-011, WP-012, WP-014, WP-015 | `sh plan/checks/S53.sh` |
 | S54 | A clerk sees changes without a reload (1 of 5) | open | TF-011, TF-037, LIVE-001, LIVE-002, LIVE-003, LIVE-004 | `sh plan/checks/S54.sh` |
 | S55 | A clerk sees changes without a reload (2 of 5) | open | LIVE-005, LIVE-006, LIVE-007, LIVE-010, LIVE-011, LIVE-012 | `sh plan/checks/S55.sh` |
 | S56 | A clerk sees changes without a reload (3 of 5) | open | LIVE-013, LIVE-014, LIVE-015, LIVE-016, LIVE-017, LIVE-018 | `sh plan/checks/S56.sh` |

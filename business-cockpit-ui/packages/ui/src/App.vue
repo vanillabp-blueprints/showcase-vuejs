@@ -18,6 +18,7 @@ import BackToList from './tasks/BackToList.vue';
 import TaskHeader from './tasks/TaskHeader.vue';
 import TaskPage from './tasks/TaskPage.vue';
 import { openTask } from './tasks/openTask';
+import { openCase } from './cases/openCase';
 import { stateOf } from './tasks/taskState';
 
 const props = defineProps<{ title: string; user: User }>();
@@ -38,8 +39,11 @@ window.addEventListener('click', (event) => {
   window.history.pushState({}, '', link.pathname + link.search);
   path.value = link.pathname;
 });
-// The header of an open task looks as the row of the task does (TF-042); it shows no title, so nothing is struck through.
-const headerLook = computed(() => (page.value === 'task' && openTask.value ? `task-${stateOf(openTask.value)}` : ''));
+// The header of an open task or case looks as its row does (TF-042, WP-015); it shows no title, so nothing is struck through.
+const headerLook = computed(() => {
+  if (page.value === 'task' && openTask.value) return `task-${stateOf(openTask.value)}`;
+  return page.value === 'case' && openCase.value ? `task-${stateOf(openCase.value)}` : '';
+});
 // the page says which language it is in
 watchEffect(() => { document.documentElement.lang = language.value; });
 const shortForm = computed(() => props.user.displayShort ?? props.user.display ?? props.user.id);
@@ -113,7 +117,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
       <task-list v-else-if="page === 'myTasks'" :own="true" :current-user-id="user.id" />
       <case-list v-else-if="page === 'cases'" />
       <task-page v-else-if="page === 'task' && taskId" :id="taskId" :key="taskId" :current-user-id="user.id" />
-      <case-page v-else-if="page === 'case' && caseId" :id="caseId" :key="caseId" />
+      <case-page v-else-if="page === 'case' && caseId" :id="caseId" :key="caseId" :current-user-id="user.id" />
     </v-main>
   </v-app>
 </template>

@@ -202,3 +202,10 @@ Story: S52 (NAV-004, TF-013, WP-001, WP-003, WP-007, WP-008)
 Date: 2026-11-26
 Default taken: the page of a case mirrors the task page (CasePage.vue, drawPage with `WorkflowPage`, the areas body, information, actions, else `all`); a click on a case title and the actions `navigateToWorkflow` open it in the same page with pushState (App.vue), in the path of the language in use. The header shows the note as the only action and no information (Q-WORKFLOW-HEADER-*). A case which cannot be loaded shows a note with retry. The case page does not listen to the update stream, so a case changed elsewhere is not shown until it is opened again (LIVE stories). No red back button and no own window for cases. The backend needed no change (GET /workflow/{id} and POST /workflow/{id}/usertasks come with the library); only the simulator gained both routes. WP-009 to WP-015 stay with S53. The vue test module names only `all`, so the areas of WP-008 are proven with a module made in the test.
 Answer: open
+
+## ASK-030 Case page: what S53 left open
+
+Story: S53 (WP-009, WP-010, WP-011, WP-012, WP-014, WP-015)
+Date: 2026-11-26
+Default taken: the case page reads the case again on every Workflow event that names it and sets `workflow` again; the sticky toast (the toast of the module actions, click to remove) names the initiator by user id, because a case has no assignee or candidate users to take the short name from. The text is `caseChangedByOther` in the four languages. The simulator publish route takes `items` (the elements as they are). The page of a task does not yet show this toast (TF-011, TF-037 are in S54). Backend unchanged.
+Answer: open

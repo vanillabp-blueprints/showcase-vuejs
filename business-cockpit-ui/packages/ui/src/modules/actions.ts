@@ -13,7 +13,7 @@ function navigate(address: string): void {
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-function toast({ level, text, sticky }: BcNotification): void {
+export function toast({ level, text, sticky }: BcNotification): void {
   const note = document.createElement('div');
   note.setAttribute('role', level === 'error' ? 'alert' : 'status');
   note.dataset.testid = 'toast';
