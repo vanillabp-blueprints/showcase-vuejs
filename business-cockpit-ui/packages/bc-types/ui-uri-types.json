@@ -1,0 +1,4 @@
+[
+  { "name": "ES_MODULES", "description": "The module's parts are ES modules named in bc-manifest.json; the cockpit loads them with import()." },
+  { "name": "EXTERNAL", "description": "The module has pages of its own; the cockpit opens them in a tab of its own." }
+]

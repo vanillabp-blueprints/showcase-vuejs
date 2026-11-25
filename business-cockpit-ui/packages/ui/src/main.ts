@@ -1,3 +1,4 @@
+import { installTheme } from '@acme/bc-theme';
 import { createApp } from 'vue';
 import { createVuetify } from 'vuetify';
 import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
@@ -8,6 +9,7 @@ import { LoginApi } from './generated/cockpit-gui-api';
 import { keepCountsCurrent } from './counts/counts';
 import { currentUser, sendToLoginOnUnauthorized } from './session/session';
 
+installTheme();
 configureGuiApiClients();
 sendToLoginOnUnauthorized();
 

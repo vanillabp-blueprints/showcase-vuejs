@@ -5,12 +5,16 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "dependencies": {
     "@acme/bc-types": "0.1.0-SNAPSHOT"
   },
   "scripts": {
     "build": "tsc --project tsconfig.json"
+  },
+  "bin": {
+    "bc-check-entries": "bin/bc-check-entries.mjs"
   }
 }

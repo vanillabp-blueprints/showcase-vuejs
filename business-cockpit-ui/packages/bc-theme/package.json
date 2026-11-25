@@ -8,6 +8,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc --project tsconfig.json"
+    "build": "tsc --project tsconfig.json && node write-css.mjs"
+  },
+  "devDependencies": {
+    "@acme/bc-types": "0.1.0-SNAPSHOT"
   }
 }
