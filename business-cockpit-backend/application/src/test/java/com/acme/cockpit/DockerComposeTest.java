@@ -61,6 +61,48 @@ class DockerComposeTest {
     assertThat(configuration.getProperty("business-cockpit.jwt.hmacSHA256-base64")).isNotBlank();
   }
 
+  @Test
+  @DisplayName("BE-013 compose starts keycloak with start-dev and the realm import")
+  void BE_013_compose_starts_keycloak_with_start_dev_and_the_realm_import() {
+    final var keycloak = services.get("keycloak");
+
+    assertThat(keycloak).isNotNull();
+    assertThat(String.valueOf(keycloak.get("command"))).contains("start-dev").contains("--import-realm");
+    assertThat(String.valueOf(keycloak.get("volumes"))).contains("keycloak/realm.json").contains("/opt/keycloak/data/import");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  @DisplayName("BE-013 realm has both clients, the redirect for free ports, the scope of the admin api and one user in one group")
+  void BE_013_realm_has_both_clients_the_redirect_for_free_ports_the_scope_of_the_admin_api_and_one_user_in_one_group()
+      throws Exception {
+    final var realm = new com.fasterxml.jackson.databind.ObjectMapper()
+        .readValue(new File("../keycloak/realm.json"), Map.class);
+    final var clients = ((java.util.List<Map<String, Object>>) realm.get("clients")).stream()
+        .collect(java.util.stream.Collectors.toMap(client -> (String) client.get("clientId"), client -> client));
+
+    assertThat(realm.get("realm")).isEqualTo("business-cockpit");
+    assertThat(clients).containsKeys("business-cockpit", "business-cockpit-directory");
+    final var login = clients.get("business-cockpit");
+    assertThat((java.util.List<String>) login.get("redirectUris"))
+        .contains("http://localhost:8080/login/oauth2/code/keycloak", "http://localhost:*");
+    final var attributes = (Map<String, String>) login.get("attributes");
+    assertThat(attributes.get("post.logout.redirect.uris")).contains("http://localhost:8080/").contains("http://localhost:*");
+    final var directory = clients.get("business-cockpit-directory");
+    assertThat(directory.get("serviceAccountsEnabled")).isEqualTo(true);
+    assertThat((java.util.List<String>) directory.get("defaultClientScopes")).contains("kc-admin-api");
+
+    final var users = (java.util.List<Map<String, Object>>) realm.get("users");
+    final var people = users.stream().filter(user -> !String.valueOf(user.get("username")).startsWith("service-account-")).toList();
+    assertThat(people).hasSize(1);
+    assertThat(people.get(0).get("groups")).isEqualTo(java.util.List.of("template-group"));
+    assertThat((java.util.List<?>) realm.get("groups")).hasSize(1);
+    final var serviceAccount = users.stream()
+        .filter(user -> "service-account-business-cockpit-directory".equals(user.get("username"))).findFirst().orElseThrow();
+    assertThat(String.valueOf(serviceAccount.get("clientRoles"))).contains("view-users");
+    assertThat(String.valueOf(serviceAccount.get("clientRoles"))).doesNotContain("manage-users");
+  }
+
   @SuppressWarnings("unchecked")
   private static Map<String, Map<String, Object>> servicesOf(final String path) {
     try (var reader = new FileReader(new File(path))) {

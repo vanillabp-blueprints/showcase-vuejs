@@ -12,6 +12,20 @@ spring:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
 
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: business-cockpit
+            client-secret: ${KEYCLOAK_CLIENT_SECRET}
+            scope: openid
+        provider:
+          keycloak:
+            issuer-uri: ${KEYCLOAK_URL}/realms/business-cockpit
+            # the id of the user in the cockpit, the same id the user directory has
+            user-name-attribute: preferred_username
+
 bpms-api:
   realm-name: BPMS-API
   username: ${BPMS_API_USERNAME}
@@ -26,6 +40,15 @@ business-cockpit:
     languages: en,de,fr,es
   jwt:
     hmacSHA256-base64: ${COCKPIT_JWT_KEY}
+  user-directory:
+    type: keycloak
+    keycloak:
+      server-url: ${KEYCLOAK_URL}
+      realm: business-cockpit
+      client-id: business-cockpit-directory
+      client-secret: ${KEYCLOAK_DIRECTORY_SECRET}
+      # the login names the user by preferred_username
+      user-id: username
   notification:
     interval: PT1M
     smtp:

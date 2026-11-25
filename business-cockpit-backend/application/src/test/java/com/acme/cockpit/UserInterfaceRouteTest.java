@@ -23,7 +23,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -36,7 +35,6 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * answer itself to the dev server of the user interface. A small HTTP server stands in for it.
  */
 @Testcontainers
-@Import(ApplicationStartTest.StandInForTheLogin.class)
 @ActiveProfiles("ui-dev-server")
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -60,6 +58,7 @@ class UserInterfaceRouteTest {
 
   @DynamicPropertySource
   static void theDevServerIsTheStub(final DynamicPropertyRegistry registry) {
+    TestKeycloak.register(registry);
     registry.add("user-interface.uri", () -> "http://127.0.0.1:" + DEV_SERVER.getAddress().getPort());
   }
 
@@ -69,7 +68,15 @@ class UserInterfaceRouteTest {
   @Autowired
   private ApplicationContext context;
 
-  private final HttpClient client = HttpClient.newHttpClient();
+  private TestBrowser browser;
+
+  /** The route is behind the security chain, so the browser logs in first. */
+  @org.junit.jupiter.api.BeforeEach
+  void logIn() throws Exception {
+    browser = new TestBrowser(port);
+    browser.logIn();
+    RECEIVED.clear();
+  }
 
   @AfterAll
   static void stopTheDevServer() {
@@ -124,9 +131,7 @@ class UserInterfaceRouteTest {
   }
 
   private HttpResponse<String> get(final String path) throws Exception {
-    return client.send(
-        HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).build(),
-        HttpResponse.BodyHandlers.ofString());
+    return browser.get(path);
   }
 
   private static HttpServer devServer() {

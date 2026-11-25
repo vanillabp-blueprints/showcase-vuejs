@@ -1,0 +1,63 @@
+{
+  "realm": "business-cockpit",
+  "enabled": true,
+  "sslRequired": "none",
+  "clients": [
+    {
+      "clientId": "business-cockpit",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "local-client-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/login/oauth2/code/keycloak",
+        "http://localhost:*"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:8080/##http://localhost:*"
+      },
+      "defaultClientScopes": ["web-origins", "profile", "email", "roles"],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "business-cockpit-directory",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "local-directory-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": ["kc-admin-api", "profile", "email", "roles"],
+      "optionalClientScopes": []
+    }
+  ],
+  "groups": [
+    { "name": "template-group" }
+  ],
+  "users": [
+    {
+      "username": "service-account-business-cockpit-directory",
+      "enabled": true,
+      "serviceAccountClientId": "business-cockpit-directory",
+      "clientRoles": {
+        "realm-management": ["view-users"]
+      }
+    },
+    {
+      "username": "template-user",
+      "enabled": true,
+      "email": "template-user@example.com",
+      "emailVerified": true,
+      "firstName": "Template",
+      "lastName": "User",
+      "groups": ["template-group"],
+      "credentials": [
+        { "type": "password", "value": "template-user", "temporary": false }
+      ]
+    }
+  ]
+}

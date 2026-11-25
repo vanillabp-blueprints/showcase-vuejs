@@ -20,3 +20,11 @@ business-cockpit:
     interval: PT10S
   jwt:
     hmacSHA256-base64: 4FTHgU8uHPy/ahy8IhXHj/K/BVlh7snSUtf3m1XWLkg=
+  user-directory:
+    keycloak:
+      server-url: http://localhost:8081
+
+# The secrets of keycloak/realm.json, for a developer's machine only.
+KEYCLOAK_URL: http://localhost:8081
+KEYCLOAK_CLIENT_SECRET: local-client-secret
+KEYCLOAK_DIRECTORY_SECRET: local-directory-secret

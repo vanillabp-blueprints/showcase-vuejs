@@ -16,19 +16,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import io.vanillabp.cockpit.support.security.jwt.JwtUserDetailsProvider;
-import io.vanillabp.cockpit.support.security.usercontext.UserDetails;
-import io.vanillabp.cockpit.support.security.usercontext.UserDetailsProvider;
-import io.vanillabp.cockpit.support.security.usercontext.UserDirectoryService;
-import java.util.List;
-import java.util.Optional;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mongodb.MongoDBContainer;
@@ -37,7 +29,6 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * Starts the whole application against MongoDB of Testcontainers, as a replica set.
  */
 @Testcontainers
-@Import(ApplicationStartTest.StandInForTheLogin.class)
 @ExtendWith(OutputCaptureExtension.class)
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -49,47 +40,9 @@ import org.testcontainers.mongodb.MongoDBContainer;
     })
 class ApplicationStartTest {
 
-  /**
-   * The login belongs to a later story. This lets the application start without it: the user
-   * of the request comes from the token, nobody is in the directory, every other path is open.
-   */
-  @TestConfiguration
-  static class StandInForTheLogin {
-
-    @Bean
-    UserDetailsProvider userDetailsProvider() {
-      return new JwtUserDetailsProvider();
-    }
-
-    @Bean
-    UserDirectoryService userDirectoryService() {
-      return new UserDirectoryService() {
-        public List<UserDetails> findUsers(final String search) { return List.of(); }
-        public List<UserDetails> findUsers(final String search, final List<String> ids) { return List.of(); }
-        public List<UserDetails> getAllUsers() { return List.of(); }
-        public List<UserDetails> getAllUsers(final List<String> ids) { return List.of(); }
-        public Optional<UserDetails> getUser(final String id) { return Optional.empty(); }
-      };
-    }
-
-    @Bean
-    io.vanillabp.cockpit.users.model.PersonAndGroupMapper personAndGroupMapper() {
-      return org.mockito.Mockito.mock(io.vanillabp.cockpit.users.model.PersonAndGroupMapper.class);
-    }
-
-    @Bean
-    io.vanillabp.cockpit.users.model.PersonAndGroupApiMapper personAndGroupApiMapper() {
-      return org.mockito.Mockito.mock(io.vanillabp.cockpit.users.model.PersonAndGroupApiMapper.class);
-    }
-
-    @Bean
-    @Order(99)
-    SecurityFilterChain guiHttpSecurity(final HttpSecurity http) throws Exception {
-      return http.csrf(csrf -> csrf.disable())
-          .authorizeHttpRequests(requests -> requests.anyRequest().permitAll())
-          .build();
-    }
-
+  @DynamicPropertySource
+  static void keycloak(final DynamicPropertyRegistry registry) {
+    TestKeycloak.register(registry);
   }
 
   @Container
@@ -102,7 +55,7 @@ class ApplicationStartTest {
   @Autowired
   private ApplicationContext context;
 
-  private final HttpClient client = HttpClient.newHttpClient();
+  private final HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
 
   @Test
   @DisplayName("BE-006 bpms api chain has order 1, asks for basic credentials and the log names no missing chain")
@@ -133,7 +86,8 @@ class ApplicationStartTest {
   @DisplayName("PKG-004 ui jar on the class path makes the root path show the user interface")
   void PKG_004_ui_jar_on_the_class_path_makes_the_root_path_show_the_user_interface()
       throws Exception {
-    final var response = get("/", null);
+    final var browser = new TestBrowser(port);
+    final var response = browser.logIn();
 
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(response.body()).containsIgnoringCase("<div id=\"app\"");
@@ -143,6 +97,21 @@ class ApplicationStartTest {
   @DisplayName("BE-031 without the profile ui-dev-server the backend has no route to a dev server")
   void BE_031_without_the_profile_ui_dev_server_the_backend_has_no_route_to_a_dev_server() {
     assertThat(context.containsBean("userInterfaceRoute")).isFalse();
+  }
+
+  @Test
+  @DisplayName("BE-017 a list without a login answers 401 and a page without a login is sent on to the provider")
+  void BE_017_a_list_without_a_login_answers_401_and_a_page_without_a_login_is_sent_on_to_the_provider()
+      throws Exception {
+    assertThat(get("/gui/api/v1/usertasks", null).statusCode()).isEqualTo(401);
+    final var page = html("/some/page");
+    assertThat(page.statusCode()).isIn(302, 303);
+    assertThat(page.headers().firstValue("Location").orElseThrow()).contains("/oauth2/authorization/");
+  }
+
+  private HttpResponse<String> html(final String path) throws Exception {
+    return client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+        .header("Accept", "text/html").build(), HttpResponse.BodyHandlers.ofString());
   }
 
   private HttpResponse<String> get(final String path, final String credentials) throws Exception {
