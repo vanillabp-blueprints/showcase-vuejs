@@ -132,6 +132,6 @@ test('PKG-039 it fails when a data entry contains framework code', () => {
 });
 
 test('PKG-039 a visual entry may be large and may contain a framework', () => {
-  const result = runCheck({ 'bc-manifest.json': manifestOf({ UserTaskForm: 'f.js' }), 'f.js': `/* @license React */ ${'a'.repeat(9000)}` }, '--limit', '1kb');
+  const result = runCheck({ 'bc-manifest.json': manifestOf({ FormViews: 'f.js' }), 'f.js': `/* @license React */ ${'a'.repeat(9000)}` }, '--limit', '1kb');
   assert.equal(result.status, 0, result.stderr);
 });

@@ -20,3 +20,30 @@ export const THEME_TOKENS = [
 ] as const;
 
 export type ThemeToken = (typeof THEME_TOKENS)[number];
+
+// The minimum, the same as in the VanillaBP kit @vanillabp/bc-module-kit
+export const USER_TASK_LIST = 'UserTaskList';
+export const WORKFLOW_LIST = 'WorkflowList';
+export const USER_TASK_FORM = 'UserTaskForm';
+export const WORKFLOW_PAGE = 'WorkflowPage';
+export const AREA_ALL = 'all';
+
+// Extension point of this organisation (Q-EXTENSION-POINTS); `Pages` was not chosen
+export const HEADER = 'Header';
+
+// Areas of the page of a user task and of a case (Q-TASK-PAGE-AREAS, Q-WORKFLOW-PAGE-AREAS)
+export const AREA_BODY = 'body';
+export const AREA_INFORMATION = 'information';
+export const AREA_ACTIONS = 'actions';
+
+/** Entry -> the function the entry's file exports. The one list of the data entries of this cockpit. */
+export const EXPORT_NAMES = {
+  [USER_TASK_LIST]: 'userTaskListColumns',
+  [WORKFLOW_LIST]: 'workflowListColumns',
+  [USER_TASK_FORM]: 'userTaskForm',
+  [WORKFLOW_PAGE]: 'workflowPage',
+  [HEADER]: 'header',
+} as const;
+
+/** The entries which carry no framework; bc-check-entries checks their size and content. */
+export const DATA_ENTRIES = Object.freeze(Object.keys(EXPORT_NAMES)) as readonly (keyof typeof EXPORT_NAMES)[];
