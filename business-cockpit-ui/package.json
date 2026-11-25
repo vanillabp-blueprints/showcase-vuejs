@@ -1,0 +1,30 @@
+{
+  "name": "business-cockpit-ui-root",
+  "version": "0.1.0-SNAPSHOT",
+  "private": true,
+  "description": "The user interface of the business cockpit of acme, one npm repository.",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/bc-types",
+    "packages/bc-module-kit",
+    "packages/bc-module-host",
+    "packages/bc-theme",
+    "packages/ui",
+    "packages/bc-dev-shell-*",
+    "e2e/compare"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present && npm run build:jars",
+    "build:jars": "node jars/build-jars.mjs",
+    "fetch:openapi": "node scripts/fetch-openapi.mjs",
+    "test": "node --test e2e/repository.test.mjs"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@types/node": "26.6.10",
+    "fflate": "0.8.3",
+    "typescript": "6.0.3"
+  }
+}

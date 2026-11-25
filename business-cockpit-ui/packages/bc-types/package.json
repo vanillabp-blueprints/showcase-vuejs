@@ -1,0 +1,14 @@
+{
+  "name": "@acme/bc-types",
+  "version": "0.1.0-SNAPSHOT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prebuild": "node ../../scripts/fetch-openapi.mjs && openapi-ts",
+    "build": "tsc --project tsconfig.json"
+  }
+}

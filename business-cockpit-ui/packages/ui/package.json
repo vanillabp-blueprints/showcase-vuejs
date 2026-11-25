@@ -1,0 +1,22 @@
+{
+  "name": "@acme/bc-ui",
+  "version": "0.1.0-SNAPSHOT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prebuild": "node ../../scripts/fetch-openapi.mjs && openapi-ts",
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@acme/bc-module-host": "0.1.0-SNAPSHOT",
+    "@acme/bc-module-kit": "0.1.0-SNAPSHOT",
+    "@acme/bc-theme": "0.1.0-SNAPSHOT",
+    "vue": "3.5.46",
+    "vuetify": "4.3.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.11",
+    "vite": "8.3.8"
+  }
+}

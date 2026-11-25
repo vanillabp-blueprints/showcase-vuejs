@@ -1,0 +1,16 @@
+{
+  "name": "@acme/bc-module-kit",
+  "version": "0.1.0-SNAPSHOT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@acme/bc-types": "0.1.0-SNAPSHOT"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@acme/bc-dev-shell-react",
+  "version": "0.1.0-SNAPSHOT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@acme/bc-module-kit": "0.1.0-SNAPSHOT",
+    "@acme/bc-theme": "0.1.0-SNAPSHOT"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json"
+  }
+}
