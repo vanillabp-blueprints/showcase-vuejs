@@ -15,11 +15,12 @@ const uiFolder = new URL('../../packages/ui/dist/', import.meta.url).pathname;
 const modulesFolder = new URL('../modules/', import.meta.url).pathname;
 
 type SimulatedModule = WorkflowModule & { accessibleToGroups: string[] };
-type SimulatedUser = { id: string; name: string; groups: string[] };
+type SimulatedUser = { id: string; name: string; groups: string[]; email: string };
+type CountRequest = { path: string; mode?: string; keys: string[] };
 
 const users: SimulatedUser[] = [
-  { id: 'anna', name: 'Anna Sales', groups: ['sales'] },
-  { id: 'ben', name: 'Ben Support', groups: ['support'] },
+  { id: 'anna', name: 'Anna Sales', groups: ['sales'], email: 'anna@acme.example' },
+  { id: 'ben', name: 'Ben Support', groups: ['support'], email: 'ben@acme.example' },
 ];
 
 export interface Simulator {
@@ -38,6 +39,9 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let endSessions: Record<string, string>[] = [];
   let protectPages = true;
   let groupsOfCurrentUser: string[] | undefined;
+  let namesOfCurrentUser: { display?: string | null; displayShort?: string | null } = {};
+  let counts = { myTasks: 0, allTasks: 0, cases: 0 };
+  let countRequests: CountRequest[] = [];
   // the address a browser wanted before it was sent to the login, which the backend keeps
   let savedAddress: string | undefined;
 
@@ -85,13 +89,40 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (path === `${guiApiPath}/app/current-user`) {
       const user = userOf(req);
       if (!user) return send(res, 200);
-      const body: User = { id: user.id, display: user.name, groups: (groupsOfCurrentUser ?? user.groups).map((id) => ({ id })) };
+      const display = namesOfCurrentUser.display === undefined ? user.name : namesOfCurrentUser.display ?? undefined;
+      const displayShort = namesOfCurrentUser.displayShort === undefined ? user.name.split(' ')[0] : namesOfCurrentUser.displayShort ?? undefined;
+      const body: User = { id: user.id, display, displayShort, email: user.email, groups: (groupsOfCurrentUser ?? user.groups).map((id) => ({ id })) };
       return send(res, 200, body);
     }
 
     // A list asks for a login, like the chain of the backend does.
     if (path === `${guiApiPath}/usertasks`) {
       return userOf(req) ? send(res, 200, { userTasks: [] }) : send(res, 401);
+    }
+
+    // The counts of the header toggle, for the three base paths of the lists.
+    const countPath = /^\/gui\/api\/v1(\/current-user)?\/(usertask|workflow)\/count$/.exec(path);
+    if (countPath && method === 'POST') {
+      if (!userOf(req)) return send(res, 401);
+      const filters = ((await readBody(req)).filters ?? []) as { key: string; mode?: string }[];
+      countRequests.push({ path, mode: filters[0]?.mode, keys: filters.map((filter) => filter.key) });
+      const total = countPath[2] === 'workflow' ? counts.cases : countPath[1] ? counts.myTasks : counts.allTasks;
+      return send(res, 200, { serverTimestamp: new Date().toISOString(), counts: filters.map((filter) => ({ key: filter.key, count: total })) });
+    }
+    if (path === '/simulator-api/counts' && method === 'POST') {
+      counts = { ...counts, ...(await readBody(req)) };
+      return send(res, 200);
+    }
+    if (path === '/simulator-api/count-requests') return send(res, 200, countRequests);
+    if (path === '/simulator-api/current-user' && method === 'POST') {
+      namesOfCurrentUser = await readBody(req);
+      return send(res, 200);
+    }
+    // One delivery of the update stream: one event with the given number of elements.
+    if (path === '/simulator-api/publish' && method === 'POST') {
+      const body = await readBody(req);
+      publish(String(body.event), Array.from({ length: Number(body.elements ?? 1) }, () => ({ id: crypto.randomUUID() })));
+      return send(res, 200);
     }
 
     // The login at the identity provider, then back to the screen the user was on. An identity
@@ -204,6 +235,9 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       endSessions = [];
       protectPages = true;
       groupsOfCurrentUser = undefined;
+      namesOfCurrentUser = {};
+      counts = { myTasks: 0, allTasks: 0, cases: 0 };
+      countRequests = [];
       savedAddress = undefined;
       return send(res, 200);
     }

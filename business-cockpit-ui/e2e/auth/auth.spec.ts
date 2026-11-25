@@ -116,6 +116,7 @@ test('AUTH-007 /logout ends the session at the provider as well and the start pa
   await page.goto('/');
   await expect(page.getByTestId('current-user')).toHaveText('Anna Sales');
   expect((await state(request)).loginPrompts).toBe(1);
+  await page.getByTestId('menu-button').click();
   await page.getByTestId('logout').click();
   await page.waitForURL((url) => url.pathname === '/');
   const afterLogout = await state(request);
