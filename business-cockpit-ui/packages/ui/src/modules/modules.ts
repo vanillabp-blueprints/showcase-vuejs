@@ -14,7 +14,17 @@ const registry = createModuleRegistry({
     }
   },
 });
-export const host = createModuleHost({ moduleIds: () => registry.ids() });
+const newBuildListeners = new Set<(workflowModuleId: string) => void>();
+export const host = createModuleHost({
+  moduleIds: () => registry.ids(),
+  onNewBuild: (workflowModuleId) => newBuildListeners.forEach((listener) => listener(workflowModuleId)),
+});
+
+/** Tells `listener` when a module has a new build; returns the function which stops it. */
+export function onNewBuild(listener: (workflowModuleId: string) => void): () => void {
+  newBuildListeners.add(listener);
+  return () => newBuildListeners.delete(listener);
+}
 
 /** Reads the list of the modules the user may see; called once, after the current user is known. */
 export const startModules = (): Promise<void> => registry.start();

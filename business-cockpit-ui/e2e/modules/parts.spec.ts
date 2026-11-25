@@ -1,4 +1,4 @@
-// EXT-031, EXT-033, EXT-034, EXT-035, EXT-036, EXT-037, EXT-041, EXT-043, EXT-044, EXT-045, EXT-046, EXT-047: the cockpit loads, waits for and draws the parts of a module.
+// EXT-031, EXT-033, EXT-034, EXT-035, EXT-036, EXT-037, EXT-041, EXT-043, EXT-044, EXT-045, EXT-046, EXT-047, EXT-048, EXT-049, EXT-050, EXT-051, EXT-052, EXT-053: the cockpit loads, waits for and draws the parts of a module.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { build } from 'esbuild';
@@ -12,10 +12,10 @@ type FileAnswer = string | number | ((count: number) => string | number);
 interface FakeModule { requests: string[]; count(file: string): number }
 
 /** A module made of the given files; a number answers that HTTP status, a function answers by how often the file was asked. */
-async function fakeModule(page: Page, id: string, files: Record<string, FileAnswer>): Promise<FakeModule> {
+async function fakeModule(page: Page, id: string, files: Record<string, FileAnswer>, buildVersion = '1.0.0'): Promise<FakeModule> {
   const requests: string[] = [];
-  const entries = Object.fromEntries(Object.keys(files).filter((file) => file !== 'bc-manifest.json').map((file) => [file.replace(/\.js$/, ''), file]));
-  const all: Record<string, FileAnswer> = { 'bc-manifest.json': JSON.stringify({ manifestVersion: 1, entries, buildVersion: '1.0.0', buildTimestamp: '2026-11-25T00:00:00Z' }), ...files };
+  const entries = Object.fromEntries(Object.keys(files).filter((file) => file !== 'bc-manifest.json').map((file) => [file.replace(/\.js$/, ''), buildVersion === '1.0.0' ? file : `${file}?v=${buildVersion}`]));
+  const all: Record<string, FileAnswer> = { 'bc-manifest.json': JSON.stringify({ manifestVersion: 1, entries, buildVersion, buildTimestamp: '2026-11-25T00:00:00Z' }), ...files };
   await page.route(`**/wm/${id}/**`, async (route) => {
     const file = new URL(route.request().url()).pathname.replace(`/wm/${id}/`, '');
     requests.push(file);
@@ -397,4 +397,120 @@ test('EXT-047 the manifest is read with no-cache, again only after the recheck t
   await ask();
   expect(module.count('bc-manifest.json')).toBe(4); // a failed read is tried again at the next ask
   expect(await page.evaluate(() => (window as any).seen)).toEqual(['no-cache', 'no-cache', 'no-cache', 'no-cache']);
+});
+
+const RECHECK_MS = 61_000;
+/** A minute passes and the user comes back to the page, which is when the header looks for a new build. */
+async function comeBackAfterAMinute(page: Page) {
+  await page.clock.runFor(RECHECK_MS);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+}
+const textsOf = (page: Page) => { const texts: string[] = []; page.on('console', (message) => texts.push(`${message.type()}: ${message.text()}`)); return texts; };
+
+test('EXT-048 after a new build the next part comes from it without a reload, an old web component stays, and the header asks again', async ({ page }) => {
+  await register(page, 'fake-module');
+  await fakeModule(page, 'fake-module', { 'Header.js': header('fake-module-b1-box', 'Box'), 'Box.js': defineBox('fake-module-b1-box', 'build one') });
+  await page.clock.install();
+  await page.goto('/tasks');
+  await expect(page.getByText('build one')).toBeVisible();
+  await page.evaluate(() => { (window as any).sameDocument = true; });
+  const second = await fakeModule(page, 'fake-module', {
+    'Header.js': header('fake-module-b2-box', 'Box2'), 'Box2.js': defineBox('fake-module-b2-box', 'build two'),
+  }, '2.0.0');
+  await comeBackAfterAMinute(page);
+  await expect(page.getByText('build two')).toBeVisible();
+  expect(second.requests).toContain('Box2.js');
+  expect(await page.evaluate(() => (window as any).sameDocument)).toBe(true);
+  expect(await page.evaluate(() => customElements.get('fake-module-b1-box') !== undefined)).toBe(true);
+
+  // a part of a page: the next one comes from the new build, the one on the page stays
+  await withHost(page);
+  const found = await page.evaluate(async () => {
+    const host = (window as any).bcHost.createModuleHost({ manifestRecheckMs: 50 });
+    const ref = ['fake-module', '/wm/fake-module/'] as const;
+    const first = await host.ask(...ref, 'Header');
+    await host.draw(...ref, first, document.body);
+    return first.element;
+  });
+  expect(found).toBe('fake-module-b2-box');
+});
+
+test('EXT-049 a new build which answers with a name its earlier build defined gets a note, no import, and the console names the module and the name', async ({ page }) => {
+  await register(page, 'fake-module');
+  await fakeModule(page, 'fake-module', { 'Header.js': header('fake-module-box', 'Box'), 'Box.js': defineBox('fake-module-box', 'build one') });
+  await page.clock.install();
+  const texts = textsOf(page);
+  await page.goto('/tasks');
+  await expect(page.getByText('build one')).toBeVisible();
+  const second = await fakeModule(page, 'fake-module', {
+    'Header.js': header('fake-module-box', 'Box'), 'Box.js': 'throw new Error("must not be imported");',
+  }, '2.0.0');
+  await comeBackAfterAMinute(page);
+  const note = page.getByTestId('part-note');
+  await expect(note).toHaveAttribute('data-kind', 'module-updated');
+  await expect(note).toContainText('fake-module');
+  await expect(page.getByTestId('part-reload')).toBeVisible();
+  expect(second.requests).not.toContain('Box.js');
+  expect(texts.some((text) => text.includes('fake-module') && text.includes('fake-module-box'))).toBe(true);
+});
+
+test('EXT-050 a manifest of a higher version or with a whole address, a path from the root or .. is refused with a note, other fields and ?v and # are fine', async ({ page }) => {
+  const manifest = (version: number, header: string, more: object = {}) => JSON.stringify({ manifestVersion: version, entries: { Header: header, Box: 'Box.js' }, buildVersion: '1.0.0', buildTimestamp: '2026-11-25T00:00:00Z', ...more });
+  const bad = [manifest(2, 'Header.js'), manifest(1, 'https://example.org/Header.js'), manifest(1, '/Header.js'), manifest(1, '../Header.js'), manifest(1, 'a/../../Header.js')];
+  for (const text of bad) {
+    await page.request.post('/simulator-api/reset');
+    await register(page, 'fake-module');
+    const module = await fakeModule(page, 'fake-module', { 'bc-manifest.json': text, 'Header.js': header('fake-module-b1-box', 'Box'), 'Box.js': defineBox('fake-module-b1-box', 'must not show') });
+    await page.goto('/tasks');
+    const note = page.getByTestId('part-note');
+    await expect(note).toHaveAttribute('data-kind', 'manifest-refused');
+    await expect(note).toContainText('fake-module');
+    expect(module.requests).not.toContain('Header.js');
+  }
+  await page.request.post('/simulator-api/reset');
+  await register(page, 'fake-module');
+  await fakeModule(page, 'fake-module', {
+    'bc-manifest.json': manifest(1, 'Header.js?v=7#top', { somethingNew: { a: 1 } }),
+    'Header.js': header('fake-module-b1-box', 'Box'), 'Box.js': defineBox('fake-module-b1-box', 'fine manifest'),
+  });
+  await page.goto('/tasks');
+  await expect(page.getByText('fine manifest')).toBeVisible();
+});
+
+test('EXT-051 each manifest is read on its own, and a module without a manifest has no parts and is not asked again', async ({ page }) => {
+  for (const id of ['good-module', 'broken-module', 'gone-module']) await register(page, id);
+  const good = await fakeModule(page, 'good-module', { 'Header.js': header('good-module-b1-box', 'Box'), 'Box.js': defineBox('good-module-b1-box', 'the good one') });
+  const broken = await fakeModule(page, 'broken-module', { 'bc-manifest.json': 500 });
+  const gone = await fakeModule(page, 'gone-module', { 'bc-manifest.json': 404 });
+  await page.clock.install();
+  await page.goto('/tasks');
+  await expect(page.getByText('the good one')).toBeVisible();
+  await expect(page.locator('[data-module="broken-module"] [data-testid="part-note"]')).toHaveAttribute('data-kind', 'ask-failed');
+  await expect(page.locator('[data-module="gone-module"]')).toHaveCount(0);
+  await comeBackAfterAMinute(page);
+  await comeBackAfterAMinute(page);
+  await expect.poll(() => good.count('bc-manifest.json')).toBeGreaterThan(1);
+  expect(gone.count('bc-manifest.json')).toBe(1);
+  expect(broken.count('bc-manifest.json')).toBeGreaterThan(0);
+});
+
+test('EXT-052 a data entry without the function it has to export is loaded and shows nothing, and the console names the module', async ({ page }) => {
+  await register(page, 'fake-module');
+  const module = await fakeModule(page, 'fake-module', { 'Header.js': 'export const somethingElse = () => 1;' });
+  const texts = textsOf(page);
+  await page.goto('/tasks');
+  await expect.poll(() => module.count('Header.js')).toBe(1);
+  await expect.poll(() => texts.some((text) => text.includes('fake-module'))).toBe(true);
+  await expect(page.getByTestId('module-part')).toHaveCount(0);
+  await expect(page.getByTestId('part-note')).toHaveCount(0);
+});
+
+test('EXT-053 two modules with the same prefix give a warning in the console', async ({ page }) => {
+  await register(page, 'TaxiRide');
+  await register(page, 'taxi-ride');
+  await register(page, 'other-module');
+  const texts = textsOf(page);
+  await page.goto('/tasks');
+  await expect.poll(() => texts.filter((text) => text.startsWith('warning') && text.includes('TaxiRide') && text.includes('taxi-ride'))).toHaveLength(1);
+  expect(texts.filter((text) => text.includes('other-module') && text.startsWith('warning'))).toEqual([]);
 });

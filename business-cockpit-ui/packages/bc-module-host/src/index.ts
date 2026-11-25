@@ -11,8 +11,8 @@ export type DataEntry = keyof typeof EXPORT_NAMES;
 type Exports = Record<string, unknown>;
 
 export interface ModuleHostOptions {
-  /** Reads the manifest text; the default is `fetch` with `cache: 'no-cache'`. */
-  readText?: (url: string) => Promise<string>;
+  /** Reads the manifest text; `undefined` means the module has no manifest (404). The default is `fetch` with `cache: 'no-cache'`. */
+  readText?: (url: string) => Promise<string | undefined>;
   /** The one place which loads a file of a module. */
   importFile?: (url: string) => Promise<Exports>;
   /** The actions of the cockpit by name; the host answers every other action with UNKNOWN_ACTION. */
@@ -25,6 +25,8 @@ export interface ModuleHostOptions {
   manifestRecheckMs?: number;
   /** The ids of the modules of the registry; a name may not start with the longer prefix of another one. */
   moduleIds?: () => readonly string[];
+  /** Called when the manifest of a module differs from the one read before, so that its users ask again. */
+  onNewBuild?: (workflowModuleId: string, manifest: BcManifest, previous: BcManifest) => void;
 }
 
 /** After this time the loader reads the manifest of a module again before it asks a part of it. */
@@ -45,6 +47,13 @@ export class ElementNotDefined extends Error {
 export class ElementCreateFailed extends Error {
   constructor(readonly workflowModuleId: string, readonly element: string, cause?: unknown) {
     super(`module ${workflowModuleId}: the web component ${element} could not be created${cause instanceof Error ? `: ${cause.message}` : ''}`, { cause });
+  }
+}
+
+/** The new build of a module answers with a web component name which its earlier build defined in this page. */
+export class ModuleUpdated extends Error {
+  constructor(readonly workflowModuleId: string, readonly element: string) {
+    super(`module ${workflowModuleId}: the module was updated, the web component ${element} was defined by its earlier build, reload the page to show the new version`);
   }
 }
 
@@ -82,11 +91,19 @@ const RESERVED = ['annotation-xml', 'color-profile', 'font-face', 'font-face-src
 
 /** The registry and the loader of the modules: ask, load, draw. */
 export function createModuleHost(options: ModuleHostOptions = {}) {
-  const readText = options.readText ?? (async (url: string) => (await fetch(url, { cache: 'no-cache' })).text());
+  const readText = options.readText ?? (async (url: string) => {
+    const response = await fetch(url, { cache: 'no-cache' });
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new Error(`the manifest ${url} answered ${response.status}`);
+    return response.text();
+  });
   const importFile = options.importFile ?? ((url: string) => import(/* @vite-ignore */ url) as Promise<Exports>);
   const actions = options.actions ?? {};
   const onProblem = options.onProblem ?? ((id: string, error: unknown) => console.error(`module ${id}:`, error));
-  type Read = { manifest: BcManifest; url: string };
+  type Read = { manifest: BcManifest; url: string; generation: number; absent?: boolean };
+  /** How often the manifest of a module changed in this page; a web component is defined for one generation only. */
+  const generations = new Map<string, { signature: string; manifest: BcManifest; count: number }>();
+  const definedIn = new Map<string, number>();
   const manifests = new Map<string, { promise: Promise<Read>; readAt: number }>();
   const recheckMs = options.manifestRecheckMs ?? MANIFEST_RECHECK_MS;
   const moduleIds = options.moduleIds ?? (() => []);
@@ -106,27 +123,47 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
 
   const readFresh = (webPath: string): Promise<Read> => {
     const url = new URL(`${webPath.replace(/\/?$/, '/')}${MANIFEST_FILE_NAME}`, globalThis.location?.href ?? 'http://localhost/').href;
-    return readText(url).then((text) => ({ manifest: readManifest(text), url }));
+    return readText(url).then((text): Read => {
+      // a module without a manifest has no parts, and is not asked again in this session
+      if (text === undefined) return { manifest: { manifestVersion: 1, entries: {} }, url, generation: 0, absent: true };
+      return { manifest: readManifest(text), url, generation: 0 };
+    });
+  };
+
+  /** Counts a manifest which differs from the one read before as a new build and tells the users of the loader. */
+  const generationOf = (workflowModuleId: string, read: Read): Read => {
+    const signature = JSON.stringify(read.manifest);
+    const known = generations.get(workflowModuleId);
+    if (!known) generations.set(workflowModuleId, { signature, manifest: read.manifest, count: 0 });
+    else if (known.signature !== signature) {
+      const previous = known.manifest;
+      Object.assign(known, { signature, manifest: read.manifest, count: known.count + 1 });
+      options.onNewBuild?.(workflowModuleId, read.manifest, previous);
+    }
+    return { ...read, generation: generations.get(workflowModuleId)!.count };
   };
 
   /** The manifest of the module; it is read again when the last read is older than the recheck time, and a failed read keeps the old one. */
   const manifestOf = (workflowModuleId: string, webPath: string): Promise<Read> => {
     const held = manifests.get(workflowModuleId);
     if (!held) {
-      const promise = readFresh(webPath);
+      const promise = readFresh(webPath).then((read) => generationOf(workflowModuleId, read));
       const entry = { promise, readAt: Date.now() };
       manifests.set(workflowModuleId, entry);
       promise.catch(() => { if (manifests.get(workflowModuleId) === entry) manifests.delete(workflowModuleId); });
       return promise;
     }
-    if (Date.now() - held.readAt <= recheckMs) return held.promise;
+    if (Date.now() - held.readAt < recheckMs) return held.promise;
     // the time is set first, so that parts which ask while the read runs wait for this one read
     const fresh = { promise: held.promise, readAt: Date.now() };
     manifests.set(workflowModuleId, fresh);
-    fresh.promise = readFresh(webPath).catch(() => {
-      // the old manifest serves; the next ask tries again
-      fresh.readAt = held.readAt;
-      return held.promise;
+    fresh.promise = held.promise.then((old) => {
+      if (old.absent) return old;
+      return readFresh(webPath).then((read) => generationOf(workflowModuleId, read)).catch(() => {
+        // the old manifest serves; the next ask tries again
+        fresh.readAt = held.readAt;
+        return old;
+      });
     });
     return fresh.promise;
   };
@@ -188,7 +225,12 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
     /** Step 1: calls the function of a data entry; `undefined` or the names of the web components. */
     async ask(workflowModuleId: string, webPath: string, entry: DataEntry, ...args: unknown[]): Promise<unknown> {
       const exports = await load(workflowModuleId, webPath, entry);
-      const answer = (await (exports[EXPORT_NAMES[entry]] as ((...a: unknown[]) => unknown) | undefined)?.(...args)) as unknown;
+      const dataFunction = exports[EXPORT_NAMES[entry]];
+      if (typeof dataFunction !== 'function') {
+        onProblem(workflowModuleId, new Error(`the entry ${entry} does not export the function ${EXPORT_NAMES[entry]}`));
+        return undefined;
+      }
+      const answer = (await dataFunction(...args)) as unknown;
       if (isPageParts(answer)) namesOf(answer).forEach((name) => checkName(workflowModuleId, name));
       return answer;
     },
@@ -203,9 +245,18 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
     /** Step 2: loads the visual entry, unless the web component is defined already, and waits until it is defined. */
     async loadVisual(workflowModuleId: string, webPath: string, descriptor: BcElementDescriptor): Promise<void> {
       checkName(workflowModuleId, descriptor.element);
-      if (customElements.get(descriptor.element)) return;
+      const { generation } = await manifestOf(workflowModuleId, webPath);
+      if (customElements.get(descriptor.element)) {
+        // a name which an earlier build defined cannot be defined again: the new visual entry is not loaded
+        const earlier = definedIn.get(descriptor.element);
+        if (earlier !== undefined && earlier !== generation) {
+          throw new ModuleUpdated(workflowModuleId, descriptor.element);
+        }
+        return;
+      }
       await load(workflowModuleId, webPath, descriptor.entry);
       await defined(workflowModuleId, descriptor.entry, descriptor.element);
+      definedIn.set(descriptor.element, generation);
     },
     /** Steps 2 and 3: loads the visual entry and puts the web component into the container. */
     async draw(workflowModuleId: string, webPath: string, descriptor: BcElementDescriptor, container: Element, properties: Record<string, unknown> = {}): Promise<HTMLElement> {

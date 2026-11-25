@@ -1,4 +1,4 @@
-import { UI_URI_TYPE_ES_MODULES, UI_URI_TYPE_EXTERNAL } from '@acme/bc-module-kit';
+import { UI_URI_TYPE_ES_MODULES, UI_URI_TYPE_EXTERNAL, elementPrefix } from '@acme/bc-module-kit';
 import type { ModuleRef } from './index.js';
 
 export interface RegisteredModule { id: string; version: number; uri: string }
@@ -27,11 +27,18 @@ export const addressOf = (row: RowOfModule): string =>
 const webPathOf = (address: string): string => address.replace(/[^/]*$/, '');
 
 /** The modules the user may see. It asks the server once at the start and once for each module of a row it does not know. */
-export function createModuleRegistry(source: ModuleSource) {
+export function createModuleRegistry(source: ModuleSource, onWarning: (message: string) => void = (message) => console.warn(message)) {
   const modules = new Map<string, Promise<RegisteredModule | undefined>>();
   let started: Promise<void> | undefined;
   const known = new Set<string>();
-  const remember = (module: RegisteredModule | undefined) => { if (module) known.add(module.id); return module; };
+  const remember = (module: RegisteredModule | undefined) => {
+    if (module && !known.has(module.id)) {
+      const twin = [...known].find((id) => elementPrefix(id) === elementPrefix(module.id));
+      if (twin) onWarning(`the modules ${twin} and ${module.id} have the same prefix ${elementPrefix(module.id)}, their web components may clash`);
+      known.add(module.id);
+    }
+    return module;
+  };
 
   return {
     /** Fills the registry from `GET /workflow-module`; a second call returns the first one's promise. */

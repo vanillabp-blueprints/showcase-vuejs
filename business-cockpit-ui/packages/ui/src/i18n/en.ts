@@ -21,6 +21,8 @@ const en = {
     notDefined: 'Module {module}: the entry {entry} did not define the web component {element} in time.',
     createFailed: 'Module {module}: the web component {element} could not be created.',
     nameRefused: 'Module {module}: the name {element} is refused, it has to start with {prefix}-.',
+    moduleUpdated: 'The module {module} was updated: the web component {element} is the one of the earlier build. Reload the page to show the new version.',
+    manifestRefused: 'The manifest of module {module} is refused.',
     retry: 'Try again',
     reload: 'Reload the page',
   },

@@ -174,6 +174,9 @@ test('EXT-011 a module whose manifest does not name the entry causes no error an
   expect(await page.evaluate(() => (window as any).problems)).toEqual([]);
   expect(consoleMessages.filter((m) => !/favicon|404/.test(m))).toEqual([]);
   // a named entry which fails to load is reported
+  const entries = { Header: 'Header.js' };
+  await page.route('**/wm/ghost-module/**', (route) => route.request().url().endsWith('bc-manifest.json')
+    ? route.fulfill({ contentType: 'application/json', body: JSON.stringify({ manifestVersion: 1, entries }) }) : route.fulfill({ status: 500 }));
   const problems = await page.evaluate(async () => {
     await (window as any).host.askModules([{ workflowModuleId: 'ghost-module', webPath: '/wm/ghost-module/' }], 'Header');
     return (window as any).problems as string[];

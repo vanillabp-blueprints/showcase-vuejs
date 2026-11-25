@@ -21,6 +21,8 @@ const es: Messages = {
     notDefined: 'Módulo {module}: la entrada {entry} no definió a tiempo el componente web {element}.',
     createFailed: 'Módulo {module}: no se pudo crear el componente web {element}.',
     nameRefused: 'Módulo {module}: se rechaza el nombre {element}, debe empezar por {prefix}-.',
+    moduleUpdated: 'El módulo {module} se actualizó: el componente web {element} es el de la versión anterior. Recargue la página para mostrar la nueva versión.',
+    manifestRefused: 'Se rechaza el manifiesto del módulo {module}.',
     retry: 'Reintentar',
     reload: 'Recargar la página',
   },

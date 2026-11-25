@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { elementPrefix, type BcElementDescriptor } from '@acme/bc-module-kit';
-import { ElementCreateFailed, ElementNotDefined, ModuleNameError, type DataEntry, type ModuleRef } from '@acme/bc-module-host';
+import { onMounted, onUnmounted, ref } from 'vue';
+import { BcManifestError, elementPrefix, type BcElementDescriptor } from '@acme/bc-module-kit';
+import { ElementCreateFailed, ElementNotDefined, ModuleNameError, ModuleUpdated, type DataEntry, type ModuleRef } from '@acme/bc-module-host';
 import { text } from '../i18n/messages';
-import { host } from './modules';
+import { host, onNewBuild } from './modules';
 
 // One part of a module in a page: ask, load and draw, each with its own state and its own error.
-const props = defineProps<{ module: ModuleRef; entry: DataEntry; args?: unknown[]; properties?: Record<string, unknown> }>();
+const props = defineProps<{ module: ModuleRef; entry: DataEntry; args?: unknown[]; properties?: Record<string, unknown>; asksAgainOnNewBuild?: boolean }>();
 
 type Step = 'ask' | 'load' | 'draw';
-type Kind = 'ask-failed' | 'load-failed' | 'not-defined' | 'create-failed' | 'name-refused';
+type Kind = 'ask-failed' | 'load-failed' | 'not-defined' | 'create-failed' | 'name-refused' | 'module-updated' | 'manifest-refused';
 // `none`: the module has nothing for this entry, which is no error
 const state = ref<'asking' | 'loading' | 'drawn' | 'none' | 'failed'>('asking');
 const note = ref<{ kind: Kind; message: string }>();
@@ -24,6 +24,8 @@ function noteOf(error: unknown, step: Step, entry: string): { kind: Kind; messag
   const fill = (template: string, element = '') => template
     .replace('{module}', workflowModuleId).replace('{entry}', entry).replace('{element}', element).replace('{prefix}', elementPrefix(workflowModuleId));
   if (error instanceof ModuleNameError) return { kind: 'name-refused', message: fill(notes.nameRefused, error.element) };
+  if (error instanceof ModuleUpdated) return { kind: 'module-updated', message: fill(notes.moduleUpdated, error.element) };
+  if (error instanceof BcManifestError) return { kind: 'manifest-refused', message: fill(notes.manifestRefused) };
   if (error instanceof ElementNotDefined) return { kind: 'not-defined', message: fill(notes.notDefined, error.element) };
   if (error instanceof ElementCreateFailed) return { kind: 'create-failed', message: fill(notes.createFailed, error.element) };
   return step === 'ask' ? { kind: 'ask-failed', message: fill(notes.askFailed) } : { kind: 'load-failed', message: fill(notes.loadFailed) };
@@ -62,7 +64,13 @@ async function retry(): Promise<void> {
 
 const reload = () => window.location.reload();
 
-onMounted(run);
+// a part of the header or the menu asks again when its module has a new build; a part of a page stays until the page is left
+let stopWatching: (() => void) | undefined;
+onMounted(() => {
+  void run();
+  if (props.asksAgainOnNewBuild) stopWatching = onNewBuild((id) => { if (id === props.module.workflowModuleId) void run(); });
+});
+onUnmounted(() => stopWatching?.());
 </script>
 
 <template>
@@ -71,6 +79,7 @@ onMounted(run);
     <span v-if="note" data-testid="part-note" :data-kind="note.kind" class="part-note">
       {{ note.message }}
       <button v-if="note.kind === 'ask-failed' || note.kind === 'load-failed'" data-testid="part-retry" type="button" @click="retry">{{ text().partNotes.retry }}</button>
+      <button v-if="note.kind === 'module-updated'" data-testid="part-reload" type="button" @click="reload">{{ text().partNotes.reload }}</button>
       <button v-if="retried && (note.kind === 'ask-failed' || note.kind === 'load-failed')" data-testid="part-reload" type="button" @click="reload">{{ text().partNotes.reload }}</button>
     </span>
   </span>

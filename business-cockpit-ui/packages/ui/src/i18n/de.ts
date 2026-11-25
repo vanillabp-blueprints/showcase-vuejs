@@ -21,6 +21,8 @@ const de: Messages = {
     notDefined: 'Modul {module}: Der Eintrag {entry} hat die Web-Komponente {element} nicht rechtzeitig definiert.',
     createFailed: 'Modul {module}: Die Web-Komponente {element} konnte nicht erzeugt werden.',
     nameRefused: 'Modul {module}: Der Name {element} wird abgelehnt, er muss mit {prefix}- beginnen.',
+    moduleUpdated: 'Das Modul {module} wurde aktualisiert: Die Web-Komponente {element} stammt vom früheren Stand. Laden Sie die Seite neu, um die neue Version zu zeigen.',
+    manifestRefused: 'Das Manifest des Moduls {module} wird abgelehnt.',
     retry: 'Erneut versuchen',
     reload: 'Seite neu laden',
   },

@@ -7,7 +7,7 @@ export function checkManifest(manifest: unknown): string[] {
   const m = manifest as Partial<BcManifest> | null;
   if (!m || typeof m !== 'object') return ['the manifest is no object'];
   const problems: string[] = [];
-  if (m.manifestVersion !== MANIFEST_VERSION) problems.push(`manifestVersion ${String(m.manifestVersion)} is not known, expected ${MANIFEST_VERSION}`);
+  if (typeof m.manifestVersion !== 'number' || m.manifestVersion > MANIFEST_VERSION) problems.push(`manifestVersion ${String(m.manifestVersion)} is not known, the newest known is ${MANIFEST_VERSION}`);
   if (!m.entries || typeof m.entries !== 'object') return [...problems, 'entries is missing'];
   for (const [entry, file] of Object.entries(m.entries)) {
     const path = String(file).split(/[?#]/)[0];
