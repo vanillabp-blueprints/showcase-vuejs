@@ -95,3 +95,17 @@ export interface BcNotification {
   /** `true`: the toast stays until the user clicks it away. */
   sticky?: boolean;
 }
+
+/** A column of a list; `path` is the key which merges the columns of different rows and modules. */
+export interface Column {
+  title: Partial<Record<string, string>>;
+  /** Path of the value within the row, with dots as separators. */
+  path: string;
+  type?: 'value' | 'i18n' | 'person' | 'date' | 'date-time' | 'time';
+  priority: number;
+  width: string;
+  show: boolean;
+  sortable: boolean;
+  filterable: boolean;
+  resizeable: boolean;
+}

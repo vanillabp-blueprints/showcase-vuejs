@@ -53,11 +53,11 @@ test('PKG-050 PKG-056 the host asks the Header of the Angular module and draws i
 test('PKG-050 PKG-056 the modules bring different columns', async ({ page }) => {
   const columns = async (moduleId: string, entry: string) => {
     await startHost(page, moduleId);
-    return ((await ask(page, moduleId, entry)) as unknown as { id: string }[]).map((c) => c.id);
+    return ((await ask(page, moduleId, entry)) as unknown as { path: string }[]).map((c) => c.path);
   };
-  expect(await columns('react-module', 'UserTaskList')).toEqual(['risk']);
-  expect(await columns('angular-module', 'UserTaskList')).toEqual(['region']);
-  expect(await columns('vue-module', 'WorkflowList')).toEqual(['ride']);
+  expect(await columns('react-module', 'UserTaskList')).toEqual(['details.risk']);
+  expect(await columns('angular-module', 'UserTaskList')).toEqual(['details.region']);
+  expect(await columns('vue-module', 'WorkflowList')).toEqual(['details.ride']);
 });
 
 test('PKG-050 the host refuses a name that does not start with the prefix of its module', async ({ page }) => {

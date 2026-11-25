@@ -1,5 +1,6 @@
 import { createModuleHost, createModuleRegistry, type ModuleHost, type ModuleRef, type RowOfModule } from '@acme/bc-module-host';
-import { HEADER } from '@acme/bc-module-kit';
+import { HEADER, USER_TASK_LIST } from '@acme/bc-module-kit';
+import type { Column as ModuleColumn } from '@acme/bc-types';
 import { OfficialWorkflowModulesApi } from '../generated/official-gui-api';
 import { FailedCall } from '../api/clients';
 import { language } from '../i18n/messages';
@@ -37,12 +38,27 @@ export function onNewBuild(listener: (workflowModuleId: string) => void): () => 
 /** Reads the list of the modules the user may see; called once, after the current user is known. */
 export const startModules = (): Promise<void> => registry.start();
 
+/** What a module's list part answered for one row: its columns, none, or a failure to load the part. */
+export type ColumnsOfRow = { columns: ModuleColumn[] } | { failed: true };
+
+/**
+ * Loads the list part of the module of a row, once, and calls its column function with the row. A module which names no
+ * list part brings no columns; a part which cannot be loaded or throws is a failure, so the row shows a note.
+ */
+export async function columnsOfRow(row: RowOfModule): Promise<ColumnsOfRow | undefined> {
+  try {
+    const opening = await registry.opening(row);
+    if (opening.kind !== 'parts') return undefined;
+    const { workflowModuleId, webPath } = opening.module;
+    if (!(await host.names(workflowModuleId, webPath, USER_TASK_LIST))) return { columns: [] };
+    const answer = await host.ask(workflowModuleId, webPath, USER_TASK_LIST, row);
+    return { columns: Array.isArray(answer) ? (answer as ModuleColumn[]) : [] };
+  } catch { return { failed: true }; }
+}
+
 /** The parts of a row: `true` when its module could be reached, `false` when this cockpit cannot open the row. */
 export async function loadPartsOf(row: RowOfModule): Promise<boolean> {
-  const opening = await registry.opening(row);
-  if (opening.kind === 'unknown') return false;
-  if (opening.kind === 'parts') await host.askModules([opening.module], 'UserTaskList');
-  return true;
+  return (await registry.opening(row)).kind !== 'unknown';
 }
 
 /** The modules whose parts a page may show: every module of the registry with the folder to load it from. */

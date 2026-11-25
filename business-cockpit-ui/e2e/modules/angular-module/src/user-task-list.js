@@ -1,1 +1,1 @@
-export const userTaskListColumns = () => [{ id: 'region', title: { en: 'Region', de: 'Region' }, valueOf: (task) => task.details?.region ?? '' }];
+export const userTaskListColumns = () => [{ path: 'details.region', title: { en: 'Region', de: 'Region' }, type: 'value', priority: 10, width: '', show: true, sortable: false, filterable: false, resizeable: false }];

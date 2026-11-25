@@ -15,6 +15,8 @@ const fr: Messages = {
   noTasks: 'Aucune tâche',
   listNotLoaded: "La liste n'a pas pu être chargée",
   cannotOpenHere: "Cette tâche ne peut pas être ouverte ici.",
+  columnsNotLoaded: "Non chargé",
+  columnNeedsType: "Cette colonne a besoin d'un type.",
   partNotes: {
     askFailed: 'La partie {entry} du module {module} n’a pas pu être chargée.',
     loadFailed: 'La partie visible {entry} du module {module} n’a pas pu être chargée.',

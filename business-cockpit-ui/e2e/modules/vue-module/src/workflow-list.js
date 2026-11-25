@@ -1,1 +1,1 @@
-export const workflowListColumns = () => [{ id: 'ride', title: { en: 'Ride', de: 'Fahrt' }, valueOf: (workflow) => workflow.details?.ride ?? '' }];
+export const workflowListColumns = () => [{ path: 'details.ride', title: { en: 'Ride', de: 'Fahrt' }, type: 'value', priority: 10, width: '', show: true, sortable: false, filterable: false, resizeable: false }];

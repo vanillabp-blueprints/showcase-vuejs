@@ -66,7 +66,7 @@ test('PKG-056 together the modules bring every extension point and the columns d
   const all = new Set(Object.values(entries).flat());
   for (const entry of ['UserTaskList', 'WorkflowList', 'UserTaskForm', 'WorkflowPage', 'Header']) assert.ok(all.has(entry), entry);
   assert.ok(!all.has('Pages'), 'Pages was not chosen');
-  const listColumns = ['react-module/src/user-task-list.js', 'vue-module/src/workflow-list.js', 'angular-module/src/user-task-list.js'].map((f) => /id: '(\w+)'/.exec(readText(`e2e/modules/${f}`))[1]);
+  const listColumns = ['react-module/src/user-task-list.js', 'vue-module/src/workflow-list.js', 'angular-module/src/user-task-list.js'].map((f) => /path: '([\w.]+)'/.exec(readText(`e2e/modules/${f}`))[1]);
   assert.equal(new Set(listColumns).size, 3);
 });
 

@@ -118,3 +118,10 @@ S38 built the new-build path: the loader tells its users (`onNewBuild`), the hea
 
 S39 built the answer to every action of the minimum set (`minimumActions` in the host, `cockpitActions` in `packages/ui/src/modules/actions.ts`), the messages between areas (`createPage`, `NO_TARGET`), the properties and functions of every part, and `sendTo`, `receiveMessage`, `showNotification`, `openDialog`, `closeDialog` in the kit (rest of ASK-012; `toBcUserTask` and `toBcWorkflow` are still unbuilt). EXT-059 is proven on the simulator, which stands in for the proxy under `/wm/<id>/` (ETag, Last-Modified, gzip, 304). The backend has no `/wm` route in this repository; the proxy of the business-cockpit library must pass the four headers on, which needs a test against the real container. The toast is a plain element and the dialog a native `<dialog>`; the look of toasts (EXT-023, DS-006) and the pages for a user task and a case (`/tasks/<id>`, `/workflows/<id>`; the actions only navigate there, ASK-015) are not built. `workflow.getUserTasks` asks for all tasks of the case and filters `activeOnly` in the browser. A part is not told when a toast or dialog closes by leaving the page; subscriptions are not dropped when a part leaves the page (not in these ids).
 
+
+## ASK-019 Module columns of the task list: what S40 left to later stories
+
+Story: S40 (COL-001, COL-003 to COL-007)
+Date: 2026-11-25
+
+The task list shows module columns (merge by `path`, priority, `show`, failed module note, `value` cells). Open: the case list does not draw `WorkflowList` columns yet; `sortable`, `filterable` and `resizeable` of a module column are not used (the header does not sort or filter by them); the cells of `person`, `date`, `time` have only a short form (`date-time` is localised, `date` and `time` show the raw text, person shows `displayShort`, else `email`, else `id`, without the mouse-over). `width` is not applied. A column function is called once per loaded row, in the browser, and its answer is kept until the row leaves the window. The note of a failed module sits in each module cell of its row, or in the title cell when the list has no module column at all.

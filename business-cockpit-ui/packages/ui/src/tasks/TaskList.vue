@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue';
 import { VBtn, VCard, VCardActions, VCardText, VDialog, VIcon, VProgressLinear, VSnackbar, VTable, VTooltip } from 'vuetify/components';
 import { mdiAccount, mdiAccountMultiple, mdiAccountArrowRight, mdiAccountCheckOutline, mdiArrowDown, mdiArrowUp, mdiCalendarClock, mdiClose, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
+import type { Column } from '@acme/bc-types';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
 import { FailedCall, updateStreamUrl } from '../api/clients';
 import { guiApiBasePath, myTasksBasePath } from '../config';
@@ -9,7 +10,8 @@ import { dateCellDetails, dateCellText } from '../i18n/format';
 import { language, text } from '../i18n/messages';
 import { pickTranslation } from '../i18n/translatable';
 import { taskAddress } from '../routing';
-import { loadPartsOf } from '../modules/modules';
+import { columnsOfRow, loadPartsOf, type ColumnsOfRow } from '../modules/modules';
+import { cellOf, fractionDigits, mergeColumns, type Cell } from './moduleColumns';
 import { settingKey, settings } from '../settings/settings';
 import { stateOf } from './taskState';
 import { dayOf, startOfDay } from './followUp';
@@ -71,6 +73,28 @@ const spaceAbove = computed(() => drawnFirst.value * rowHeight);
 const capped = computed(() => total.value > maxListEntries);
 const noticeShown = computed(() => capped.value && drawnLast.value === length.value - 1);
 const spaceBelow = computed(() => (Math.max(0, length.value - 1 - drawnLast.value) + (capped.value && !noticeShown.value ? 1 : 0)) * rowHeight);
+// what the list part of the module of each loaded row answered (COL-001); an answer is there before its row is, so the header never changes under the first rows
+const answers = new Map<string, ColumnsOfRow | undefined>();
+const answeredOf = (task: UserTask): ColumnsOfRow | undefined => answers.get(task.id);
+async function askColumnsOf(rows: UserTask[]): Promise<void> {
+  await Promise.all(rows.map(async (row) => { answers.set(row.id, await columnsOfRow(row)); }));
+}
+// the module columns follow the loaded window: the first row (in list order) which has a column gives its title and fields (COL-003)
+const moduleColumns = computed(() => mergeColumns(loadedTasks().map(answeredOf)));
+const titleOfColumn = (column: Column): string => pickTranslation(column.title, language.value);
+const words = computed(() => ({ yes: text().actions.yes, no: text().actions.no }));
+const cellFor = (task: UserTask, column: Column): Cell => cellOf(task, column, language.value, words.value);
+// the digits after the decimal mark of the widest number of each column, so the marks of its rows line up (COL-006)
+const fractionWidths = computed(() => Object.fromEntries(moduleColumns.value.map((column) => [
+  column.path, fractionDigits(loadedTasks().map((task) => cellFor(task, column)).filter((cell) => cell.kind === 'number')),
+])));
+const columnsFailedOf = (task: UserTask): boolean => { const answer = answeredOf(task); return answer !== undefined && 'failed' in answer; };
+// ids of rows which left the window do not stay in the answers
+watch(pages, () => {
+  const loaded = new Set(loadedTasks().map((task) => task.id));
+  for (const id of answers.keys()) if (!loaded.has(id)) answers.delete(id);
+});
+
 // only the first load shows the loading sign; the pages that follow load without one
 // what the central loader made of each row which was drawn (a row without a type is of a module which reports none)
 const partsOf = reactive<Record<string, 'loading' | 'loaded' | 'unopenable'>>({});
@@ -201,6 +225,8 @@ async function loadPage(pageNumber: number): Promise<void> {
     const answer = await askPage(pageNumber);
     // an answer of a list that started again, or of a page the window has left, is dropped
     if (startedIn !== generation || !windowNumbers().includes(pageNumber)) return;
+    await askColumnsOf(answer.rows);
+    if (startedIn !== generation || !windowNumbers().includes(pageNumber)) return;
     total.value = answer.total;
     pages.value = new Map(pages.value).set(pageNumber, answer.rows);
     refreshSelected(answer.rows);
@@ -264,6 +290,7 @@ async function load(startAgain = false): Promise<void> {
     const [firstNumber, ...otherNumbers] = numbers;
     const first = await askPage(firstNumber!);
     const others = await Promise.all(otherNumbers.map(async (number) => [number, (await askPage(number)).rows] as const));
+    await askColumnsOf([first.rows, ...others.map(([, other]) => other)].flat());
     total.value = first.total;
     failed.value = false;
     pages.value = new Map([[firstNumber!, first.rows], ...others]);
@@ -572,6 +599,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
           <template v-else>{{ text().columns[column] }}</template>
           <v-icon v-if="sortMarkOf(column)" data-testid="sort-mark" size="small" :icon="sortMarkOf(column) === 'asc' ? mdiArrowUp : mdiArrowDown" />
         </th>
+        <th v-for="column in moduleColumns" :key="column.path" :data-testid="`column-header-module-${column.path}`" :data-path="column.path">{{ titleOfColumn(column) }}</th>
         <th data-testid="column-header-tools" class="tools-header" :aria-label="text().actions.tools" />
       </tr>
       <tr class="filter-row">
@@ -596,13 +624,14 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
             ><v-icon :icon="mdiClose" /></v-btn>
           </template>
         </th>
+        <th v-for="column in moduleColumns" :key="column.path" class="filter-cell" />
         <th class="filter-cell" />
       </tr>
     </thead>
     <tbody>
-      <tr v-if="spaceAbove > 0" class="space" aria-hidden="true"><td :colspan="columns.length + 1" :style="{ height: `${spaceAbove}px` }" /></tr>
+      <tr v-if="spaceAbove > 0" class="space" aria-hidden="true"><td :colspan="columns.length + moduleColumns.length + 1" :style="{ height: `${spaceAbove}px` }" /></tr>
       <template v-for="{ key, task } in drawn" :key="key">
-      <tr v-if="!task" data-testid="task-placeholder" class="task-row placeholder"><td :colspan="columns.length + 1" /></tr>
+      <tr v-if="!task" data-testid="task-placeholder" class="task-row placeholder"><td :colspan="columns.length + moduleColumns.length + 1" /></tr>
       <tr v-else data-testid="task-row" :data-task-id="task.id" :data-parts="partsOf[task.id]" :data-state="stateOf(task)" :class="['task-row', stateOf(task), { unread: !task.read }]">
         <td data-testid="cell-id" class="select-cell">
           <input
@@ -618,6 +647,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
         <td data-testid="cell-title">
           <a data-testid="task-title" :href="taskAddress(task.id)">{{ pickTranslation(task.title, language) }}</a>
           <span v-if="partsOf[task.id] === 'unopenable'" data-testid="cannot-open" class="cannot-open">{{ text().cannotOpenHere }}</span>
+          <span v-if="columnsFailedOf(task) && moduleColumns.length === 0" data-testid="columns-not-loaded" class="cannot-open">{{ text().columnsNotLoaded }}</span>
         </td>
         <td data-testid="cell-dueDate">
           <template v-if="dateAndDetails(task.dueDate)">
@@ -724,6 +754,13 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
             </v-tooltip>
           </template>
         </td>
+        <td v-for="column in moduleColumns" :key="column.path" :data-testid="`cell-module-${column.path}`" class="module-cell" :style="{ textAlign: columnsFailedOf(task) ? 'left' : cellFor(task, column).align }">
+          <span v-if="columnsFailedOf(task)" data-testid="columns-not-loaded" class="cannot-open">{{ text().columnsNotLoaded }}</span>
+          <template v-else-if="cellFor(task, column).kind === 'number'"
+            >{{ cellFor(task, column).integer }}<span class="fraction" :style="{ width: `${fractionWidths[column.path]! + 1}ch` }"><span v-if="cellFor(task, column).fraction" class="mark">{{ cellFor(task, column).fraction!.slice(0, 1) }}</span>{{ cellFor(task, column).fraction!.slice(1) }}</span></template>
+          <span v-else-if="cellFor(task, column).kind === 'needs-a-type'" class="cannot-open">{{ text().columnNeedsType }}</span>
+          <template v-else>{{ cellFor(task, column).text }}</template>
+        </td>
         <td data-testid="cell-tools" class="tools-cell">
           <v-btn
             :data-testid="task.read ? 'mark-unread' : 'mark-read'"
@@ -753,8 +790,8 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
         </td>
       </tr>
       </template>
-      <tr v-if="noticeShown" data-testid="capped-notice" class="capped-notice" aria-selected="false"><td :colspan="columns.length + 1">{{ cappedNotice() }}</td></tr>
-      <tr v-if="spaceBelow > 0" class="space" aria-hidden="true"><td :colspan="columns.length + 1" :style="{ height: `${spaceBelow}px` }" /></tr>
+      <tr v-if="noticeShown" data-testid="capped-notice" class="capped-notice" aria-selected="false"><td :colspan="columns.length + moduleColumns.length + 1">{{ cappedNotice() }}</td></tr>
+      <tr v-if="spaceBelow > 0" class="space" aria-hidden="true"><td :colspan="columns.length + moduleColumns.length + 1" :style="{ height: `${spaceBelow}px` }" /></tr>
     </tbody>
   </v-table>
   <p v-if="total === 0 && !failed" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
@@ -789,6 +826,8 @@ th.sortable { cursor: pointer; user-select: none; }
 .filter-cell .v-btn { position: absolute; right: 6px; top: 6px; }
 /* both scroll bars are always there, so the list does not draw itself again when one appears (COL-018) */
 .task-list :deep(.v-table__wrapper) { overflow: scroll; overflow-anchor: none; }
+.task-list .fraction { display: inline-block; text-align: left; }
+.task-list .module-cell { font-variant-numeric: tabular-nums; }
 .task-list :deep(table) { min-width: 1100px; }
 /* white, partly transparent, so the background shows through, blurred where the browser can (TL-032) */
 .task-row > td { height: 46px; box-sizing: border-box; white-space: nowrap; }
