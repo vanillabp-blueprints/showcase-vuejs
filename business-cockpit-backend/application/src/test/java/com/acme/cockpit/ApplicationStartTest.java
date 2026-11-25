@@ -109,6 +109,15 @@ class ApplicationStartTest {
     assertThat(page.headers().firstValue("Location").orElseThrow()).contains("/oauth2/authorization/");
   }
 
+  @Test
+  @DisplayName("BE-017 the application started against MongoDB of Testcontainers gives the title from app info")
+  void BE_017_the_application_started_against_mongodb_of_testcontainers_gives_the_title_from_app_info()
+      throws Exception {
+    final var info = get("/gui/api/v1/app/info", null);
+    assertThat(info.statusCode()).isEqualTo(200);
+    assertThat(info.body()).containsPattern("\"titleLong\"\\s*:\\s*\"Business Cockpit\"");
+  }
+
   private HttpResponse<String> html(final String path) throws Exception {
     return client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
         .header("Accept", "text/html").build(), HttpResponse.BodyHandlers.ofString());

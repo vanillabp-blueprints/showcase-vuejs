@@ -20,11 +20,12 @@
     "build:jars": "node jars/build-jars.mjs",
     "dev": "npm run dev --workspace packages/ui",
     "fetch:openapi": "node scripts/fetch-openapi.mjs",
-    "test": "node --test e2e/*.test.mjs",
+    "test": "node --test e2e/*.test.mjs && playwright test",
     "set-version": "node scripts/set-version.mjs"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.99.0",
+    "@playwright/test": "1.65.1",
     "@types/node": "26.6.10",
     "fflate": "0.8.3",
     "typescript": "6.0.3"

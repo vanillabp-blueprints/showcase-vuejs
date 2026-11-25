@@ -13,7 +13,7 @@ Started: 2026-11-25
 | S05 | The backend starts and serves the user interface (2 of 3) | done | BE-028, BE-012, BE-006, PKG-003, PKG-004, PKG-005 | `sh plan/checks/S05.sh` |
 | S06 | The backend starts and serves the user interface (3 of 3) | done | PKG-059, BE-031 | `sh plan/checks/S06.sh` |
 | S07 | A user logs in and out (1 of 4) | done | BE-005, BE-010, BE-011, BE-007, BE-008, BE-013 | `sh plan/checks/S07.sh` |
-| S08 | A user logs in and out (2 of 4) | open | BE-017, BE-027, AUTH-002, AUTH-003, AUTH-004, AUTH-005 | `sh plan/checks/S08.sh` |
+| S08 | A user logs in and out (2 of 4) | done | BE-017, BE-027, AUTH-002, AUTH-003, AUTH-004, AUTH-005 | `sh plan/checks/S08.sh` |
 | S09 | A user logs in and out (3 of 4) | open | AUTH-006, AUTH-008, AUTH-009, AUTH-010, AUTH-007, BE-032 | `sh plan/checks/S09.sh` |
 | S10 | A user logs in and out (4 of 4) | open | BE-033, BE-034 | `sh plan/checks/S10.sh` |
 | S11 | The user sees the header and the menu (1 of 3) | open | NAV-006, NAV-009, NAV-010, NAV-011, NAV-013, NAV-029 | `sh plan/checks/S11.sh` |

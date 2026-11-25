@@ -251,4 +251,21 @@ class BuildAndConfigurationTest {
     return versionByArtifact;
   }
 
+  @Test
+  @DisplayName("BE-027 application.yaml configures the keycloak directory with its type, the secret from the environment and the user id the login names")
+  void BE_027_application_yaml_configures_the_keycloak_directory_with_its_type_the_secret_from_the_environment_and_the_user_id_the_login_names() {
+    final var yaml = new YamlPropertiesFactoryBean();
+    yaml.setResources(new ClassPathResource("config/application.yaml"));
+    final var properties = yaml.getObject();
+    final var directory = "business-cockpit.user-directory.";
+
+    assertThat(properties.getProperty(directory + "type")).isEqualTo("keycloak");
+    assertThat(properties.getProperty(directory + "keycloak.client-secret"))
+        .isEqualTo("${KEYCLOAK_DIRECTORY_SECRET}");
+    // the login names the user by this claim, and the directory finds the user by the same
+    assertThat(properties.getProperty("spring.security.oauth2.client.provider.keycloak.user-name-attribute"))
+        .isEqualTo("preferred_username");
+    assertThat(properties.getProperty(directory + "keycloak.user-id")).isEqualTo("username");
+  }
+
 }

@@ -4,12 +4,13 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AppInformation } from '../../packages/ui/src/generated/cockpit-gui-api/types.gen.ts';
-import type { WorkflowModule, WorkflowModules } from '../../packages/ui/src/generated/official-gui-api/types.gen.ts';
+import type { User, WorkflowModule, WorkflowModules } from '../../packages/ui/src/generated/official-gui-api/types.gen.ts';
 
 export const guiApiPath = '/gui/api/v1';
 export const officialGuiApiPath = '/official-api/gui/api/v1';
 const cookieName = 'bc';
 const testModules = ['react-module', 'vue-module', 'angular-module'];
+const uiFolder = new URL('../../packages/ui/dist/', import.meta.url).pathname;
 const modulesFolder = new URL('../modules/', import.meta.url).pathname;
 
 type SimulatedModule = WorkflowModule & { accessibleToGroups: string[] };
@@ -28,6 +29,8 @@ export interface Simulator {
 export async function startSimulator(options: { port: number }): Promise<Simulator> {
   let modules = new Map<string, SimulatedModule>();
   const streams = new Set<ServerResponse>();
+  // every login before this moment has ended, the way a login ends after its maximal duration
+  let sessionsEndedAt = 0;
 
   const send = (res: ServerResponse, status: number, body?: unknown, headers: Record<string, string> = {}) => {
     res.writeHead(status, { 'content-type': 'application/json', ...headers });
@@ -44,13 +47,14 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   const userOf = (req: IncomingMessage): SimulatedUser | undefined => {
     const token = /(?:^|;\s*)bc=([^;]+)/.exec(req.headers.cookie ?? '')?.[1];
     if (!token) return undefined;
-    const id = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString('utf8')).sub;
-    return users.find((user) => user.id === id);
+    const claims = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString('utf8'));
+    if (claims.iat !== undefined && claims.iat < sessionsEndedAt) return undefined;
+    return users.find((user) => user.id === claims.sub);
   };
 
-  const jwtFor = (user: SimulatedUser): string => {
+  const jwtFor = (user: SimulatedUser, issuedAt?: number): string => {
     const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
-    return `${part({ alg: 'none' })}.${part({ sub: user.id, name: user.name, groups: user.groups })}.simulator`;
+    return `${part({ alg: 'none' })}.${part({ sub: user.id, name: user.name, groups: user.groups, iat: issuedAt })}.simulator`;
   };
 
   const publish = (eventName: string, elements: object[]) => {
@@ -66,6 +70,38 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     if (path === `${guiApiPath}/app/info`) {
       const info: AppInformation = { titleShort: 'Cockpit', titleLong: 'Business Cockpit of acme', version: 'simulator' };
       return send(res, 200, info);
+    }
+
+    // Open to everybody: a request without a login gets 200 without a body.
+    if (path === `${guiApiPath}/app/current-user`) {
+      const user = userOf(req);
+      if (!user) return send(res, 200);
+      const body: User = { id: user.id, display: user.name, groups: user.groups.map((id) => ({ id })) };
+      return send(res, 200, body);
+    }
+
+    // A list asks for a login, like the chain of the backend does.
+    if (path === `${guiApiPath}/usertasks`) {
+      return userOf(req) ? send(res, 200, { userTasks: [] }) : send(res, 401);
+    }
+
+    // The login at the identity provider, then back to the screen the user was on.
+    if (path === '/oauth2/authorization/keycloak') {
+      const back = new URL(req.headers.referer ?? '/', 'http://simulator');
+      sessionsEndedAt = 0;
+      return send(res, 302, undefined, {
+        location: back.pathname + back.search,
+        'set-cookie': `${cookieName}=${jwtFor(users[0], Date.now())}; Path=/; HttpOnly`,
+      });
+    }
+
+    if (path === '/logout') {
+      return send(res, 302, undefined, { location: '/', 'set-cookie': `${cookieName}=; Path=/; HttpOnly; Max-Age=0` });
+    }
+
+    if (path === '/simulator-api/expire-sessions' && method === 'POST') {
+      sessionsEndedAt = Date.now() + 1;
+      return send(res, 200);
     }
 
     if (path === `${guiApiPath}/updates`) {
@@ -113,6 +149,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
 
     if (path === '/simulator-api/reset' && method === 'POST') {
       modules = new Map();
+      sessionsEndedAt = 0;
       return send(res, 200);
     }
 
@@ -122,6 +159,17 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       const file = join(modulesFolder, modulePart[1], 'dist', modulePart[2]);
       if (!file.includes('..') && existsSync(file)) {
         res.writeHead(200, { 'content-type': file.endsWith('.js') ? 'text/javascript' : 'application/octet-stream' });
+        return void res.end(readFileSync(file));
+      }
+    }
+
+    // The built user interface: files below /assets/, index.html for every other path of a page.
+    if (method === 'GET' && !/^\/(gui|official-api|bpms|dev-shell|simulator-api|wm)\//.test(path)) {
+      const file = join(uiFolder, path.startsWith('/assets/') ? path : 'index.html');
+      if (!file.includes('..') && existsSync(file)) {
+        const types: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html' };
+        const extension = file.slice(file.lastIndexOf('.'));
+        res.writeHead(200, { 'content-type': types[extension] ?? 'application/octet-stream' });
         return void res.end(readFileSync(file));
       }
     }
