@@ -16,6 +16,7 @@ import { settingKey, settings } from '../settings/settings';
 import { stateOf } from './taskState';
 import { dayOf, startOfDay } from './followUp';
 import { cappedNotice } from './cappedNotice';
+import { onTaskChangedInAnotherTab } from './openTask';
 import StatusLine from './StatusLine.vue';
 import SearchBar from './SearchBar.vue';
 import { fullText, searchQueriesOf, type Suggestion } from './search';
@@ -431,8 +432,11 @@ const workedOn = (task: UserTask): boolean => Boolean(task.endedAt || task.suspe
 // an update of a task may show it activated again, so the rows are read again without a reload (ACT-017)
 const updates = new EventSource(updateStreamUrl());
 updates.addEventListener('UserTask', () => void load());
+// a task tab tells which task it changed; the rows are read again at once, without waiting for the update stream (ACT-019)
+const stopListening = onTaskChangedInAnotherTab(() => void load());
 onBeforeUnmount(() => {
   updates.close();
+  stopListening();
   clearTimeout(pause);
   resizing?.disconnect();
   scrollArea?.removeEventListener('scroll', scrolled);

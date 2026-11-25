@@ -15,6 +15,7 @@ const es: Messages = {
   noTasks: 'Sin tareas',
   listNotLoaded: "No se pudo cargar la lista",
   cannotOpenHere: "Esta tarea no se puede abrir aquí.",
+  taskNotLoaded: "No se pudo cargar la tarea.",
   columnsNotLoaded: "No cargado",
   columnNeedsType: "Esta columna necesita un tipo.",
   partNotes: {

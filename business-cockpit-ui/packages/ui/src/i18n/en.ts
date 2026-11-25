@@ -15,6 +15,7 @@ const en = {
   noTasks: 'No tasks',
   listNotLoaded: "The list could not be loaded",
   cannotOpenHere: "This task cannot be opened here.",
+  taskNotLoaded: "The task could not be loaded.",
   columnsNotLoaded: "Not loaded",
   columnNeedsType: "This column needs a type.",
   partNotes: {

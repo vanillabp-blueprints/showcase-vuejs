@@ -7,15 +7,18 @@ import { counts } from './counts/counts';
 import { initialsOf } from './initials';
 import { formatNumber } from './i18n/format';
 import { language, languages, text } from './i18n/messages';
-import { pageOf } from './routing';
+import { pageOf, taskIdOf } from './routing';
 import { cappedNotice, isCapped } from './tasks/cappedNotice';
 import TaskList from './tasks/TaskList.vue';
 import ModuleHeader from './modules/ModuleHeader.vue';
+import TaskHeader from './tasks/TaskHeader.vue';
+import TaskPage from './tasks/TaskPage.vue';
 
 const props = defineProps<{ title: string; user: User }>();
 
 const menuOpen = ref(false);
 const page = pageOf(window.location.pathname);
+const taskId = taskIdOf(window.location.pathname);
 // the page says which language it is in
 watchEffect(() => { document.documentElement.lang = language.value; });
 const shortForm = computed(() => props.user.displayShort ?? props.user.display ?? props.user.id);
@@ -40,6 +43,8 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
       </v-btn-toggle>
       <v-spacer />
       <module-header />
+      <!-- right of the parts of the modules, so late parts do not move the actions -->
+      <task-header v-if="page === 'task'" :current-user-id="user.id" />
       <span data-testid="current-user" class="mr-2">{{ user.display ?? user.id }}</span>
       <v-btn data-testid="menu-button" :icon="mdiMenu" :aria-label="text().menu" @click="menuOpen = !menuOpen" />
     </v-app-bar>
@@ -82,6 +87,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
     <v-main>
       <task-list v-if="page === 'allTasks'" :own="false" :current-user-id="user.id" />
       <task-list v-else-if="page === 'myTasks'" :own="true" :current-user-id="user.id" />
+      <task-page v-else-if="page === 'task' && taskId" :id="taskId" />
     </v-main>
   </v-app>
 </template>

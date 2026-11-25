@@ -133,3 +133,13 @@ Story: S42 (COL-022)
 Date: 2026-11-25
 
 A dragged width is set on the header cell (width, min-width, max-width); the cells of the rows keep the layout the table gives them, so a long value can still push a column wider than its header. `width` of a module column (its default width) is not applied. The case list has no resizable columns yet because it draws no module columns (ASK-019). Open: should the body cells be cut at the width (ellipsis) or fixed table layout be used?
+
+
+## ASK-021 Task page: what S43 left open
+
+Story: S43 (TL-022, ACT-019, TF-001, TF-004, TF-005, TF-006)
+Date: 2026-11-25
+
+The page draws the form through `host.drawPage`, not through `ModulePart`, so the note and retry of ASK-015 are not on the page (EXT-035 and EXT-037 are not repeated there); the page shows `cannot open here` for a module the cockpit does not know or a type other than `ES_MODULES`, and `external` rows are not opened (no redirect). The interview gives no information for the header of a task (Q-TASK-HEADER-INFO: nothing), so the cut with "..." of TF-005 has no value to show and is untested. The react test module names only `all`, so a test of the three areas on the page needs another module. After an action the header reads the task again but the form is not given the new task (no `update` of the properties). ACT-019: the list reads its whole window again for any task named on `bc-cockpit`, not only the one row. The task page loads its task with the base path of the list of all tasks.
+Answer: open
+

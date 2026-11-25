@@ -1,5 +1,5 @@
 import { createModuleHost, createModuleRegistry, type ModuleHost, type ModuleRef, type RowOfModule } from '@acme/bc-module-host';
-import { HEADER, USER_TASK_LIST } from '@acme/bc-module-kit';
+import { HEADER, USER_TASK_FORM, USER_TASK_LIST } from '@acme/bc-module-kit';
 import type { Column as ModuleColumn } from '@acme/bc-types';
 import { OfficialWorkflowModulesApi } from '../generated/official-gui-api';
 import { FailedCall } from '../api/clients';
@@ -64,4 +64,19 @@ export async function loadPartsOf(row: RowOfModule): Promise<boolean> {
 /** The modules whose parts a page may show: every module of the registry with the folder to load it from. */
 export async function modulesToAsk(): Promise<ModuleRef[]> {
   return (await registry.all()).map((module) => ({ workflowModuleId: module.id, webPath: `/wm/${module.id}/` }));
+}
+
+/** The areas of the cockpit on the page of a user task (Q-TASK-PAGE-AREAS). */
+const taskPageAreas = ['body', 'information', 'actions'];
+
+/**
+ * Draws the form of the module of a task into `container`. Answers `unknown` when the cockpit cannot open the task,
+ * else the areas drawn (none when the module names no form for it).
+ */
+export async function drawFormOf(task: RowOfModule, container: Element): Promise<'unknown' | string[]> {
+  const opening = await registry.opening(task);
+  if (opening.kind !== 'parts') return 'unknown';
+  const { workflowModuleId, webPath } = opening.module;
+  if (!(await host.names(workflowModuleId, webPath, USER_TASK_FORM))) return [];
+  return Object.keys(await host.drawPage(workflowModuleId, webPath, USER_TASK_FORM, task, taskPageAreas, container));
 }

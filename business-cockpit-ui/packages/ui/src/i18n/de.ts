@@ -15,6 +15,7 @@ const de: Messages = {
   noTasks: 'Keine Aufgaben',
   listNotLoaded: "Die Liste konnte nicht geladen werden",
   cannotOpenHere: "Diese Aufgabe kann hier nicht geöffnet werden.",
+  taskNotLoaded: "Die Aufgabe konnte nicht geladen werden.",
   columnsNotLoaded: "Nicht geladen",
   columnNeedsType: "Diese Spalte braucht einen Typ.",
   partNotes: {

@@ -273,6 +273,15 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       return send(res, 200, { result: suggestionsFor(open, query, searchPath) });
     }
     if (path === '/simulator-api/suggestion-requests') return send(res, 200, suggestionRequests);
+    // One task, like GET /usertask/{id}; ?markAsRead=true marks it as read in the same call.
+    const oneTask = /^\/gui\/api\/v1(?:\/current-user)?\/usertask\/([^/]+)$/.exec(path);
+    if (oneTask && method === 'GET') {
+      if (!userOf(req)) return send(res, 401);
+      const found = userTasks.find((candidate) => candidate.id === decodeURIComponent(oneTask[1]!));
+      if (!found) return send(res, 404);
+      if (url.searchParams.get('markAsRead') === 'true') found.read = true;
+      return send(res, 200, found);
+    }
     // Put a task on follow-up, or clear the date, like PATCH /usertask/{id}/follow-up-date of the cockpit.
     const followUp = /^\/gui\/api\/v1\/usertask\/([^/]+)\/follow-up-date$/.exec(path);
     if (followUp && method === 'PATCH') {
