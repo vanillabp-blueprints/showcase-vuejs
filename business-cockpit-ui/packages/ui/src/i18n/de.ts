@@ -9,6 +9,7 @@ const de: Messages = {
   logout: 'Abmelden',
   language: 'Sprache',
   columns: { id: 'Id', businessId: 'Geschäfts-ID', caseKind: 'Vorgangsart', title: 'Titel', dueDate: 'Fällig', assignee: 'Bearbeiter', candidateUsers: 'Kandidaten', note: 'Notizen', followUpDate: 'Wiedervorlage', endedAt: 'Beendet' },
+  actions: { claim: 'Übernehmen', unclaim: 'Zurückgeben', remove: 'Entfernen', proposeTo: 'Vorschlagen an', searchPerson: 'Person suchen', noPerson: 'Keine Person gefunden', editNote: 'Notiz bearbeiten', note: 'Notiz', save: 'Speichern', cancel: 'Abbrechen', failed: 'Die Aktion ist fehlgeschlagen' },
   noTasks: 'Keine Aufgaben',
   listNotLoaded: "Die Liste konnte nicht geladen werden",
   primaryFilter: 'Primärfilter',

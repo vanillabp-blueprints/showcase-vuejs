@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AppInformation } from '../../packages/ui/src/generated/cockpit-gui-api/types.gen.ts';
-import type { User, UserTask, WorkflowModule, WorkflowModules } from '../../packages/ui/src/generated/official-gui-api/types.gen.ts';
+import type { Person, User, UserTask, WorkflowModule, WorkflowModules } from '../../packages/ui/src/generated/official-gui-api/types.gen.ts';
 
 export const guiApiPath = '/gui/api/v1';
 export const officialGuiApiPath = '/official-api/gui/api/v1';
@@ -180,6 +180,44 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       found.followUpDate = timestamp ?? undefined;
       return send(res, 200, found);
     }
+    // Claim or give back (?unclaim=true), assign or unassign (?userId=) and the note of one task, like the cockpit does it.
+    const taskAction = /^\/gui\/api\/v1(?:\/current-user)?\/usertask\/([^/]+)\/(claim|assign|note)$/.exec(path);
+    if (taskAction && method === 'PATCH') {
+      const user = userOf(req);
+      if (!user) return send(res, 401);
+      const found = userTasks.find((candidate) => candidate.id === decodeURIComponent(taskAction[1]!));
+      if (!found) return send(res, 404);
+      if (found.endedAt) return send(res, 409);
+      const person = (id: string): Person => {
+        const { name, email } = users.find((candidate) => candidate.id === id)!;
+        return { id, display: name, displayShort: name.split(' ')[0], email };
+      };
+      if (taskAction[2] === 'claim') {
+        if (url.searchParams.get('unclaim') === 'true') {
+          if (found.assignee && found.assignee.id !== user.id) return send(res, 400);
+          found.assignee = undefined;
+        } else found.assignee = person(user.id);
+        return send(res, 200);
+      }
+      if (taskAction[2] === 'assign') {
+        const userId = url.searchParams.get('userId') ?? '';
+        if (!users.some((candidate) => candidate.id === userId)) return send(res, 400);
+        const others = (found.candidateUsers ?? []).filter((candidate) => candidate.id !== userId);
+        found.candidateUsers = url.searchParams.get('unassign') === 'true' ? others : [...others, person(userId)];
+        return send(res, 200);
+      }
+      const text = (await readBody(req)).text as string | undefined;
+      found.note = text || undefined;
+      return send(res, 200, found);
+    }
+    // Search users, to propose a task to a person.
+    if (/^\/gui\/api\/v1(\/current-user)?\/user$/.test(path) && method === 'POST') {
+      if (!userOf(req)) return send(res, 401);
+      const query = (url.searchParams.get('query') ?? '').toLowerCase();
+      const found = users.filter((user) => user.name.toLowerCase().includes(query) || user.id.includes(query));
+      return send(res, 200, { users: found.map(({ id, name, email }) => ({ id, display: name, displayShort: name.split(' ')[0], email })) });
+    }
+    if (path === '/simulator-api/user-tasks' && method === 'GET') return send(res, 200, userTasks);
     if (path === '/simulator-api/user-tasks' && method === 'POST') {
       userTasks = ((await readBody(req)).userTasks ?? []) as UserTask[];
       return send(res, 200);

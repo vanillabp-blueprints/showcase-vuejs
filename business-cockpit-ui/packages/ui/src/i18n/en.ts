@@ -9,6 +9,7 @@ const en = {
   logout: 'Log out',
   language: 'Language',
   columns: { id: 'Id', businessId: 'Business ID', caseKind: 'Case kind', title: 'Title', dueDate: 'Due', assignee: 'Assignee', candidateUsers: 'Candidate users', note: 'Notes', followUpDate: 'Follow-up', endedAt: 'Ended' },
+  actions: { claim: 'Claim', unclaim: 'Give back', remove: 'Remove', proposeTo: 'Propose to', searchPerson: 'Search a person', noPerson: 'No person found', editNote: 'Edit note', note: 'Note', save: 'Save', cancel: 'Cancel', failed: 'The action could not be done' },
   noTasks: 'No tasks',
   listNotLoaded: "The list could not be loaded",
   primaryFilter: 'Primary filter',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
-import { VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
-import { mdiAccount, mdiAccountMultiple } from '@mdi/js';
+import { VBtn, VIcon, VSnackbar, VTable, VTooltip } from 'vuetify/components';
+import { mdiAccount, mdiAccountMultiple, mdiDelete, mdiNoteEditOutline } from '@mdi/js';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
 import { guiApiBasePath, myTasksBasePath } from '../config';
 import { dateCellDetails, dateCellText } from '../i18n/format';
@@ -83,6 +83,56 @@ function choose(chosen: PrimaryFilter): void {
 const dateAndDetails = (value?: string): { text: string; details: string } | undefined =>
   value ? { text: dateCellText(new Date(value), language.value), details: dateCellDetails(new Date(value), language.value) } : undefined;
 
+// the tools of a row (ACT-001, ACT-003, ACT-004, TL-025): each asks the server, then the list is read again so the row shows the answer
+const actionFailed = ref(false);
+async function act(call: () => Promise<unknown>): Promise<void> {
+  try {
+    await call();
+    actionFailed.value = false;
+  } catch {
+    actionFailed.value = true;
+  }
+  await load();
+}
+
+const claim = (task: UserTask, unclaim: boolean) =>
+  act(() => new OfficialTasklistApi().claimTask({ userTaskId: task.id, unclaim }, { baseUrl: baseUrl() }));
+// a task can be claimed while nobody holds it, and given back by the one who holds it
+const claimable = (task: UserTask): boolean => !task.endedAt && (!task.assignee || task.assignee.id === props.currentUserId);
+
+const candidatesOpenOf = ref<string>();
+const proposals = ref<Person[]>([]);
+const proposalsAsked = ref(false);
+async function searchPersons(query: string): Promise<void> {
+  try {
+    proposals.value = (await new OfficialTasklistApi().findUsers({ query, limit: 10 }, { baseUrl: baseUrl() })).users ?? [];
+    proposalsAsked.value = true;
+  } catch {
+    actionFailed.value = true;
+  }
+}
+function closeCandidates(): void {
+  candidatesOpenOf.value = undefined;
+  proposals.value = [];
+  proposalsAsked.value = false;
+}
+const propose = (task: UserTask, person: Person) =>
+  act(() => new OfficialTasklistApi().assignTask({ userTaskId: task.id, userId: person.id }, { baseUrl: baseUrl() }));
+const removeCandidate = (task: UserTask, person: Person) =>
+  act(() => new OfficialTasklistApi().assignTask({ userTaskId: task.id, userId: person.id, unassign: true }, { baseUrl: baseUrl() }));
+
+const noteHoveredOf = ref<string>();
+const noteEditedOf = ref<string>();
+const noteDraft = ref('');
+function editNote(task: UserTask): void {
+  noteDraft.value = task.note ?? '';
+  noteEditedOf.value = task.id;
+}
+async function saveNote(task: UserTask): Promise<void> {
+  noteEditedOf.value = undefined;
+  await act(() => new OfficialTasklistApi().setUserTaskNote({ userTaskId: task.id, noteRequest: { text: noteDraft.value } }, { baseUrl: baseUrl() }));
+}
+
 const shortForm = (person: Person): string => person.displayShort ?? person.display ?? person.id;
 </script>
 
@@ -119,7 +169,16 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
             </v-tooltip>
           </template>
         </td>
-        <td data-testid="cell-assignee">
+        <td data-testid="cell-assignee" class="assignee-cell">
+          <input
+            v-if="claimable(task)"
+            type="checkbox"
+            class="claim-checkbox"
+            data-testid="claim-checkbox"
+            :aria-label="task.assignee ? text().actions.unclaim : text().actions.claim"
+            :checked="Boolean(task.assignee)"
+            @change="claim(task, Boolean(task.assignee))"
+          />
           <template v-if="task.assignee">
             <span class="bar-slot"><span v-if="task.assignee.id === currentUserId" data-testid="claimed-bar" class="bar" /></span>
             <span data-testid="assignee-name">{{ shortForm(task.assignee) }}</span>
@@ -132,15 +191,65 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
             </v-tooltip>
           </template>
         </td>
-        <td data-testid="cell-candidateUsers" class="icon-cell">
+        <td
+          data-testid="cell-candidateUsers"
+          class="icon-cell candidate-cell"
+          @mouseenter="candidatesOpenOf = task.id"
+          @mouseleave="closeCandidates"
+        >
           <v-icon
             v-if="(task.candidateUsers ?? []).length > 0"
             data-testid="candidate-icon"
             :data-persons="task.candidateUsers!.length === 1 ? 'one' : 'several'"
             :icon="task.candidateUsers!.length === 1 ? mdiAccount : mdiAccountMultiple"
           />
+          <div v-if="candidatesOpenOf === task.id" class="over-list candidate-popup" data-testid="candidate-popup">
+            <div v-for="person in task.candidateUsers ?? []" :key="person.id" data-testid="candidate-person" class="candidate-person">
+              <span>{{ person.display ?? person.id }}</span>
+              <v-btn
+                data-testid="candidate-remove"
+                variant="text"
+                size="x-small"
+                icon
+                :aria-label="text().actions.remove"
+                :disabled="Boolean(task.endedAt)"
+                @click="removeCandidate(task, person)"
+              ><v-icon :icon="mdiDelete" /></v-btn>
+            </div>
+            <template v-if="!task.endedAt">
+              <input
+                data-testid="propose-search"
+                class="propose-search"
+                type="search"
+                :placeholder="text().actions.proposeTo + ': ' + text().actions.searchPerson"
+                @input="searchPersons(($event.target as HTMLInputElement).value)"
+              />
+              <button v-for="person in proposals" :key="person.id" type="button" data-testid="propose-result" class="propose-result" @click="propose(task, person)">
+                {{ person.display ?? person.id }}
+              </button>
+              <div v-if="proposalsAsked && proposals.length === 0" data-testid="propose-none">{{ text().actions.noPerson }}</div>
+            </template>
+          </div>
         </td>
-        <td data-testid="cell-note">{{ task.note }}</td>
+        <td data-testid="cell-note" class="note-cell" @mouseenter="noteHoveredOf = task.id" @mouseleave="noteHoveredOf = undefined">
+          <span>{{ task.note }}</span>
+          <v-btn
+            v-if="noteHoveredOf === task.id && noteEditedOf !== task.id"
+            data-testid="note-edit"
+            variant="text"
+            size="x-small"
+            icon
+            :aria-label="text().actions.editNote"
+            @click="editNote(task)"
+          ><v-icon :icon="mdiNoteEditOutline" /></v-btn>
+          <div v-if="noteEditedOf === task.id" class="over-list note-popup" data-testid="note-popup">
+            <textarea v-model="noteDraft" data-testid="note-input" rows="4" maxlength="10000" :aria-label="text().actions.note" />
+            <div>
+              <v-btn data-testid="note-save" size="small" @click="saveNote(task)">{{ text().actions.save }}</v-btn>
+              <v-btn data-testid="note-cancel" size="small" variant="text" @click="noteEditedOf = undefined">{{ text().actions.cancel }}</v-btn>
+            </div>
+          </div>
+        </td>
         <td v-if="showsFollowUp(filter)" data-testid="cell-followUpDate">
           <template v-if="dateAndDetails(task.followUpDate)">
             {{ dateAndDetails(task.followUpDate)!.text }}
@@ -162,6 +271,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
   </v-table>
   <p v-if="tasks.length === 0 && !failed" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
   <status-line :selected="filter" :counts="counts" @choose="choose" @ask-count="askCounts([$event])" />
+   <v-snackbar :model-value="actionFailed" data-testid="action-toast" timeout="4000" color="error" @update:model-value="actionFailed = false">{{ text().actions.failed }}</v-snackbar>
   <v-snackbar :model-value="failed" data-testid="list-toast" timeout="-1" color="error">{{ text().listNotLoaded }}</v-snackbar>
 </template>
 
@@ -179,4 +289,14 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
 .task-row.completed, .task-row.cancelled { background-color: #e0e0e0; }
 .task-row.cancelled a { text-decoration: line-through; }
 .task-row.suspended td, .task-row.suspended a { color: rgba(33, 33, 33, 0.55); }
+/* the claim checkbox shows on mouse-over of the assignee cell only (TL-014) */
+.assignee-cell { position: relative; }
+.claim-checkbox { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); visibility: hidden; }
+.assignee-cell:hover .claim-checkbox { visibility: visible; }
+/* the tools over the list do not move it (TL-030) */
+.candidate-cell, .note-cell { position: relative; }
+.over-list { position: absolute; z-index: 5; top: 100%; left: 0; min-width: 240px; padding: 8px; text-align: left; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+.candidate-person { display: flex; align-items: center; justify-content: space-between; }
+.propose-search, .note-popup textarea { width: 100%; border: 1px solid #9e9e9e; padding: 4px; }
+.propose-result { display: block; width: 100%; padding: 4px; text-align: left; }
 </style>

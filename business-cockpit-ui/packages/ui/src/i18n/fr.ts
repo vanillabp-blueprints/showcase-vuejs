@@ -9,6 +9,7 @@ const fr: Messages = {
   logout: 'Se déconnecter',
   language: 'Langue',
   columns: { id: 'Id', businessId: 'ID métier', caseKind: 'Type de dossier', title: 'Titre', dueDate: 'Échéance', assignee: 'Responsable', candidateUsers: 'Candidats', note: 'Notes', followUpDate: 'Rappel', endedAt: 'Terminée' },
+  actions: { claim: 'Prendre', unclaim: 'Rendre', remove: 'Retirer', proposeTo: 'Proposer à', searchPerson: 'Chercher une personne', noPerson: 'Aucune personne trouvée', editNote: 'Modifier la note', note: 'Note', save: 'Enregistrer', cancel: 'Annuler', failed: "L'action a échoué" },
   noTasks: 'Aucune tâche',
   listNotLoaded: "La liste n'a pas pu être chargée",
   primaryFilter: 'Filtre principal',
