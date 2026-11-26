@@ -45,6 +45,9 @@ class DevContainerPortsTest {
   @DynamicPropertySource
   static void keycloak(final DynamicPropertyRegistry registry) {
     TestKeycloak.register(registry);
+    // the application reaches Keycloak by another name than the browser does
+    registry.add("keycloak-browser-url", TestKeycloak::url);
+    registry.add("KEYCLOAK_URL", () -> TestKeycloak.url().replaceFirst("//[^:]+:", "//localhost:"));
   }
 
   @Value("${local.server.port}")
@@ -58,28 +61,43 @@ class DevContainerPortsTest {
   }
 
   @Test
-  @DisplayName("BE-040 with the profile devcontainer the login page is opened at port 38180 and comes back to the address the browser used")
+  @DisplayName("BE-040 with the profile devcontainer the login page is opened at the address of the browser and comes back to the address the browser used")
   void BE_040_the_login_page_is_opened_at_the_port_of_the_browser() throws Exception {
     final var toTheLogin = browser.get("/oauth2/authorization/keycloak");
 
     assertThat(toTheLogin.statusCode()).isIn(302, 303);
     final var target = URI.create(toTheLogin.headers().firstValue("Location").orElseThrow());
     assertThat(target.toString())
-        .startsWith("http://localhost:38180/realms/business-cockpit/protocol/openid-connect/auth");
+        .startsWith(browserUrl() + "/realms/business-cockpit/protocol/openid-connect/auth");
     final var query = UriComponentsBuilder.fromUri(target).build().getQueryParams();
     assertThat(query.getFirst("redirect_uri"))
         .isEqualTo(browser.base() + "/login/oauth2/code/keycloak");
   }
 
   @Test
-  @DisplayName("BE-041 with the profile devcontainer the logout goes to the end session endpoint at port 38180")
+  @DisplayName("BE-041 with the profile devcontainer the logout goes to the end session endpoint at the address of the browser")
   void BE_041_the_logout_goes_to_the_end_session_endpoint_at_the_port_of_the_browser()
       throws Exception {
     final var logout = browser.get("/logout");
 
     assertThat(logout.statusCode()).isIn(302, 303);
     assertThat(logout.headers().firstValue("Location").orElseThrow()).startsWith(
-        "http://localhost:38180/realms/business-cockpit/protocol/openid-connect/logout");
+        browserUrl() + "/realms/business-cockpit/protocol/openid-connect/logout");
+  }
+
+  @Test
+  @DisplayName("BE-042 with the profile devcontainer the login succeeds although Keycloak names itself in the ID token as the browser reached it")
+  void BE_042_the_login_succeeds_when_the_browser_reaches_keycloak_by_another_address()
+      throws Exception {
+    browser.logIn();
+
+    final var currentUser = browser.getJson("/gui/api/v1/app/current-user");
+    assertThat(currentUser.statusCode()).isEqualTo(200);
+    assertThat(currentUser.body()).contains(TestBrowser.USER);
+  }
+
+  private static String browserUrl() {
+    return TestKeycloak.url();
   }
 
 }
