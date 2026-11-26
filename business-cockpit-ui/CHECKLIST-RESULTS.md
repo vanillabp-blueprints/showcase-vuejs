@@ -2,9 +2,9 @@
 
 Reference 1.0.0, story S73. Suite result: final run of `sh plan/checks/S73.sh` after the last edit: 392 Playwright tests passed, `node --test e2e/*.test.mjs` 88 passed, 0 failed. (An earlier run had COL-016 fail once under load; it passed alone and in the final run.)
 
-Counts: 332 proven, 37 not fully proven (of these 3 have no test at all: EXT-040, EXT-058, CUST-002; LIVE-021 has a comment only), 33 not chosen. Total 402 items.
+Counts: 333 proven, 36 not fully proven (of these 2 have no test at all: EXT-058, CUST-002; LIVE-021 has a comment only), 33 not chosen. Total 402 items.
 
-How this was decided: an item is "proven" when a test names it in its title (Playwright title, node test title, or `@DisplayName` of a backend test) and no question of `plan/QUESTIONS.md` names a gap for it. Titles were matched by script against `npx playwright test --list`; the body of the tests was NOT reopened for every id in S73, and "seen red before green" was not re-checked for all of them (only where a question records it, e.g. ASK-035). The backend tests (`BE-*`, `PKG-004/005/024/036/037`) are Java tests run by the checks of their stories (S04 to S10, S15, S17, S64, S70); S73 did not rerun them (Maven, Docker and Testcontainers). Everything that needs a running cockpit backend with Keycloak and MongoDB is left for S74.
+How this was decided: an item is "proven" when a test names it in its title (Playwright title, node test title, or `@DisplayName` of a backend test) and no question of `plan/QUESTIONS.md` names a gap for it. Titles were matched by script against `npx playwright test --list`; the body of the tests was NOT reopened for every id in S73, and "seen red before green" was not re-checked for all of them (only where a question records it, e.g. ASK-035). The backend tests (`BE-*`, `PKG-004/005/024/036/037`) are Java tests run by the checks of their stories (S04 to S10, S15, S17, S64, S70); S73 did not rerun them (Maven, Docker and Testcontainers). S74 part 1: EXT-040 is proven by `e2e/conformance/kit-conformance.spec.ts` (kit 0.1.0-snapshot.6, commit 7caecd7, 19 checks of the kit's `cockpit.test.js` against the simulator; seen red with the modules not served and with wrong task pages, then green). Everything that needs a running cockpit backend with Keycloak and MongoDB is left for S74.
 
 ## Not fully proven
 
@@ -31,8 +31,7 @@ How this was decided: an item is "proven" when a test names it in its title (Pla
 |LIVE-025|ASK-035|premise test only: no list sends workflowModuleIds or businessIds|tasks/live-updates-limits.spec.ts:13|
 |EXT-021|ASK-014|test shows the notice for an unknown type; a known type of a module the user may not see and EXTERNAL rows are not opened (ASK-014, ASK-021)|modules/loading.spec.ts:60|
 |EXT-023|ASK-036|toast look minimal, not a Vuetify component|modules/extension-parts.spec.ts:118|
-|EXT-034|ASK-015|names a conformance module of the kit which does not exist (see EXT-040)|modules/parts.spec.ts:89|
-|EXT-040|ASK-037|conformance test of the kit not built; carried over to S74|none|
+|EXT-034|ASK-015|names a conformance module of the kit; the kit's modules now run in conformance/kit-conformance.spec.ts (EXT-040), the test module of this entry is still the repository's own|modules/parts.spec.ts:89|
 |EXT-041|ASK-016|areas proven partly; see ASK-016 and ASK-021|modules/parts.spec.ts:220, modules/parts.spec.ts:235|
 |EXT-043|ASK-016|second half (a page loads its entries when shown) added by task page stories; name check of cockpit.openDialog not built|modules/parts.spec.ts:275|
 |EXT-044|ASK-016|name check of cockpit.openDialog is not built|modules/parts.spec.ts:297|
@@ -373,6 +372,7 @@ Also open and affecting no single id: ASK-002 (placeholders), ASK-011 to ASK-013
 |EXT-036|modules/parts.spec.ts:139, modules/parts.spec.ts:159|
 |EXT-037|modules/parts.spec.ts:170, modules/parts.spec.ts:186|
 |EXT-039|modules/page-dialogs.spec.ts:91|
+|EXT-040|conformance/kit-conformance.spec.ts:61|
 |EXT-042|modules/page-dialogs.spec.ts:104|
 |EXT-045|modules/parts.spec.ts:322|
 |EXT-046|modules/parts.spec.ts:341|

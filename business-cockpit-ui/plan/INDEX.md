@@ -80,4 +80,4 @@ Started: 2026-11-25
 | S71 | The cockpit is released and deployed (2 of 2) | in-progress | PKG-061, BE-018, BE-019, EXT-058 | `sh plan/checks/S71.sh` |
 | S72 | The wishes of the customer | in-progress | CUST-001, CUST-002 | `sh plan/checks/S72.sh` |
 | S73 | Every checklist item has a passing test | in-progress |  | `sh plan/checks/S73.sh` |
-| S74 | Run against a running cockpit | open |  | `sh plan/checks/S74.sh` |
+| S74 | Run against a running cockpit | in-progress |  | `sh plan/checks/S74.sh` |

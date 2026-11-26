@@ -50,7 +50,11 @@ function moduleAnswer(file: string, type: string, asked: IncomingMessage['header
   return { status: 200, headers, body: content };
 }
 
-export async function startSimulator(options: { port: number }): Promise<Simulator> {
+/**
+ * `moduleFiles` serves the three module ids from another folder, the built conformance modules of the VanillaBP kit
+ * (`<moduleFiles>/<id>/<file>`), in place of the test modules of this repository (EXT-040).
+ */
+export async function startSimulator(options: { port: number; moduleFiles?: string }): Promise<Simulator> {
   let modules = new Map<string, SimulatedModule>();
   const streams = new Set<ServerResponse>();
   // a test makes the update stream answer with a status instead of opening, and reads when it was asked for
@@ -706,6 +710,35 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       return send(res, 200);
     }
 
+    // The way a workflow module reports a user task (UserTaskCreatedEvent): the people are ids, the page is `uiUriPath`.
+    if (path === '/bpms/api/v1_1/usertask/created' && method === 'POST') {
+      const body = await readBody(req);
+      for (const field of ['id', 'workflowModuleId', 'workflowId', 'timestamp', 'title']) if (body[field] === undefined) return send(res, 400);
+      const person = (id: string): Person | undefined => {
+        const known = users.find((candidate) => candidate.id === id);
+        return known && { id, display: known.name, displayShort: known.name.split(' ')[0], email: known.email };
+      };
+      const candidates = ((body.candidateUsers as string[] | undefined) ?? []).map(person).filter((found): found is Person => Boolean(found));
+      const task: UserTask = {
+        id: String(body.id),
+        workflowModuleId: String(body.workflowModuleId),
+        bpmnProcessId: body.bpmnProcessId as string,
+        taskDefinition: body.taskDefinition as string,
+        uiUriType: body.uiUriType as UserTask['uiUriType'],
+        uiUri: body.uiUriPath as string,
+        title: body.title as UserTask['title'],
+        createdAt: String(body.timestamp),
+        updatedAt: String(body.timestamp),
+        read: false,
+        ...(typeof body.assignee === 'string' && person(body.assignee) ? { assignee: person(body.assignee) } : {}),
+        ...(candidates.length ? { candidateUsers: candidates } : {}),
+      } as UserTask;
+      userTasks = [...userTasks.filter((existing) => existing.id !== task.id), task];
+      send(res, 200);
+      publish('UserTask', [{ ...task, event: 'CREATED' }]);
+      return;
+    }
+
     const userTaskReport = /^\/bpms\/api\/v1_1\/workflow-module\/([^/]+)\/usertask\/([^/]+)$/.exec(path);
     if (userTaskReport && method === 'POST') {
       const body = await readBody(req);
@@ -765,7 +798,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     // The built test modules, the way the cockpit forwards to a module. No other module is served.
     const modulePart = /^\/wm\/([^/]+)\/(.+)$/.exec(path);
     if (modulePart && testModules.includes(modulePart[1])) {
-      const file = join(modulesFolder, modulePart[1], 'dist', modulePart[2]);
+      const file = options.moduleFiles ? join(options.moduleFiles, modulePart[1], modulePart[2]) : join(modulesFolder, modulePart[1], 'dist', modulePart[2]);
       if (!file.includes('..') && existsSync(file)) {
         // The module is the upstream and this is the proxy: it passes Cache-Control, ETag, Last-Modified and Content-Encoding on
         // unchanged and passes a conditional request on, so a manifest which did not change is a 304 (EXT-059).
