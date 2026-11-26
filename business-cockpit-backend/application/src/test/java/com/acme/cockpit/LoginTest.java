@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.vanillabp.cockpit.support.security.jwt.JwtUserDetailsProvider;
@@ -36,6 +38,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * Logs in at a real Keycloak, the one of keycloak/realm.json, the way a browser does: follows the
  * redirects with an HTTP client that keeps cookies and sends the login form of Keycloak.
  */
+@ExtendWith(SuppressOutputExtension.class)
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

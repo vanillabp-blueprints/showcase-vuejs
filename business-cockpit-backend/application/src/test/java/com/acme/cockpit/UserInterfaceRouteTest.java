@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sun.net.httpserver.HttpServer;
@@ -34,6 +36,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * BE-031: with the profile ui-dev-server a route GET /** hands every path the backend does not
  * answer itself to the dev server of the user interface. A small HTTP server stands in for it.
  */
+@ExtendWith(SuppressOutputExtension.class)
 @Testcontainers
 @ActiveProfiles("ui-dev-server")
 @SpringBootTest(

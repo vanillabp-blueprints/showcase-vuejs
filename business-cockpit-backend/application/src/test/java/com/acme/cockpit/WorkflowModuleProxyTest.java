@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sun.net.httpserver.HttpServer;
@@ -35,6 +37,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * user interface reach the browser through the cockpit below /wm/&lt;id&gt;/ with the caching
  * headers of the module. A small HTTP server stands in for the workflow module.
  */
+@ExtendWith(SuppressOutputExtension.class)
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

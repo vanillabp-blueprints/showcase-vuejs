@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
@@ -21,6 +23,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * Logs in and out at a real Keycloak, the one of keycloak/realm.json: the logout has to end the
  * session at Keycloak, or the next request would log the user in again without a question.
  */
+@ExtendWith(SuppressOutputExtension.class)
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

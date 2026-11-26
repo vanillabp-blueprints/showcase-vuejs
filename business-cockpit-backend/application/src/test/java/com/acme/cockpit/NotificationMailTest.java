@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
@@ -25,6 +27,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * The user logs in, tells the cockpit where mails reach them, and a user task is reported for
  * their group. The mail arrives at a real Mailpit, the image of docker-compose.yaml.
  */
+@ExtendWith(SuppressOutputExtension.class)
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

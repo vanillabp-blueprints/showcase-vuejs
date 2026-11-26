@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
@@ -9,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** The integration tests of this repository use no mocks, write no data directly and need no browser. */
+@ExtendWith(SuppressOutputExtension.class)
 class IntegrationTestsRuleTest {
 
   private static final Path TESTS = Path.of("src/test/java");

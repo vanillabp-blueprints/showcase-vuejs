@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.File;
@@ -14,6 +16,7 @@ import org.yaml.snakeyaml.Yaml;
  * Proves the shape of docker-compose.yaml. That the services really start is proven by the check
  * of the story, which runs {@code docker compose up}.
  */
+@ExtendWith(SuppressOutputExtension.class)
 class DockerComposeTest {
 
   private static final Pattern PINNED_IMAGE = Pattern.compile(".+:[0-9v][^:]*");

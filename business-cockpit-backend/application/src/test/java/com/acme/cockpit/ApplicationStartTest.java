@@ -1,5 +1,6 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
@@ -13,8 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
+import io.vanillabp.integration.test.utils.CapturedOutput;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.Order;
@@ -29,7 +29,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * Starts the whole application against MongoDB of Testcontainers, as a replica set.
  */
 @Testcontainers
-@ExtendWith(OutputCaptureExtension.class)
+@ExtendWith(SuppressOutputExtension.class)
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {

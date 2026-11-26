@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sun.net.httpserver.HttpServer;
@@ -34,6 +36,7 @@ import org.springframework.web.servlet.function.support.RouterFunctionMapping;
  * is active; the address of the nginx comes from the environment variable USER_INTERFACE_URI. A
  * small HTTP server stands in for the nginx.
  */
+@ExtendWith(SuppressOutputExtension.class)
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

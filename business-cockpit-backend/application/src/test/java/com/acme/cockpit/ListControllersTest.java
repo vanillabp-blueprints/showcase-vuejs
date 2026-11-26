@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
@@ -25,6 +27,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * Reports user tasks through the BPMS API the way a workflow module does, then reads the lists as
  * the template user, who belongs to the group {@code template-group}.
  */
+@ExtendWith(SuppressOutputExtension.class)
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

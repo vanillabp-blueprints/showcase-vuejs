@@ -1,5 +1,7 @@
 package com.acme.cockpit;
 
+import io.vanillabp.integration.test.utils.SuppressOutputExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.File;
@@ -21,6 +23,7 @@ import org.w3c.dom.NodeList;
  * Proves the build files and the configuration the backend starts with. The tests read the
  * pom.xml files and application.yaml as the build tool and Spring Boot read them.
  */
+@ExtendWith(SuppressOutputExtension.class)
 class BuildAndConfigurationTest {
 
   private static final String SPRING_BOOT_BOM = "spring-boot-dependencies";
