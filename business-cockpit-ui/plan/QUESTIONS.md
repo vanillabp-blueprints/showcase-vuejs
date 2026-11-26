@@ -327,3 +327,17 @@ Story: S73
 Date: 2026-11-26
 Default taken: every id of plan/ids.txt that a test can name is named by a test title (UI) or a Java test (backend). Four ids have no test: EXT-040 (ASK-037), EXT-058 (ASK-046), CUST-002 (ASK-001), LIVE-021 (ASK-034); they are listed in `plan/unproven.txt`, and `plan/checks/S73.sh` no longer accepts the id in a check script's `--grep` as proof. No new test was written: each of the four needs a decision or a running backend with Keycloak and MongoDB (S74). The bodies of the tests were not reopened for every id and "seen red" was not re-checked for all; the backend tests were not rerun. `CHECKLIST-RESULTS.md` lists what is proven, not chosen and not fully proven.
 Answer: open
+
+## ASK-048 S74: the blueprint applications were not run against the cockpit backend
+
+Story: S74 (EXT-058, ASK-018, ASK-046)
+Date: 2026-11-26
+Default taken: the repository `vanillabp-blueprints/blueprints` is public and was cloned (`blueprints-cockpit/cockpit-user-task-application/springboot`, `cockpit-workflow-details-application`, `cockpit-header-extension-application`). `mvn package` of the user task application stops at dependency resolution: `io.vanillabp:camunda7-adapter-spring-boot:2.0.0-SNAPSHOT`, `businesscockpit-camunda7-adapter-spring-boot:1.0.0-SNAPSHOT`, `business-cockpit-spring-boot-support:0.9.0-SNAPSHOT` and `official-gui-api-spring-boot-client:0.9.0-SNAPSHOT` are neither in `~/.m2` nor in a repository this machine can reach (the local repository holds the pom of the application and its UI and backend jars, no application jar). So no blueprint application reported to the backend. Instead the kit's conformance modules (React, Vue, Angular) were served by the kit's `serve.mjs`, registered at the BPMS API of the running backend, and given one case and one user task each; the lists, the task page and the kit's `cockpit.test.js` (19 of 19) ran against it. EXT-058 is marked proven on that basis (the line in CHECKLIST.md names the blueprints, so this is weaker than its wording). The header extension of a blueprint was not seen in the running cockpit, only the `Header` entries of the conformance modules were loaded through `/wm/<id>/`.
+Answer: open (build or fetch the SNAPSHOT jars, then start the three blueprint applications with `vanillabp.cockpit.rest.base-url: http://localhost:8080`, user `local`, password `local`).
+
+## ASK-049 S74: /wm proxy comes from the library, UI hosting behind was tried with the nginx image
+
+Story: S74
+Date: 2026-11-26
+Default taken: ASK-018 said the backend has no `/wm` route. The library `business-cockpit` 0.9.0-SNAPSHOT already has one (`MicroserviceProxyRegistry`, `MicroserviceProxyConfiguration`): a module registers at `POST /bpms/api/v1_1/workflow-module/{id}` with its `uri`, and `/wm/<id>/<path>` is forwarded to `<uri>/<path>`. No code was written in the backend repository; `WorkflowModuleProxyTest` (new) proves it with a stub module (Cache-Control, ETag, Last-Modified, 304, gzip stay as the module sent them). Seen red: with the stub registered at a wrong path the test failed. It was green at its first run otherwise, because nothing was missing. Note: `/wm/**` is reachable without a login (the request without a cookie got 200); module files are not secret, but a module's own endpoints below `/wm/` are not protected by the cockpit then. Not decided here. The user interface ran from the nginx image of `docker/Dockerfile` (`behind`, `user-interface.uri` = `http://127.0.0.1:8090`, the `dist` folder mounted instead of copied).
+Answer: open

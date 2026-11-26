@@ -2,9 +2,9 @@
 
 Reference 1.0.0, story S73. Suite result: final run of `sh plan/checks/S73.sh` after the last edit: 392 Playwright tests passed, `node --test e2e/*.test.mjs` 88 passed, 0 failed. (An earlier run had COL-016 fail once under load; it passed alone and in the final run.)
 
-Counts: 333 proven, 36 not fully proven (of these 2 have no test at all: EXT-058, CUST-002; LIVE-021 has a comment only), 33 not chosen. Total 402 items.
+Counts: 335 proven, 34 not fully proven (of these 1 has no test at all: CUST-002; LIVE-021 has a comment only), 33 not chosen. Total 402 items.
 
-How this was decided: an item is "proven" when a test names it in its title (Playwright title, node test title, or `@DisplayName` of a backend test) and no question of `plan/QUESTIONS.md` names a gap for it. Titles were matched by script against `npx playwright test --list`; the body of the tests was NOT reopened for every id in S73, and "seen red before green" was not re-checked for all of them (only where a question records it, e.g. ASK-035). The backend tests (`BE-*`, `PKG-004/005/024/036/037`) are Java tests run by the checks of their stories (S04 to S10, S15, S17, S64, S70); S73 did not rerun them (Maven, Docker and Testcontainers). S74 part 1: EXT-040 is proven by `e2e/conformance/kit-conformance.spec.ts` (kit 0.1.0-snapshot.6, commit 7caecd7, 19 checks of the kit's `cockpit.test.js` against the simulator; seen red with the modules not served and with wrong task pages, then green). Everything that needs a running cockpit backend with Keycloak and MongoDB is left for S74.
+How this was decided: an item is "proven" when a test names it in its title (Playwright title, node test title, or `@DisplayName` of a backend test) and no question of `plan/QUESTIONS.md` names a gap for it. Titles were matched by script against `npx playwright test --list`; the body of the tests was NOT reopened for every id in S73, and "seen red before green" was not re-checked for all of them (only where a question records it, e.g. ASK-035). The backend tests (`BE-*`, `PKG-004/005/024/036/037`) are Java tests run by the checks of their stories (S04 to S10, S15, S17, S64, S70); S73 did not rerun them (Maven, Docker and Testcontainers). S74 part 1: EXT-040 is proven by `e2e/conformance/kit-conformance.spec.ts` (kit 0.1.0-snapshot.6, commit 7caecd7, 19 checks of the kit's `cockpit.test.js` against the simulator; seen red with the modules not served and with wrong task pages, then green). S74 part 2 (see RUN-AGAINST-COCKPIT.md): EXT-058 and EXT-059 are proven against the real backend by `running-cockpit/running-cockpit.spec.ts` (needs `BC_BACKEND_URL`, skipped otherwise) and the Java test `WorkflowModuleProxyTest`; the modules were the kit's conformance modules, not the blueprint applications, which could not be built here (ASK-048). EXT-055 stays: the dialog step of the kit test passed against the backend, the toast was not tried there.
 
 ## Not fully proven
 
@@ -37,9 +37,7 @@ How this was decided: an item is "proven" when a test names it in its title (Pla
 |EXT-044|ASK-016|name check of cockpit.openDialog is not built|modules/parts.spec.ts:297|
 |EXT-047|ASK-014|files of an old build are not dropped|modules/parts.spec.ts:367|
 |EXT-048|ASK-017|proven on the header only, the menu has no parts|modules/parts.spec.ts:410|
-|EXT-055|ASK-018|dialog and toast proven on the simulator and in cockpit code, not against the backend|modules/protocol.spec.ts:120, modules/protocol.spec.ts:76|
-|EXT-058|ASK-046|needs a running backend with the blueprints; carried over to S74|none|
-|EXT-059|ASK-018|proven on the TypeScript simulator only; the /wm proxy of the backend is missing (carry-over S74 with EXT-058)|modules/protocol.spec.ts:195|
+|EXT-055|ASK-018|dialog and toast proven on the simulator and in cockpit code; against the real backend only the dialog step of the kit test (EXT-018, EXT-039) ran, the toast did not|modules/protocol.spec.ts:120, modules/protocol.spec.ts:76|
 |DS-006|ASK-036|toast look minimal, not a Vuetify component|dev-shell/dev-shell.spec.ts:104|
 |DS-011|ASK-042|part gets currentUser {id} only, because DS-011 forbids GET /app/current-user|dev-shell/dev-shell.spec.ts:162|
 |DS-018|ASK-043|task page area body only, React test module has no style element in its shadow root|compare/compare.spec.ts:44|
@@ -384,6 +382,8 @@ Also open and affecting no single id: ASK-002 (placeholders), ASK-011 to ASK-013
 |EXT-054|modules/protocol.spec.ts:59|
 |EXT-056|modules/protocol.spec.ts:132, modules/protocol.spec.ts:162|
 |EXT-057|modules/protocol.spec.ts:173|
+|EXT-058|running-cockpit/running-cockpit.spec.ts:20 (with a running backend; modules: the kit's conformance modules, ASK-048), backend WorkflowModuleProxyTest.java|
+|EXT-059|modules/protocol.spec.ts:195 (simulator), backend WorkflowModuleProxyTest.java (real backend: 304, gzip, ETag, Last-Modified)|
 |EXT-060|modules/extension-parts.spec.ts:136|
 |SET-001|settings/settings.spec.ts:29|
 |SET-002|settings/settings.spec.ts:45|
