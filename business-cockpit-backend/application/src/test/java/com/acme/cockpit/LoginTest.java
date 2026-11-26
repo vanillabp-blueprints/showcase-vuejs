@@ -116,7 +116,9 @@ class LoginTest {
         HttpSecurity.class,
         io.vanillabp.cockpit.support.security.jwt.JwtSecurityContextRepository.class,
         io.vanillabp.cockpit.support.security.jwt.JwtMapper.class,
-        org.springframework.security.oauth2.client.registration.ClientRegistrationRepository.class);
+        org.springframework.security.oauth2.client.registration.ClientRegistrationRepository.class,
+        String.class,
+        String.class);
     assertThat(method.getAnnotation(Order.class).value()).isEqualTo(99);
     assertThat(context.getBean("guiHttpSecurity", SecurityFilterChain.class)).isNotNull();
 

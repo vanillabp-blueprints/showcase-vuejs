@@ -28,9 +28,9 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * A browser which closes a tab with an open update stream must leave nothing in the log: the
  * next event of the stream fails on a connection that is gone, and that is no error.
  */
-@Testcontainers
 @ExtendWith(SuppressOutputExtension.class)
 @SuppressOutputExtension.SuppressBackgroundOutput
+@Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {

@@ -28,9 +28,9 @@ import org.testcontainers.mongodb.MongoDBContainer;
 /**
  * Starts the whole application against MongoDB of Testcontainers, as a replica set.
  */
-@Testcontainers
 @ExtendWith(SuppressOutputExtension.class)
 @SuppressOutputExtension.SuppressBackgroundOutput
+@Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
