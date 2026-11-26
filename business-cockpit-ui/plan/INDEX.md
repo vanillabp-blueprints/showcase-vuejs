@@ -78,6 +78,6 @@ Started: 2026-11-25
 | S69 | A module developer works on a form in the dev shell (5 of 5) | done | DS-024, DS-025, DS-026 | `sh plan/checks/S69.sh` |
 | S70 | The cockpit is released and deployed (1 of 2) | done | PKG-011, PKG-024, PKG-025, PKG-032, PKG-036, PKG-037 | `sh plan/checks/S70.sh` |
 | S71 | The cockpit is released and deployed (2 of 2) | in-progress | PKG-061, BE-018, BE-019, EXT-058 | `sh plan/checks/S71.sh` |
-| S72 | The wishes of the customer | open | CUST-001, CUST-002 | `sh plan/checks/S72.sh` |
+| S72 | The wishes of the customer | in-progress | CUST-001, CUST-002 | `sh plan/checks/S72.sh` |
 | S73 | Every checklist item has a passing test | open |  | `sh plan/checks/S73.sh` |
 | S74 | Run against a running cockpit | open |  | `sh plan/checks/S74.sh` |

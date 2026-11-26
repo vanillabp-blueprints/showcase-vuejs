@@ -6,6 +6,7 @@ Story: S72 (CUST-002)
 Date: 2026-11-25
 Default taken: nothing is generated; `Q-CELL-RENDERING` was answered yes, but the skill says the feature is open and not described yet (module-loading.md, "Cells drawn by a workflow module").
 Why this default: the skill gives no rules to build it from.
+Update S72 (2026-11-26): CUST-002 stays unbuilt and unproven. A probe is needed first (three ways to load cells across Vue, React and Angular: self-contained ES modules, Module Federation 2.0, native federation; measure memory, draw speed, reaction, cell count, loading time). Its result must decide whether cells may relax "Nothing is shared". Someone must decide: run the probe, or drop the wish.
 Answer: open
 
 ## ASK-002 Which Maven group, Java package and npm scope are real?
