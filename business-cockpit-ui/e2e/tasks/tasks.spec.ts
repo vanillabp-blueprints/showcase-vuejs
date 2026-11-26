@@ -182,6 +182,16 @@ test('TL-032 the background of the list is white, partly transparent and blurred
   expect(style.filter).toContain('blur');
 });
 
+test('CUST-005 the hint "No tasks" stands at the top of the list area, right below the filters', async ({ page }) => {
+  await page.goto('/tasks');
+  const hint = await page.getByTestId('no-tasks').boundingBox();
+  const list = await page.getByTestId('task-list').boundingBox();
+  const filters = await page.locator('.filter-cell').first().boundingBox();
+  expect(hint!.y).toBeGreaterThanOrEqual(filters!.y + filters!.height - 1);
+  expect(hint!.y).toBeLessThan(list!.y + list!.height / 3);
+  expect(hint!.y + hint!.height).toBeLessThanOrEqual(list!.y + list!.height);
+});
+
 test('COL-015 the fixed columns are always shown, also when the list has no rows', async ({ page }) => {
   await page.goto('/tasks');
   await expect(page.getByTestId('no-tasks')).toBeVisible();

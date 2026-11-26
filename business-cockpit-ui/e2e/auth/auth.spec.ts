@@ -62,7 +62,7 @@ test('AUTH-005 the user interface has no login form, no user management and no r
 const state = async (request: APIRequestContext) => (await request.get('/simulator-api/state')).json();
 
 test('AUTH-006 the user interface makes no request in the background only to stay logged in', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/nowhere'); // the start page opens my tasks, whose list loads after the header shows
   await expect(page.getByTestId('current-user')).toHaveText('Anna Sales');
   const requests: string[] = [];
   page.on('request', (r) => requests.push(r.url()));

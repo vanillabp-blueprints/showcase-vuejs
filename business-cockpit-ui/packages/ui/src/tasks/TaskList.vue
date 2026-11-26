@@ -696,7 +696,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
     data-testid="task-list"
     class="task-list ma-4"
     fixed-header
-    height="calc(100vh - 192px)"
+    height="calc(100vh - 224px)"
     :data-window-pages="[...pages.keys()].sort((a, b) => a - b).join(',')"
     :data-window-rows="windowRows"
     :data-pending="pending"
@@ -753,6 +753,8 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       </tr>
     </thead>
     <tbody>
+      <!-- at the top of the list area, right below the filters, where the eye looks for the rows (CUST-005) -->
+      <tr v-if="total === 0 && !failed" data-testid="no-tasks" class="no-tasks"><td :colspan="columns.length + moduleColumns.length + 1">{{ text().noTasks }}</td></tr>
       <tr v-if="spaceAbove > 0" class="space" aria-hidden="true"><td :colspan="columns.length + moduleColumns.length + 1" :style="{ height: `${spaceAbove}px` }" /></tr>
       <template v-for="{ key, task } in drawn" :key="key">
       <tr v-if="!task" data-testid="task-placeholder" class="task-row placeholder"><td :colspan="columns.length + moduleColumns.length + 1" /></tr>
@@ -924,7 +926,6 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
     </tbody>
   </v-table>
   <v-btn v-if="unacknowledged" data-testid="acknowledge" size="small" variant="tonal" class="ma-2" @click="load(true)">{{ text().acknowledge }}</v-btn>
-  <p v-if="total === 0 && !failed" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
   <status-line :selected="filter" :counts="counts" @choose="choose" @ask-count="askCounts([$event])" />
    <v-snackbar :model-value="actionFailed" data-testid="action-toast" timeout="4000" color="error" @update:model-value="actionFailed = false">{{ text().actions[failure] }}</v-snackbar>
   <v-dialog :model-value="Boolean(claimAskedOf)" max-width="420" @update:model-value="claimAskedOf = undefined">
@@ -964,6 +965,7 @@ thead th { position: relative; overflow: hidden; }
 .task-list :deep(table) { min-width: 1100px; }
 /* white, partly transparent, so the background shows through, blurred where the browser can (TL-032) */
 .task-row > td { height: 46px; box-sizing: border-box; white-space: nowrap; }
+.no-tasks > td { padding: 12px 16px; }
 .capped-notice > td { height: 46px; box-sizing: border-box; text-align: center; font-style: italic; user-select: none; background-color: var(--capped-background); }
 .space > td { padding: 0 !important; border: 0 !important; }
 .task-list { background-color: var(--list-background); color: var(--list-text); backdrop-filter: blur(8px); }

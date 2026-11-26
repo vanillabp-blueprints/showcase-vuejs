@@ -25,6 +25,19 @@ test('CUST-003 the start page shows my tasks, under the path of the language, wi
   expect(page.url()).toBe('about:blank');
 });
 
+test('CUST-004 the page of a list has no scroll bar of its own at any window height, only the list scrolls', async ({ page }) => {
+  for (const height of [500, 700, 1000]) {
+    await page.setViewportSize({ width: 1300, height });
+    for (const path of ['/my-tasks', '/tasks', '/workflows']) {
+      await page.goto(path);
+      await expect(page.getByTestId('toggle')).toBeVisible();
+      await page.waitForTimeout(300);
+      const overflow = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+      expect(overflow, `${path} at ${height} px`).toBeLessThanOrEqual(0);
+    }
+  }
+});
+
 test('NAV-006 the header toggle shows My tasks, All tasks and Cases with their counts and opens the list without narrowing', async ({ page }) => {
   await page.goto('/');
   const toggle = page.getByTestId('toggle');
