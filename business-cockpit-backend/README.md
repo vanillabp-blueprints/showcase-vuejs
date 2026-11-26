@@ -13,10 +13,10 @@ mvn -pl application spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 Open `http://localhost:8080`. The profile `local` sets the secrets of `keycloak/realm.json`, the
-BPMS API user `local` (password `local`) and the addresses of MongoDB, Keycloak (`localhost:8081`)
+BPMS API user `local` (password `local`) and the addresses of MongoDB, Keycloak (`localhost:8180`)
 and Mailpit (`localhost:8025`). Everything in it is for a developer's machine only.
 
-In a dev container whose ports are published with an offset (`HOST_PORTOFFSET`, here 30000), add the profile `devcontainer`: `-Dspring-boot.run.profiles=local,devcontainer`. Then open `http://localhost:38080`; the login goes to Keycloak at `http://localhost:38081`. The application keeps reaching Keycloak at `localhost:8081`. For another offset, change `keycloak-browser-url` in `application-devcontainer.yaml`.
+In a dev container whose ports are published with an offset (`HOST_PORTOFFSET`, here 30000), add the profile `devcontainer`: `-Dspring-boot.run.profiles=local,devcontainer`. Then open `http://localhost:38080`; the login goes to Keycloak at `http://localhost:38180`. The application keeps reaching Keycloak at `localhost:8180`. For another offset, change `keycloak-browser-url` in `application-devcontainer.yaml`.
 
 Kafka is not read. If a deployment reads Kafka, it also needs the system property `workerId`, for
 example `-Dspring-boot.run.jvmArguments=-DworkerId=1`.

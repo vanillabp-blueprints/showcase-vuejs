@@ -1,6 +1,6 @@
 # The dev container publishes its ports with an offset (environment variable HOST_PORTOFFSET, here
-# 30000): the browser opens the cockpit at 38080 and Keycloak at 38081. The application itself still
-# reaches Keycloak at localhost:8081, so only what the browser follows is changed. Use it with the
+# 30000): the browser opens the cockpit at 38080 and Keycloak at 38180. The application itself still
+# reaches Keycloak at localhost:8180, so only what the browser follows is changed. Use it with the
 # profile `local`: -Dspring-boot.run.profiles=local,devcontainer
 #
 # The redirect address of the login follows the address the browser used, and keycloak/realm.json
@@ -15,7 +15,7 @@ spring:
             authorization-uri: ${keycloak-browser-url}/realms/business-cockpit/protocol/openid-connect/auth
 
 # Where the browser reaches Keycloak. LogoutAtTheProvider uses it for the end of the session.
-keycloak-browser-url: http://localhost:38081
+keycloak-browser-url: http://localhost:38180
 
 business-cockpit:
   application-uri: http://localhost:38080

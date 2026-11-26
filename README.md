@@ -57,7 +57,7 @@ Open <http://localhost:8080>. A browser is sent on to Keycloak (`curl` gets a 40
 | What | User | Password | Groups |
 |---|---|---|---|
 | The cockpit | `template-user` | `template-user` | `template-group` |
-| Keycloak admin console, <http://localhost:8081> | `admin` | `admin` | |
+| Keycloak admin console, <http://localhost:8180> | `admin` | `admin` | |
 | BPMS API (what workflow modules report with) | `local` | `local` | |
 
 `template-user` is the only user in `keycloak/realm.json`, and `template-group` the only group. To try other visibilities, add users and groups to that file and import it again (step 9). Mailpit shows the mails the cockpit sends at <http://localhost:8025>.

@@ -6,7 +6,7 @@ Story S74, part 2. Date 2026-11-26. Everything below ran on one machine and was 
 
 | Part | How |
 |---|---|
-| MongoDB (replica set), Mailpit, Keycloak 26.4.7 on 8081 | `docker compose up -d --wait` in `business-cockpit-backend` |
+| MongoDB (replica set), Mailpit, Keycloak 26.4.7 on 8180 | `docker compose up -d --wait` in `business-cockpit-backend` |
 | Backend | `USER_INTERFACE_URI=http://127.0.0.1:8090 mvn -o -pl application spring-boot:run -Dspring-boot.run.profiles=local` (port 8080) |
 | User interface (`behind`) | the image `nginx:1.29-alpine` with `packages/ui/dist` and `docker/nginx.conf.template` mounted, port 8090; the backend's route `/**` forwards to it |
 | Modules | `PORT=4173 node serve.mjs` from `build/kit-conformance/kit/dist/conformance` (kit 0.1.0-snapshot.6, commit 7caecd7) |

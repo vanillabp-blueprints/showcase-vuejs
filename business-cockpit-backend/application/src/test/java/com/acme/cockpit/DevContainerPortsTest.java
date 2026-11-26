@@ -58,28 +58,28 @@ class DevContainerPortsTest {
   }
 
   @Test
-  @DisplayName("BE-040 with the profile devcontainer the login page is opened at port 38081 and comes back to the address the browser used")
+  @DisplayName("BE-040 with the profile devcontainer the login page is opened at port 38180 and comes back to the address the browser used")
   void BE_040_the_login_page_is_opened_at_the_port_of_the_browser() throws Exception {
     final var toTheLogin = browser.get("/oauth2/authorization/keycloak");
 
     assertThat(toTheLogin.statusCode()).isIn(302, 303);
     final var target = URI.create(toTheLogin.headers().firstValue("Location").orElseThrow());
     assertThat(target.toString())
-        .startsWith("http://localhost:38081/realms/business-cockpit/protocol/openid-connect/auth");
+        .startsWith("http://localhost:38180/realms/business-cockpit/protocol/openid-connect/auth");
     final var query = UriComponentsBuilder.fromUri(target).build().getQueryParams();
     assertThat(query.getFirst("redirect_uri"))
         .isEqualTo(browser.base() + "/login/oauth2/code/keycloak");
   }
 
   @Test
-  @DisplayName("BE-041 with the profile devcontainer the logout goes to the end session endpoint at port 38081")
+  @DisplayName("BE-041 with the profile devcontainer the logout goes to the end session endpoint at port 38180")
   void BE_041_the_logout_goes_to_the_end_session_endpoint_at_the_port_of_the_browser()
       throws Exception {
     final var logout = browser.get("/logout");
 
     assertThat(logout.statusCode()).isIn(302, 303);
     assertThat(logout.headers().firstValue("Location").orElseThrow()).startsWith(
-        "http://localhost:38081/realms/business-cockpit/protocol/openid-connect/logout");
+        "http://localhost:38180/realms/business-cockpit/protocol/openid-connect/logout");
   }
 
 }

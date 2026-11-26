@@ -16,4 +16,4 @@ timeout 1800 mvn -B -q verify -Dbc-types.local="$UI/packages/bc-types" -Dui.vers
 # docker compose up imports the realm: the discovery document of the realm answers.
 trap 'docker compose down -v >/dev/null 2>&1' EXIT
 timeout 400 docker compose up -d --wait
-timeout 120 sh -c 'until curl -fsS http://localhost:8081/realms/business-cockpit/.well-known/openid-configuration | grep -q end_session_endpoint; do sleep 3; done'
+timeout 120 sh -c 'until curl -fsS http://localhost:8180/realms/business-cockpit/.well-known/openid-configuration | grep -q end_session_endpoint; do sleep 3; done'

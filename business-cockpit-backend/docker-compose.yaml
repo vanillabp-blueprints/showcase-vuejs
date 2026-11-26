@@ -57,7 +57,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_HEALTH_ENABLED: "true"
     ports:
-      - "8081:8080"
+      - "8180:8080"
     volumes:
       - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
     healthcheck:
