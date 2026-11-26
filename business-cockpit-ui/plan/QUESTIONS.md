@@ -246,3 +246,8 @@ Story: S58 (LIVE-025)
 Date: 2026-11-26
 Default taken: no task list and no case list sends `workflowModuleIds` or `businessIds` (same as ASK-034 for LIVE-021), so no row filter for live updates was built. The test `e2e/tasks/live-updates-limits.spec.ts` checks that no list request carries such a limit, also after a live update; it passed at once and was shown to fail when the case list sent `workflowModuleIds` (code restored). A list which gets such a limit later needs the check of its rows. Backend unchanged.
 Answer: open
+
+## ASK-036 Toast look and dialog look stay minimal after S59
+
+Story: S59 (EXT-012, EXT-013, EXT-014, EXT-018, EXT-023, EXT-060)
+Toasts have a colour per level (Vuetify palette values written into `toast.ts`) and the dialog is a native `<dialog>`; neither is a Vuetify component yet (DS-006). The name check of `cockpit.openDialog` against the prefix of the module is still not built (ASK-016). Pages are not an extension point of this cockpit (Q-EXTENSION-POINTS), so EXT-017 stays "not chosen". `refreshContext` forgets a part which is detached for a moment (moved in the DOM); the cockpit does not move parts. A part in an open modal dialog is told the new language too, but the user cannot switch the language while a modal dialog is open, so that case has no browser test.

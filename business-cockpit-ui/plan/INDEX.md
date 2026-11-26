@@ -65,7 +65,7 @@ Started: 2026-11-25
 | S56 | A clerk sees changes without a reload (3 of 5) | done | LIVE-013, LIVE-014, LIVE-015, LIVE-016, LIVE-017, LIVE-018 | `sh plan/checks/S56.sh` |
 | S57 | A clerk sees changes without a reload (4 of 5) | done | LIVE-019, LIVE-020, LIVE-021, LIVE-022, LIVE-023, LIVE-024 | `sh plan/checks/S57.sh` |
 | S58 | A clerk sees changes without a reload (5 of 5) | done | LIVE-025 | `sh plan/checks/S58.sh` |
-| S59 | A module adds pages, dialogs, buttons and charts of its own (1 of 2) | open | EXT-012, EXT-013, EXT-014, EXT-018, EXT-023, EXT-060 | `sh plan/checks/S59.sh` |
+| S59 | A module adds pages, dialogs, buttons and charts of its own (1 of 2) | done | EXT-012, EXT-013, EXT-014, EXT-018, EXT-023, EXT-060 | `sh plan/checks/S59.sh` |
 | S60 | A module adds pages, dialogs, buttons and charts of its own (2 of 2) | open | EXT-024, EXT-039, EXT-040, EXT-042 | `sh plan/checks/S60.sh` |
 | S61 | A clerk works in their language, in every browser (1 of 2) | open | NAV-014, NAV-015, NAV-016, NAV-028, SET-003, I18N-003 | `sh plan/checks/S61.sh` |
 | S62 | A clerk works in their language, in every browser (2 of 2) | open | I18N-008 | `sh plan/checks/S62.sh` |

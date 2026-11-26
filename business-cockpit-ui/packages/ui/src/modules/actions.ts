@@ -1,28 +1,17 @@
 import { minimumActions, type CockpitActions, type ModuleHost } from '@acme/bc-module-host';
-import type { BcNotification } from '@acme/bc-module-kit';
 import { OfficialTasklistApi, OfficialWorkflowlistApi } from '../generated/official-gui-api';
 import { caseAddress, taskAddress } from '../routing';
+import { placeToasts, toast } from './toast';
+
+export { toast };
 
 // What the actions of a part do in the cockpit. The user interface only changes a task through the GUI API
 // the way a user does with a click; it never completes a task and never calls a module (EXT-057).
 const tasks = () => new OfficialTasklistApi();
-const toastSeconds = 5;
 
 function navigate(address: string): void {
   window.history.pushState({}, '', address);
   window.dispatchEvent(new PopStateEvent('popstate'));
-}
-
-export function toast({ level, text, sticky }: BcNotification): void {
-  const note = document.createElement('div');
-  note.setAttribute('role', level === 'error' ? 'alert' : 'status');
-  note.dataset.testid = 'toast';
-  note.dataset.level = level;
-  note.textContent = text;
-  note.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:3000;padding:8px 12px;background:var(--bc-color-surface,#fff);color:var(--bc-color-text,#000);border:1px solid;cursor:pointer';
-  note.addEventListener('click', () => note.remove());
-  document.body.append(note);
-  if (!sticky) setTimeout(() => note.remove(), toastSeconds * 1000);
 }
 
 const open = new WeakMap<HTMLElement, (result: unknown) => void>();
@@ -35,9 +24,16 @@ function showDialog(host: ModuleHost, dialog: { element: string; entry: string; 
   shell.dataset.testid = 'module-dialog';
   return new Promise<unknown>((resolve, reject) => {
     open.set(shell, resolve);
+    // the user closes the dialog with Escape: the part which opened it is not left waiting
+    shell.addEventListener('close', () => { open.delete(shell); removeShell(shell); resolve(undefined); });
     host.draw(module.workflowModuleId, module.webPath, { element: dialog.element, entry: dialog.entry }, shell, { data: dialog.data })
-      .then(() => shell.showModal?.(), (error) => { shell.remove(); reject(error); });
+      .then(() => { shell.showModal?.(); placeToasts(); }, (error) => { removeShell(shell); reject(error); });
   });
+}
+
+function removeShell(shell: HTMLElement): void {
+  shell.remove();
+  placeToasts();
 }
 
 function hideDialog(result: unknown, element: HTMLElement): void {
@@ -46,7 +42,7 @@ function hideDialog(result: unknown, element: HTMLElement): void {
   if (!shell || !resolve) throw new Error('the part is in no dialog');
   open.delete(shell);
   // the answer to the request goes out first, then the dialog and its web component are removed
-  setTimeout(() => shell.remove(), 0);
+  setTimeout(() => removeShell(shell), 0);
   resolve(result);
 }
 

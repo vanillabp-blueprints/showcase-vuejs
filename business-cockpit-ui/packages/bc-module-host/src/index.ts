@@ -122,6 +122,8 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
   const definedWithinMs = options.definedWithinMs ?? DEFINED_WITHIN_MS;
   const failures = new Map<string, number>();
   const placed = new WeakMap<HTMLElement, ModuleRef>();
+  // the web components drawn so far, weakly, so that a changed language reaches those still on the page
+  const drawnParts = new Set<WeakRef<HTMLElement>>();
   const pages = new WeakMap<Element, Page>();
 
   /** A failure is not kept: the next call reads the manifest again and calls `import()` again. */
@@ -291,6 +293,7 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
         const ofPart = 'userTask' in properties || 'workflow' in properties ? {} : { workflowModule: { id: workflowModuleId, uri: webPath } };
         Object.assign(element, functionsOf(element), options.context?.() ?? {}, ofPart, properties);
         placed.set(element, { workflowModuleId, webPath });
+        drawnParts.add(new WeakRef(element));
         if (typeof properties.area === 'string') page.register(properties.area, element);
       } catch (error) { throw new ElementCreateFailed(workflowModuleId, descriptor.element, error); }
       answerRequests(element, page);
@@ -356,6 +359,14 @@ export function createModuleHost(options: ModuleHostOptions = {}) {
         drawn[area] = await this.draw(workflowModuleId, webPath, descriptor, slot, { [dataNameOf(entry)]: data, area }, page);
       }
       return drawn;
+    },
+    /** Gives every web component which is on the page the current language and user again; forgets those which left it. */
+    refreshContext(): void {
+      for (const reference of drawnParts) {
+        const element = reference.deref();
+        if (!element?.isConnected) drawnParts.delete(reference);
+        else Object.assign(element, options.context?.() ?? {});
+      }
     },
     /** The module a web component of this host belongs to. */
     moduleOf: (element: HTMLElement): ModuleRef | undefined => placed.get(element),

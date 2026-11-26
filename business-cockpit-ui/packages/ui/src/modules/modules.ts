@@ -1,3 +1,4 @@
+import { watch } from 'vue';
 import { addressOf, createModuleHost, createModuleRegistry, type ModuleHost, type ModuleRef, type RowOfModule } from '@acme/bc-module-host';
 import { HEADER, UI_URI_TYPE_EXTERNAL, USER_TASK_FORM, USER_TASK_LIST, WORKFLOW_LIST, WORKFLOW_PAGE } from '@acme/bc-module-kit';
 import type { Column as ModuleColumn } from '@acme/bc-types';
@@ -28,6 +29,9 @@ export const host: ModuleHost = createModuleHost({
   moduleIds: () => registry.ids(),
   onNewBuild: (workflowModuleId) => newBuildListeners.forEach((listener) => listener(workflowModuleId)),
 });
+
+// a language change reaches the web components on the page (EXT-014)
+watch(language, () => host.refreshContext());
 
 /** Tells `listener` when a module has a new build; returns the function which stops it. */
 export function onNewBuild(listener: (workflowModuleId: string) => void): () => void {
