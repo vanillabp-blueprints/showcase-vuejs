@@ -118,7 +118,8 @@ class BrowserGoesAwayTest {
         .doesNotContain("AuthenticationCredentialsNotFoundException")
         .doesNotContain("Broken pipe")
         .doesNotContain("AsyncRequestNotUsableException")
-        .doesNotContain("disconnected client")
+        // the handled case may write its DEBUG line, depending on when Tomcat notices the close
+        .doesNotContainPattern("(?m)^\\S+\\s+(ERROR|WARN)\\s.*disconnected client")
         .doesNotContainPattern("(?m)^\\S+\\s+(ERROR|WARN)\\s.*(Async|Servlet|Tomcat|Dispatcher)");
   }
 
