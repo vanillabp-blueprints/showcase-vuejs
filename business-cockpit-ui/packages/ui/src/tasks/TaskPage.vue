@@ -6,6 +6,8 @@ import { drawFormOf, leaveFormOf, updateFormOf } from '../modules/modules';
 import { USER_TASK_FORM } from '@acme/bc-module-kit';
 import { noteOf, type NoteKind, type Step } from '../modules/partNote';
 import { barrierOf } from './taskState';
+import { toast } from '../modules/actions';
+import { eventsOf, isChangeByOtherUser } from './updateEvents';
 import { loadTask, openTask, openTaskFailed, tellTaskChanged } from './openTask';
 
 const props = defineProps<{ id: string; currentUserId: string }>();
@@ -19,7 +21,14 @@ const note = ref<{ kind: NoteKind | 'task-failed'; message: string }>();
 
 // an update of the task shows in the header at once, for example a task activated again (ACT-017)
 const updates = new EventSource(updateStreamUrl());
-updates.addEventListener('UserTask', () => void loadTask(props.id, false));
+// the toast comes from the event alone (TF-037); the task is read again whatever the initiator is, and the name comes from the task read again (TF-011)
+updates.addEventListener('UserTask', async (message) => {
+  const other = eventsOf(message).find((event) => event.id === props.id && isChangeByOtherUser(event, props.currentUserId));
+  await loadTask(props.id, false);
+  if (!other) return;
+  const known = [openTask.value?.assignee, ...(openTask.value?.candidateUsers ?? [])].find((person) => person?.id === other.initiator);
+  toast({ level: 'warning', sticky: true, text: text().taskChangedByOther.replace('{name}', known?.displayShort ?? other.initiator ?? '') });
+});
 onBeforeUnmount(() => { updates.close(); if (container.value) leaveFormOf(container.value); });
 
 async function open(): Promise<void> {

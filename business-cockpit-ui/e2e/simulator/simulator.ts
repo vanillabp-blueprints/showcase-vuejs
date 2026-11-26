@@ -106,11 +106,12 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   };
 
   // which tasks a primary filter lets through; without a mode the server takes OpenTasksWithFollowUp
-  const inMode = (task: UserTask, mode = 'OpenTasksWithFollowUp'): boolean => {
-    const open = !task.endedAt;
+  // a task which ended after the list started stays in a list of open tasks (LIVE-003)
+  const inMode = (task: UserTask, mode = 'OpenTasksWithFollowUp', startedAt?: string): boolean => {
+    const open = !task.endedAt || (startedAt !== undefined && task.endedAt > startedAt);
     const putAside = Boolean(task.followUpDate) && new Date(task.followUpDate!).getTime() > Date.now();
     if (mode === 'All') return true;
-    if (mode === 'ClosedTasksOnly') return !open;
+    if (mode === 'ClosedTasksOnly') return Boolean(task.endedAt);
     if (mode === 'OpenTasksWithFollowUp') return open;
     if (mode === 'OpenTasksWithoutFollowUp') return open && !putAside;
     if (mode === 'OpenTaskOnlyFollowUp') return open && putAside;
@@ -259,7 +260,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       if (paths.some((path) => !/^[A-Za-z0-9_]+(\.[A-Za-z0-9_-]+)*$/.test(path) || (!path.startsWith('details.') && !userTaskFields.includes(path.split('.')[0]!)))) return send(res, 400);
       const shown = userTasks
         .filter((task) => (list[1] ? task.assignee?.id === user.id : true))
-        .filter((task) => inMode(task, body.mode as string | undefined))
+        .filter((task) => inMode(task, body.mode as string | undefined, initialTimestamp))
         .filter((task) => searches.every((search) => matches(task, search)));
       const sorted = sortedBy(shown, String(body.sort ?? ''), body.sortAscending !== false);
       const size = Number(body.pageSize ?? 20);

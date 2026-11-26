@@ -209,3 +209,10 @@ Story: S53 (WP-009, WP-010, WP-011, WP-012, WP-014, WP-015)
 Date: 2026-11-26
 Default taken: the case page reads the case again on every Workflow event that names it and sets `workflow` again; the sticky toast (the toast of the module actions, click to remove) names the initiator by user id, because a case has no assignee or candidate users to take the short name from. The text is `caseChangedByOther` in the four languages. The simulator publish route takes `items` (the elements as they are). The page of a task does not yet show this toast (TF-011, TF-037 are in S54). Backend unchanged.
 Answer: open
+
+## ASK-031 Live list and task page: what S54 left open
+
+Story: S54 (TF-011, TF-037, LIVE-001, LIVE-002, LIVE-003, LIVE-004)
+Date: 2026-11-26
+Default taken: the task page shows the toast `taskChangedByOther` (sticky) from the event alone, named by `displayShort` of the assignee or a candidate user of the task read again, else by the user id; the toast of ASK-030 for the task page is done. The list marks rows `new` (created after the list started), `changed` (updated after the start and an event of another initiator, also SYSTEM and COCKPIT, was seen for it) and `removed`; the marks are `data-mark` and a class, with the colours of the legend. A row the server no longer returns is kept only when the list is read again because of the update stream and the window is in one piece from the same pages; the kept rows count in the total, so a page asked later is shifted by them. A row pushed out of the window by a new row would show as removed too. The first `RELOAD` of a stream is not skipped (an extra read, no harm). The acknowledge button (markers away, ended rows go) is not built; no id of this story needs it. The simulator keeps a task which ended after `initialTimestamp` in open lists. Backend unchanged.
+Answer: open

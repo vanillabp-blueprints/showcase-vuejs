@@ -26,6 +26,7 @@ const en = {
   caseLoading: { case: "Loading the case…", page: "Loading the page…", visual: "Loading the view of the page…" },
   caseNotLoaded: "The case could not be loaded.",
   caseChangedByOther: "{name} changed this case. Please talk to them before you go on, to avoid losing data.",
+  taskChangedByOther: "{name} changed this task. Please talk to them before you save or complete, to avoid losing data.",
   cannotOpenCaseHere: "This case cannot be opened here.",
   noPageForCase: "This module has no page for the case.",
   partNotes: {

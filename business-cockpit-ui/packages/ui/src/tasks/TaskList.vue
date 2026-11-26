@@ -14,6 +14,8 @@ import { addressOfTask, columnsOfRow, isExternal, loadPartsOf, type ColumnsOfRow
 import { cellOf, fractionDigits, mergeColumns, type Cell } from './moduleColumns';
 import { settingKey, settings } from '../settings/settings';
 import { stateOf } from './taskState';
+import { eventsOf, isChangeOfOthers } from './updateEvents';
+import { keepRemovedRows, markOf } from './liveRows';
 import { dayOf, startOfDay } from './followUp';
 import { cappedNotice } from './cappedNotice';
 import { onTaskChangedInAnotherTab } from './openTask';
@@ -324,15 +326,23 @@ function clearWindow(): void {
   clearTimeout(pause);
   pages.value = new Map();
   total.value = 0;
+  removedRows.value = new Set();
   onTheWay.clear();
   pending.value = 0;
   if (scrollArea) scrollArea.scrollTop = 0;
   measure();
 }
 
-async function load(startAgain = false): Promise<void> {
+// rows the user's colleagues changed after the list started, and rows the server no longer returns (LIVE-002, LIVE-004)
+const changedByOthers = reactive(new Set<string>());
+const removedRows = ref(new Set<string>());
+const markOfRow = (task: UserTask) => markOf(task, startedAt.value, changedByOthers, removedRows.value);
+
+// `live`: the list is read again because of the update stream, so a row the server no longer returns stays, marked as removed
+async function load(startAgain = false, live = false): Promise<void> {
   if (startAgain) {
     startedAt.value = undefined;
+    changedByOthers.clear();
     clearWindow();
   }
   refusedSort.value = undefined;
@@ -345,9 +355,12 @@ async function load(startAgain = false): Promise<void> {
     const first = await askPage(firstNumber!);
     const others = await Promise.all(otherNumbers.map(async (number) => [number, (await askPage(number)).rows] as const));
     await askColumnsOf([first.rows, ...others.map(([, other]) => other)].flat());
-    total.value = first.total;
     failed.value = false;
-    pages.value = new Map([[firstNumber!, first.rows], ...others]);
+    const read = new Map([[firstNumber!, first.rows], ...others]);
+    const kept = live && !startAgain ? keepRemovedRows(pages.value, read, first.total, pageSize) : { pages: read, total: first.total, removed: new Set<string>() };
+    total.value = kept.total;
+    removedRows.value = kept.removed;
+    pages.value = kept.pages;
     for (const rows of [first.rows, ...others.map(([, other]) => other)]) refreshSelected(rows);
     await nextTick();
     measure();
@@ -440,7 +453,10 @@ const workedOn = (task: UserTask): boolean => Boolean(task.endedAt || task.suspe
 
 // an update of a task may show it activated again, so the rows are read again without a reload (ACT-017)
 const updates = new EventSource(updateStreamUrl());
-updates.addEventListener('UserTask', () => void load());
+updates.addEventListener('UserTask', (message) => {
+  for (const event of eventsOf(message)) if (event.id && isChangeOfOthers(event, props.currentUserId)) changedByOthers.add(event.id);
+  void load(false, true);
+});
 // a task tab tells which task it changed; the rows are read again at once, without waiting for the update stream (ACT-019)
 const stopListening = onTaskChangedInAnotherTab(() => void load());
 // a task tab asks whether a list is open and in which state (TF-045)
@@ -697,7 +713,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       <tr v-if="spaceAbove > 0" class="space" aria-hidden="true"><td :colspan="columns.length + moduleColumns.length + 1" :style="{ height: `${spaceAbove}px` }" /></tr>
       <template v-for="{ key, task } in drawn" :key="key">
       <tr v-if="!task" data-testid="task-placeholder" class="task-row placeholder"><td :colspan="columns.length + moduleColumns.length + 1" /></tr>
-      <tr v-else data-testid="task-row" :data-task-id="task.id" :data-parts="partsOf[task.id]" :data-state="stateOf(task)" :class="['task-row', stateOf(task), { unread: !task.read }]">
+      <tr v-else data-testid="task-row" :data-task-id="task.id" :data-parts="partsOf[task.id]" :data-state="stateOf(task)" :data-mark="markOfRow(task)" :class="['task-row', stateOf(task), markOfRow(task), { unread: !task.read }]">
         <td data-testid="cell-id" class="select-cell">
           <input
             type="checkbox"
@@ -914,6 +930,10 @@ thead th { position: relative; overflow: hidden; }
 .task-row.unread td, .task-row.unread a { font-weight: 700; }
 .task-row.completed, .task-row.cancelled { background-color: #e0e0e0; }
 .task-row.cancelled a { text-decoration: line-through; }
+/* the markers of the legend: new, changed by somebody else, no longer returned by the server */
+.task-row.new { background-color: #c8e6c9; }
+.task-row.changed { background-color: #fff59d; }
+.task-row.removed { background-color: #ffcdd2; }
 .task-row.suspended td, .task-row.suspended a { color: rgba(33, 33, 33, 0.55); }
 /* the claim checkbox shows on mouse-over of the assignee cell only (TL-014) */
 .assignee-cell { position: relative; }

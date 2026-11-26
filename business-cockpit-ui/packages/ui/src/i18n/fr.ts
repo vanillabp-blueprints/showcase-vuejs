@@ -26,6 +26,7 @@ const fr: Messages = {
   caseLoading: { case: "Chargement du dossier…", page: "Chargement de la page…", visual: "Chargement de la vue de la page…" },
   caseNotLoaded: "Le dossier n'a pas pu être chargé.",
   caseChangedByOther: "{name} a modifié ce dossier. Veuillez en parler avec cette personne avant de continuer, pour ne pas perdre de données.",
+  taskChangedByOther: "{name} a modifié cette tâche. Veuillez en parler avec cette personne avant d'enregistrer ou de terminer, pour ne pas perdre de données.",
   cannotOpenCaseHere: "Ce dossier ne peut pas être ouvert ici.",
   noPageForCase: "Ce module n'a pas de page pour le dossier.",
   partNotes: {
