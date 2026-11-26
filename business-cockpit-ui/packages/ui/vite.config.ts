@@ -4,8 +4,10 @@ import { describeMissing, missingKeys } from '../../scripts/check-languages.mjs'
 
 const devServerPort = 5173;
 // The port the browser reaches the dev server at, when it differs: a dev container publishes its
-// ports with an offset, for example BC_DEV_SERVER_PUBLIC_PORT=35173.
+// ports with an offset, for example BC_DEV_SERVER_PUBLIC_PORT=35173. The published port reaches the
+// container from outside, not at 127.0.0.1, so then the dev server listens on all IPv4 addresses.
 const browserPort = Number(process.env.BC_DEV_SERVER_PUBLIC_PORT ?? devServerPort);
+const listenOn = process.env.BC_DEV_SERVER_PUBLIC_PORT ? '0.0.0.0' : '127.0.0.1';
 
 // The build fails when a language file misses a key of the default language (I18N-006).
 const languageFilesComplete = (): Plugin => ({
@@ -26,7 +28,7 @@ export default defineConfig({
   build: { outDir: 'dist', assetsDir: 'assets' },
   appType: 'spa',
   server: {
-    host: '127.0.0.1',
+    host: listenOn,
     port: devServerPort,
     strictPort: true,
     // The backend forwards no WebSocket, so the hot reload connects to the dev server directly.
