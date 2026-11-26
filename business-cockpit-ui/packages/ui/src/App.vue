@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watchEffect } from 'vue';
-import { VApp, VAppBar, VAvatar, VBtn, VBtnToggle, VDivider, VList, VListItem, VMain, VNavigationDrawer, VSpacer, VTooltip } from 'vuetify/components';
+import { VApp, VAppBar, VBtn, VBtnToggle, VDivider, VList, VListItem, VMain, VNavigationDrawer, VSpacer, VTooltip } from 'vuetify/components';
 import { mdiMenu } from '@mdi/js';
 import type { User } from './generated/official-gui-api';
 import { counts } from './counts/counts';
-import { initialsOf } from './initials';
+import RightsOverview from './rights/RightsOverview.vue';
+import UserBadge from './UserBadge.vue';
 import { formatNumber } from './i18n/format';
 import { offered, switchTo } from './locale';
 import { language, text } from './i18n/messages';
@@ -48,7 +49,6 @@ const headerLook = computed(() => {
 // the page says which language it is in
 watchEffect(() => { document.documentElement.lang = language.value; });
 const shortForm = computed(() => props.user.displayShort ?? props.user.display ?? props.user.id);
-const initials = computed(() => initialsOf(props.user.display, props.user.id));
 // the address shows the path of the language chosen
 const chosen = (code: Parameters<typeof switchTo>[0]): void => { switchTo(code); path.value = window.location.pathname; };
 const shown = (label: string, count?: number): string => (count === undefined ? label : `${label} (${formatNumber(count, language.value)})`);
@@ -74,7 +74,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
       <!-- right of the parts of the modules, so late parts do not move the actions -->
       <task-header v-if="page === 'task'" :current-user-id="user.id" />
       <case-header v-else-if="page === 'case'" />
-      <span data-testid="current-user" class="mr-2">{{ user.display ?? user.id }}</span>
+      <rights-overview :user="user" class="mr-2"><span data-testid="current-user">{{ user.display ?? user.id }}</span></rights-overview>
       <!-- a task tab has no menu, its way out is the way back to the list (TF-007) -->
       <back-to-list v-if="page === 'task'" :current-user-id="user.id" />
       <v-btn v-else data-testid="menu-button" :icon="mdiMenu" :aria-label="text().menu" @click="menuOpen = !menuOpen" />
@@ -84,16 +84,7 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
       <v-list>
         <v-list-item data-menu-part="user">
           <template #prepend>
-            <v-avatar data-testid="user-badge" color="primary" size="40" class="mr-3">
-              {{ initials }}
-              <v-tooltip activator="parent" location="left">
-                <div data-testid="user-details">
-                  <div>{{ user.display ?? user.id }}</div>
-                  <div>{{ user.id }}</div>
-                  <div v-if="user.email">{{ user.email }}</div>
-                </div>
-              </v-tooltip>
-            </v-avatar>
+            <user-badge :user="user" testid="user-badge" />
           </template>
           <span data-testid="user-short">{{ shortForm }}</span>
           <!-- the groups come from current-user, never from the token -->

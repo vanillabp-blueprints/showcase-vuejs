@@ -7,6 +7,7 @@ const de: Messages = {
   notifications: 'Benachrichtigungen',
   menu: 'Menü',
   logout: 'Abmelden',
+  rights: { title: "Rollen und Rechte", loading: "Wird geladen …", sentence: "Die Organisation gibt Ihnen Rollen. Rechte bestimmen, was Sie in einer Anwendung tun dürfen. Jede Anwendung legt ihre eigenen Rechte fest und leitet sie aus Ihren Rollen ab.", none: "Keine Rollen oder Rechte bekannt.", name: "Name", kind: "Art", givenBy: "Vergeben durch", organisation: "Organisation", kinds: { role: "Rolle", right: "Recht" } },
   language: 'Sprache',
   columns: { id: 'Id', businessId: 'Geschäfts-ID', caseKind: 'Vorgangsart', title: 'Titel', dueDate: 'Fällig', assignee: 'Bearbeiter', candidateUsers: 'Kandidaten', note: 'Notizen', followUpDate: 'Wiedervorlage', createdAt: 'Angelegt', endedAt: 'Beendet' },
   actions: { markRead: 'Als gelesen markieren', markUnread: 'Als ungelesen markieren', followUp: 'Wiedervorlage', deleteFollowUp: 'Wiedervorlage löschen', tools: 'Werkzeuge', claim: 'Übernehmen', unclaim: 'Zurückgeben', remove: 'Entfernen', proposeTo: 'Vorschlagen an', searchPerson: 'Person suchen', noPerson: 'Keine Person gefunden', editNote: 'Notiz bearbeiten', note: 'Notiz', save: 'Speichern', cancel: 'Abbrechen', failed: 'Die Aktion ist fehlgeschlagen', claimFromOther: 'Diese Aufgabe übernehmen? Sie liegt bei {name}.', yes: 'Ja', no: 'Nein', ended: 'Die Aufgabe ist beendet', suspendedNow: 'Die Aufgabe wurde angehalten', heldByOther: 'Ein anderer Benutzer hat die Aufgabe' },

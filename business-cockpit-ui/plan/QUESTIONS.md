@@ -256,3 +256,10 @@ Toasts have a colour per level (Vuetify palette values written into `toast.ts`) 
 
 Story: S60 (EXT-024, EXT-039, EXT-040, EXT-042)
 The kit has no `dist/conformance`, no conformance test and no kit-owned React, Vue and Angular conformance modules, and the simulator does not serve them below `/wm/react-module/` and so on in place of the test modules. The three modules of `e2e/modules` are test modules, not conformance modules (PKG-040, PKG-054, EXT-034 name them too). Too big for the 20 minutes of S60; a later story must build the conformance modules, `dist/conformance`, the end-to-end test titled EXT-040 and make `bc-check-entries` run over them. EXT-040 applies (it is not "not chosen"), so it is still unproven. EXT-024, EXT-039 and EXT-042 needed no new code: S37 to S39 and S59 built it, S60 added the tests (page-dialogs.spec.ts). Pages are not an extension point (Q-EXTENSION-POINTS), so EXT-024 is proven on the areas of the page of a user task, which the host draws with `drawPage`; the cockpit has no user task page yet (ASK-015), so the test drives the host in a bare page.
+
+## ASK-038 Overview of roles and rights: which organisation groups show in which table
+
+Story: S63 (NAV-019, NAV-020, NAV-021, NAV-022, NAV-027, NAV-030)
+Date: 2026-11-26
+Default taken: the reference does not say in which table a group of the organisation has its row. A group the organisation gives has its row (Role, Organisation) in the table of each module with an entry for it, and in every table if no module has an entry for it. A table without a row is left out. A target is a row for each group of its entry; one the organisation also gives shows only as the row of the organisation. The overview is the name and the overview as one element for `mouseenter`/`mouseleave`; there is no keyboard or touch way to open it. The badge is the initials only until the pictures (NAV-023 to NAV-026, later story). Backend unchanged: `UserRightsApiController` is in the business-cockpit library, and the backend build was not run as it was not touched.
+Answer: open

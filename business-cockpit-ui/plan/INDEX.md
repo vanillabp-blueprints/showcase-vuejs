@@ -69,7 +69,7 @@ Started: 2026-11-25
 | S60 | A module adds pages, dialogs, buttons and charts of its own (2 of 2) | done | EXT-024, EXT-039, EXT-040, EXT-042 | `sh plan/checks/S60.sh` |
 | S61 | A clerk works in their language, in every browser (1 of 2) | done | NAV-014, NAV-015, NAV-016, NAV-028, SET-003, I18N-003 | `sh plan/checks/S61.sh` |
 | S62 | A clerk works in their language, in every browser (2 of 2) | done | I18N-008 | `sh plan/checks/S62.sh` |
-| S63 | A clerk sees their rights and the pictures of persons | open | NAV-019, NAV-020, NAV-021, NAV-022, NAV-027, NAV-030 | `sh plan/checks/S63.sh` |
+| S63 | A clerk sees their rights and the pictures of persons | done | NAV-019, NAV-020, NAV-021, NAV-022, NAV-027, NAV-030 | `sh plan/checks/S63.sh` |
 | S64 | A clerk sets up notifications and gets mails | open | BE-016, TF-014, NOTI-001, NOTI-002, NOTI-003 | `sh plan/checks/S64.sh` |
 | S65 | A module developer works on a form in the dev shell (1 of 5) | open | PKG-034, DS-001, DS-002, DS-003, DS-004, DS-005 | `sh plan/checks/S65.sh` |
 | S66 | A module developer works on a form in the dev shell (2 of 5) | open | DS-006, DS-007, DS-008, DS-009, DS-010, DS-011 | `sh plan/checks/S66.sh` |

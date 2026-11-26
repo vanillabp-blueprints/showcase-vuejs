@@ -7,6 +7,7 @@ const es: Messages = {
   notifications: 'Notificaciones',
   menu: 'Menú',
   logout: 'Cerrar sesión',
+  rights: { title: "Roles y derechos", loading: "Cargando …", sentence: "La organización le da roles. Los derechos deciden lo que puede hacer en una aplicación. Cada aplicación define sus propios derechos y los deriva de sus roles.", none: "No se conocen roles ni derechos.", name: "Nombre", kind: "Tipo", givenBy: "Concedido por", organisation: "Organización", kinds: { role: "Rol", right: "Derecho" } },
   language: 'Idioma',
   columns: { id: 'Id', businessId: 'ID de negocio', caseKind: 'Tipo de caso', title: 'Título', dueDate: 'Vence', assignee: 'Responsable', candidateUsers: 'Candidatos', note: 'Notas', followUpDate: 'Seguimiento', createdAt: 'Creado', endedAt: 'Finalizada' },
   actions: { markRead: 'Marcar como leída', markUnread: 'Marcar como no leída', followUp: 'Seguimiento', deleteFollowUp: 'Eliminar seguimiento', tools: 'Herramientas', claim: 'Asumir', unclaim: 'Devolver', remove: 'Quitar', proposeTo: 'Proponer a', searchPerson: 'Buscar una persona', noPerson: 'Ninguna persona encontrada', editNote: 'Editar nota', note: 'Nota', save: 'Guardar', cancel: 'Cancelar', failed: 'No se pudo realizar la acción', claimFromOther: '¿Asumir esta tarea? La tiene {name}.', yes: 'Sí', no: 'No', ended: 'La tarea ha terminado', suspendedNow: 'La tarea fue suspendida', heldByOther: 'Otro usuario tiene la tarea' },

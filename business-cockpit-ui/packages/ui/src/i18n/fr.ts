@@ -7,6 +7,7 @@ const fr: Messages = {
   notifications: 'Notifications',
   menu: 'Menu',
   logout: 'Se déconnecter',
+  rights: { title: "Rôles et droits", loading: "Chargement …", sentence: "L'organisation vous donne des rôles. Les droits décident de ce que vous pouvez faire dans une application. Chaque application définit ses propres droits et les déduit de vos rôles.", none: "Aucun rôle ni droit connu.", name: "Nom", kind: "Type", givenBy: "Accordé par", organisation: "Organisation", kinds: { role: "Rôle", right: "Droit" } },
   language: 'Langue',
   columns: { id: 'Id', businessId: 'ID métier', caseKind: 'Type de dossier', title: 'Titre', dueDate: 'Échéance', assignee: 'Responsable', candidateUsers: 'Candidats', note: 'Notes', followUpDate: 'Rappel', createdAt: 'Créé', endedAt: 'Terminée' },
   actions: { markRead: 'Marquer comme lu', markUnread: 'Marquer comme non lu', followUp: 'Rappel', deleteFollowUp: 'Supprimer le rappel', tools: 'Outils', claim: 'Prendre', unclaim: 'Rendre', remove: 'Retirer', proposeTo: 'Proposer à', searchPerson: 'Chercher une personne', noPerson: 'Aucune personne trouvée', editNote: 'Modifier la note', note: 'Note', save: 'Enregistrer', cancel: 'Annuler', failed: "L'action a échoué", claimFromOther: 'Prendre cette tâche ? Elle est chez {name}.', yes: 'Oui', no: 'Non', ended: 'La tâche est terminée', suspendedNow: 'La tâche a été suspendue', heldByOther: 'Un autre utilisateur détient la tâche' },

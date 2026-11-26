@@ -7,6 +7,7 @@ const en = {
   notifications: 'Notifications',
   menu: 'Menu',
   logout: 'Log out',
+  rights: { title: "Roles and rights", loading: "Loading …", sentence: "The organisation gives you roles. Rights decide what you may do in an application. Each application defines its own rights and derives them from your roles.", none: "No roles or rights are known.", name: "Name", kind: "Kind", givenBy: "Given by", organisation: "Organisation", kinds: { role: "Role", right: "Right" } },
   language: 'Language',
   columns: { id: 'Id', businessId: 'Business ID', caseKind: 'Case kind', title: 'Title', dueDate: 'Due', assignee: 'Assignee', candidateUsers: 'Candidate users', note: 'Notes', followUpDate: 'Follow-up', createdAt: 'Created', endedAt: 'Ended' },
   actions: { markRead: 'Mark as read', markUnread: 'Mark as unread', followUp: 'Follow-up', deleteFollowUp: 'Delete follow-up', tools: 'Tools', claim: 'Claim', unclaim: 'Give back', remove: 'Remove', proposeTo: 'Propose to', searchPerson: 'Search a person', noPerson: 'No person found', editNote: 'Edit note', note: 'Note', save: 'Save', cancel: 'Cancel', failed: 'The action could not be done', claimFromOther: 'Claim this task? It is held by {name}.', yes: 'Yes', no: 'No', ended: 'The task has ended', suspendedNow: 'The task was suspended', heldByOther: 'Another user holds the task' },

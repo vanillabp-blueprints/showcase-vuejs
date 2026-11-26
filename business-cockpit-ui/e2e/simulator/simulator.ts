@@ -83,6 +83,11 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let appLanguages = 'en,de,fr,es';
   let settingsOfUsers = new Map<string, Map<string, unknown>>();
   let settingRequests: { method: string; key: string; body?: unknown }[] = [];
+  // the answer of the group hierarchy of the user, whether it fails, how long it takes, and how often it was asked
+  let hierarchyAnswer: unknown = { givenByOrganisation: [], modules: [] };
+  let hierarchyFails = false;
+  let hierarchyDelayMilliseconds = 0;
+  let hierarchyRequests = 0;
   // the address a browser wanted before it was sent to the login, which the backend keeps
   let savedAddress: string | undefined;
 
@@ -204,6 +209,22 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       const body: User = { id: user.id, display, displayShort, email: user.email, groups: (groupsOfCurrentUser ?? user.groups).map((id) => ({ id })) };
       return send(res, 200, body);
     }
+
+    // The roles and rights of the user, for all modules in one answer (NAV-019).
+    if (path === `${guiApiPath}/app/current-user/group-hierarchy`) {
+      if (!userOf(req)) return send(res, 401);
+      hierarchyRequests++;
+      if (hierarchyDelayMilliseconds) await new Promise((resolve) => setTimeout(resolve, hierarchyDelayMilliseconds));
+      return hierarchyFails ? send(res, 500) : send(res, 200, hierarchyAnswer);
+    }
+    if (path === '/simulator-api/group-hierarchy' && method === 'POST') {
+      const body = await readBody(req);
+      hierarchyAnswer = body.answer ?? hierarchyAnswer;
+      hierarchyFails = body.fails === true;
+      hierarchyDelayMilliseconds = Number(body.delayMilliseconds ?? 0);
+      return send(res, 200);
+    }
+    if (path === '/simulator-api/group-hierarchy-requests') return send(res, 200, hierarchyRequests);
 
     // The settings of the user. The key holds letters, digits, - _ and : only, like the cockpit demands.
     const setting = new RegExp(`^${guiApiPath}/app/current-user/settings/([^/]+)$`).exec(path);
@@ -677,6 +698,10 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       settingsOfUsers = new Map();
       appLanguages = 'en,de,fr,es';
       settingRequests = [];
+      hierarchyAnswer = { givenByOrganisation: [], modules: [] };
+      hierarchyFails = false;
+      hierarchyDelayMilliseconds = 0;
+      hierarchyRequests = 0;
       savedAddress = undefined;
       return send(res, 200);
     }
