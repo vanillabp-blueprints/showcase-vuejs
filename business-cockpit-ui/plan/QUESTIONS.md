@@ -320,3 +320,10 @@ Story: S71 (PKG-061, BE-018, BE-019, EXT-058)
 Date: 2026-11-26
 Default taken: PKG-061, BE-018 and BE-019 are proven by `e2e/readme/readme.spec.ts`, which reads the two README files (the backend was not changed, so no Maven build was run). EXT-058 needs a running cockpit backend (Keycloak, MongoDB, the cockpit 0.9.0-SNAPSHOT), the blueprint applications of `vanillabp-blueprints/blueprints` (GitHub is reachable) reporting to it, and the conformance test of EXT-040, which is not built (ASK-037: no `dist/conformance`, no `serve.mjs`). Without ASK-037 there is nothing to run "once more". No test carries the id EXT-058, and none was faked. S71 stays `in-progress`. A later story must: build ASK-037 first, then start the backend with `docker compose up` and the profile `local`, start the three blueprint applications against it, and check lists, task and case page and the header extension in a browser. The proxy of EXT-059 under `/wm/` has still no route in the backend repository (ASK-018).
 Answer: open
+
+## ASK-047 S73: what the verify story did not do
+
+Story: S73
+Date: 2026-11-26
+Default taken: every id of plan/ids.txt that a test can name is named by a test title (UI) or a Java test (backend). Four ids have no test: EXT-040 (ASK-037), EXT-058 (ASK-046), CUST-002 (ASK-001), LIVE-021 (ASK-034); they are listed in `plan/unproven.txt`, and `plan/checks/S73.sh` no longer accepts the id in a check script's `--grep` as proof. No new test was written: each of the four needs a decision or a running backend with Keycloak and MongoDB (S74). The bodies of the tests were not reopened for every id and "seen red" was not re-checked for all; the backend tests were not rerun. `CHECKLIST-RESULTS.md` lists what is proven, not chosen and not fully proven.
+Answer: open
