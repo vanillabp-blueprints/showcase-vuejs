@@ -159,6 +159,8 @@ function loadPartsOfRows(rows: { task?: UserTask }[]): void {
 }
 watch(drawn, loadPartsOfRows, { immediate: true });
 const loadingFirst = ref(false);
+// the hint of an empty list waits for the first answer, or it flashes before the rows come
+const firstAnswerCame = ref(false);
 // the moment the user started to look at this list; a new sort, a new search and opening the list start it again (SRCH-027)
 const startedAt = ref<string>();
 const updates = openUpdateStream();
@@ -420,6 +422,7 @@ async function load(startAgain = false, live = false): Promise<void> {
     failed.value = true;
   } finally {
     loadingFirst.value = false;
+    firstAnswerCame.value = true;
   }
 }
 
@@ -696,7 +699,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
     data-testid="task-list"
     class="task-list ma-4"
     fixed-header
-    height="calc(100vh - 224px)"
+    height="calc(100vh - 200px)"
     :data-window-pages="[...pages.keys()].sort((a, b) => a - b).join(',')"
     :data-window-rows="windowRows"
     :data-pending="pending"
@@ -754,7 +757,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
     </thead>
     <tbody>
       <!-- at the top of the list area, right below the filters, where the eye looks for the rows (CUST-005) -->
-      <tr v-if="total === 0 && !failed" data-testid="no-tasks" class="no-tasks"><td :colspan="columns.length + moduleColumns.length + 1">{{ text().noTasks }}</td></tr>
+      <tr v-if="firstAnswerCame && total === 0 && !failed" data-testid="no-tasks" class="no-tasks"><td :colspan="columns.length + moduleColumns.length + 1">{{ text().noTasks }}</td></tr>
       <tr v-if="spaceAbove > 0" class="space" aria-hidden="true"><td :colspan="columns.length + moduleColumns.length + 1" :style="{ height: `${spaceAbove}px` }" /></tr>
       <template v-for="{ key, task } in drawn" :key="key">
       <tr v-if="!task" data-testid="task-placeholder" class="task-row placeholder"><td :colspan="columns.length + moduleColumns.length + 1" /></tr>

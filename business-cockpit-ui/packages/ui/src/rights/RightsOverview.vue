@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import type { User } from '../generated/official-gui-api';
 import { text } from '../i18n/messages';
 import UserBadge from '../UserBadge.vue';
-import { loadRights, type RightsTable } from './rights';
+import { loadRights, organisationTable, type RightsTable } from './rights';
 
 defineProps<{ user: User }>();
 
@@ -30,7 +30,7 @@ const opened = (): void => {
         <p data-testid="rights-sentence">{{ text().rights.sentence }}</p>
         <p v-if="tables.length === 0" data-testid="rights-none">{{ text().rights.none }}</p>
         <section v-for="table in tables" :key="table.workflowModuleId" :data-testid="`rights-module-${table.workflowModuleId}`">
-          <h3>{{ table.workflowModuleId }}</h3>
+          <h3 v-if="table.workflowModuleId !== organisationTable">{{ table.workflowModuleId }}</h3>
           <table :data-testid="`rights-table-${table.workflowModuleId}`">
             <thead><tr><th>{{ text().rights.name }}</th><th>{{ text().rights.kind }}</th><th>{{ text().rights.givenBy }}</th></tr></thead>
             <tbody>

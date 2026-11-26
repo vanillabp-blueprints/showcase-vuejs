@@ -122,6 +122,17 @@ test('NAV-021 a target is Role with an entry of its own else Right, one the orga
   ]);
 });
 
+test('CUST-006 groups of the organisation are listed also when no module has a group hierarchy', async ({ page }) => {
+  await answer(page, { givenByOrganisation: ['template-group'], modules: [] });
+  await page.goto('/tasks');
+  await hover(page);
+  await expect(page.getByTestId('rights-table-organisation')).toBeVisible();
+  expect(await rowsOf(page, 'organisation')).toEqual(['template-group|Role|Organisation']);
+  await expect(page.getByTestId('rights-none')).toHaveCount(0);
+  // no module is named, there is none
+  await expect(page.locator('[data-testid="rights-module-organisation"] h3')).toHaveCount(0);
+});
+
 test('NAV-022 the overview shows only the own rights of modules with a hierarchy, a failed request or no module left says that nothing is known', async ({ page }) => {
   await answer(page, { givenByOrganisation: [], modules: [] }, {});
   await page.goto('/');

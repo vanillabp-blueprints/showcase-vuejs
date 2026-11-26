@@ -182,12 +182,34 @@ test('TL-032 the background of the list is white, partly transparent and blurred
   expect(style.filter).toContain('blur');
 });
 
+test('CUST-005 the hint "No tasks" does not show before the first answer of the server', async ({ page }) => {
+  await page.route('**/gui/api/v1/usertask?*', async (route) => { await new Promise((resolve) => setTimeout(resolve, 1500)); await route.continue(); });
+  await page.route('**/gui/api/v1/usertask', async (route) => { await new Promise((resolve) => setTimeout(resolve, 1500)); await route.continue(); });
+  await page.goto('/tasks');
+  await expect(page.getByTestId('task-list')).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(page.getByTestId('no-tasks')).toHaveCount(0);
+  await expect(page.getByTestId('no-tasks')).toBeVisible({ timeout: 4000 });
+});
+
 test('CUST-005 the hint "No tasks" stands at the top of the list area, right below the filters', async ({ page }) => {
   await page.goto('/tasks');
+  await expect(page.getByTestId('no-tasks')).toBeVisible();
   const hint = await page.getByTestId('no-tasks').boundingBox();
   const list = await page.getByTestId('task-list').boundingBox();
   const filters = await page.locator('.filter-cell').first().boundingBox();
   expect(hint!.y).toBeGreaterThanOrEqual(filters!.y + filters!.height - 1);
+  expect(hint!.y).toBeLessThan(list!.y + list!.height / 3);
+  expect(hint!.y + hint!.height).toBeLessThanOrEqual(list!.y + list!.height);
+});
+
+test('CUST-005 the hint "No cases" stands at the top of the case list area, right below the column headers', async ({ page }) => {
+  await page.goto('/workflows');
+  await expect(page.getByTestId('no-cases')).toBeVisible();
+  const hint = await page.getByTestId('no-cases').boundingBox();
+  const list = await page.getByTestId('case-list').boundingBox();
+  const header = await page.getByTestId('case-list').locator('thead').boundingBox();
+  expect(hint!.y).toBeGreaterThanOrEqual(header!.y + header!.height - 1);
   expect(hint!.y).toBeLessThan(list!.y + list!.height / 3);
   expect(hint!.y + hint!.height).toBeLessThanOrEqual(list!.y + list!.height);
 });

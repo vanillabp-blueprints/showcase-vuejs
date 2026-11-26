@@ -506,3 +506,4 @@ These items apply when the skill creates the backend (`Q-BACKEND`). Without it t
 | `CUST-003` | The start page `/` shows the list of my tasks, in the path of the language of the user, without a new entry in the history. | always |
 | `CUST-004` | The page of a list (my tasks, all tasks, cases) has no scroll bar of its own at any window height: only the list scrolls. | always |
 | `CUST-005` | The hint "No tasks" of an empty list stands at the top of the list area, right below the filters. | always |
+| `CUST-006` | When no workflow module has a group hierarchy, the overview of roles and rights still lists the groups the identity provider gives, in one table without a module name; "No roles or rights are known." shows only when there is nothing to list. This widens `NAV-022`. | always |

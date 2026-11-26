@@ -22,6 +22,8 @@ const rows = shallowRef<Workflow[]>([]);
 const total = ref(0);
 const counts = reactive<Partial<Record<CaseFilter, number>>>({});
 const loadingFirst = ref(false);
+// the hint of an empty list waits for the first answer, or it flashes before the rows come
+const firstAnswerCame = ref(false);
 const failed = ref(false);
 // the moment the user started to look at this list, which every page asks with
 const startedAt = ref<string>();
@@ -93,7 +95,10 @@ async function load(): Promise<void> {
     // no rows, the status line stays, and the toast says it without a status code
     failed.value = true;
   } finally {
-    if (started === generation) loadingFirst.value = false;
+    if (started === generation) {
+      loadingFirst.value = false;
+      firstAnswerCame.value = true;
+    }
   }
 }
 
@@ -206,7 +211,7 @@ onMounted(async () => {
     </div>
   </div>
   <v-progress-linear v-if="loadingFirst" data-testid="list-loading" indeterminate class="mx-4" style="width: auto" />
-  <v-table data-testid="case-list" class="case-list ma-4" fixed-header height="calc(100vh - 240px)" @scroll.capture="scrolled">
+  <v-table data-testid="case-list" class="case-list ma-4" fixed-header height="calc(100vh - 200px)" @scroll.capture="scrolled">
     <thead>
       <tr>
         <th
@@ -221,6 +226,8 @@ onMounted(async () => {
       </tr>
     </thead>
     <tbody>
+      <!-- at the top of the list area, right below the column headers (CUST-005) -->
+      <tr v-if="firstAnswerCame && total === 0 && !failed && !loadingFirst" data-testid="no-cases" class="no-cases"><td :colspan="columns.length + moduleColumns.length + 1">{{ text().noCases }}</td></tr>
       <tr v-for="one in rows" :key="one.id" data-testid="case-row" :data-case-id="one.id" :data-state="stateOf(one)" :class="['case-row', stateOf(one)]">
         <td data-testid="cell-id" class="select-cell">
           <input type="checkbox" data-testid="select-row" :aria-label="text().bulk.selectRow" :checked="selected.has(one.id)" @change="toggleSelected(one.id, ($event.target as HTMLInputElement).checked)" />
@@ -267,7 +274,6 @@ onMounted(async () => {
       </tr>
     </tbody>
   </v-table>
-  <p v-if="total === 0 && !failed && !loadingFirst" class="ma-4" data-testid="no-cases">{{ text().noCases }}</p>
   <div data-testid="status-line" class="status-line">
     <v-btn-toggle :model-value="filter" mandatory density="comfortable" variant="outlined" divided :aria-label="text().primaryFilter">
       <v-btn v-for="chosen in caseFilters" :key="chosen" :data-testid="`primary-filter-${chosen}`" :value="chosen" :aria-pressed="chosen === filter" @click="choose(chosen)">{{ label(chosen) }}</v-btn>
@@ -278,6 +284,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.no-cases > td { padding: 12px 16px; }
 .cannot-open { display: block; font-size: 0.8rem; opacity: 0.7; }
 .case-list :deep(.v-table__wrapper) { overflow: scroll; overflow-anchor: none; }
 .case-list :deep(table) { min-width: 900px; }

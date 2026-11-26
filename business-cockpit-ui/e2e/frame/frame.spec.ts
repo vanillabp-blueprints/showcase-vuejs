@@ -34,6 +34,9 @@ test('CUST-004 the page of a list has no scroll bar of its own at any window hei
       await page.waitForTimeout(300);
       const overflow = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
       expect(overflow, `${path} at ${height} px`).toBeLessThanOrEqual(0);
+      // the status line with the primary filters and the legend ends 16 px above the window's lower edge, in every list
+      const gap = await page.evaluate(() => window.innerHeight - document.querySelector('[data-testid="status-line"]')!.getBoundingClientRect().bottom);
+      expect(gap, `${path} at ${height} px, gap below the status line`).toBe(16);
     }
   }
 });

@@ -3,6 +3,8 @@ import type { GroupHierarchyOfUser } from '../generated/cockpit-gui-api';
 
 export type Kind = 'role' | 'right';
 export type RightsRow = { name: string; kind: Kind; givenBy: string; fromOrganisation: boolean };
+/** The id of the table of the groups the organisation gives when no module has a hierarchy; it has no module name. */
+export const organisationTable = 'organisation';
 export type RightsTable = { workflowModuleId: string; rows: RightsRow[] };
 
 const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -29,7 +31,13 @@ export function tablesOf(answer: GroupHierarchyOfUser): RightsTable[] {
       .sort((a, b) => Number(a.kind === 'right') - Number(b.kind === 'right') || byName(a.name, b.name) || byName(a.givenBy, b.givenBy));
     return { workflowModuleId: module.workflowModuleId, rows };
   });
-  return tables.filter((table) => table.rows.length > 0);
+  const withRows = tables.filter((table) => table.rows.length > 0);
+  // no module has a hierarchy, but the organisation gives groups: they are the roles of the user, in a table of their own (CUST-006)
+  if (withRows.length === 0 && fromOrganisation.size > 0) {
+    const rows = [...fromOrganisation].sort(byName).map((group): RightsRow => ({ name: group, kind: 'role', givenBy: '', fromOrganisation: true }));
+    return [{ workflowModuleId: organisationTable, rows }];
+  }
+  return withRows;
 }
 
 let asked: Promise<RightsTable[]> | undefined;

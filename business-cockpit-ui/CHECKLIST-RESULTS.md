@@ -2,7 +2,7 @@
 
 Reference 1.0.0, story S73. Suite result: final run of `sh plan/checks/S73.sh` after the last edit: 392 Playwright tests passed, `node --test e2e/*.test.mjs` 88 passed, 0 failed. (An earlier run had COL-016 fail once under load; it passed alone and in the final run.)
 
-Counts: 338 proven, 34 not fully proven (of these 1 has no test at all: CUST-002; LIVE-021 has a comment only), 33 not chosen. Total 405 items.
+Counts: 339 proven, 34 not fully proven (of these 1 has no test at all: CUST-002; LIVE-021 has a comment only), 33 not chosen. Total 406 items.
 
 How this was decided: an item is "proven" when a test names it in its title (Playwright title, node test title, or `@DisplayName` of a backend test) and no question of `plan/QUESTIONS.md` names a gap for it. Titles were matched by script against `npx playwright test --list`; the body of the tests was NOT reopened for every id in S73, and "seen red before green" was not re-checked for all of them (only where a question records it, e.g. ASK-035). The backend tests (`BE-*`, `PKG-004/005/024/036/037`) are Java tests run by the checks of their stories (S04 to S10, S15, S17, S64, S70); S73 did not rerun them (Maven, Docker and Testcontainers). S74 part 1: EXT-040 is proven by `e2e/conformance/kit-conformance.spec.ts` (kit 0.1.0-snapshot.6, commit 7caecd7, 19 checks of the kit's `cockpit.test.js` against the simulator; seen red with the modules not served and with wrong task pages, then green). S74 part 2 (see RUN-AGAINST-COCKPIT.md): EXT-058 and EXT-059 are proven against the real backend by `running-cockpit/running-cockpit.spec.ts` (needs `BC_BACKEND_URL`, skipped otherwise) and the Java test `WorkflowModuleProxyTest`; the modules were the kit's conformance modules, not the blueprint applications, which could not be built here (ASK-048). EXT-055 stays: the dialog step of the kit test passed against the backend, the toast was not tried there.
 
@@ -427,3 +427,4 @@ Also open and affecting no single id: ASK-002 (placeholders), ASK-011 to ASK-013
 |CUST-003|frame/frame.spec.ts:19|
 |CUST-004|frame/frame.spec.ts:27|
 |CUST-005|tasks/tasks.spec.ts:185|
+|CUST-006|frame/rights.spec.ts:26|
