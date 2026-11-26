@@ -24,6 +24,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * session at Keycloak, or the next request would log the user in again without a question.
  */
 @ExtendWith(SuppressOutputExtension.class)
+@SuppressOutputExtension.SuppressBackgroundOutput
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

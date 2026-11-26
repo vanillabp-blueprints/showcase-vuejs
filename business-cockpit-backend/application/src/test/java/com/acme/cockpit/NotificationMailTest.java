@@ -28,6 +28,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * their group. The mail arrives at a real Mailpit, the image of docker-compose.yaml.
  */
 @ExtendWith(SuppressOutputExtension.class)
+@SuppressOutputExtension.SuppressBackgroundOutput
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

@@ -37,6 +37,7 @@ import org.springframework.web.servlet.function.support.RouterFunctionMapping;
  * small HTTP server stands in for the nginx.
  */
 @ExtendWith(SuppressOutputExtension.class)
+@SuppressOutputExtension.SuppressBackgroundOutput
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

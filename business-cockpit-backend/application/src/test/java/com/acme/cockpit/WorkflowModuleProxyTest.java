@@ -38,6 +38,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * headers of the module. A small HTTP server stands in for the workflow module.
  */
 @ExtendWith(SuppressOutputExtension.class)
+@SuppressOutputExtension.SuppressBackgroundOutput
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

@@ -39,6 +39,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * redirects with an HTTP client that keeps cookies and sends the login form of Keycloak.
  */
 @ExtendWith(SuppressOutputExtension.class)
+@SuppressOutputExtension.SuppressBackgroundOutput
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

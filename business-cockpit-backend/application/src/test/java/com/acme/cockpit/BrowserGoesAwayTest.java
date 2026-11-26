@@ -30,6 +30,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  */
 @Testcontainers
 @ExtendWith(SuppressOutputExtension.class)
+@SuppressOutputExtension.SuppressBackgroundOutput
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {

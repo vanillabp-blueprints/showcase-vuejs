@@ -37,6 +37,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * answer itself to the dev server of the user interface. A small HTTP server stands in for it.
  */
 @ExtendWith(SuppressOutputExtension.class)
+@SuppressOutputExtension.SuppressBackgroundOutput
 @Testcontainers
 @ActiveProfiles("ui-dev-server")
 @SpringBootTest(

@@ -28,6 +28,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
  * the template user, who belongs to the group {@code template-group}.
  */
 @ExtendWith(SuppressOutputExtension.class)
+@SuppressOutputExtension.SuppressBackgroundOutput
 @Testcontainers
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
