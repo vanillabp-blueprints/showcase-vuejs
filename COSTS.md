@@ -91,6 +91,7 @@ Numbers come from the usage records in the session log (`~/.claude/projects/.../
 | S74 part 1 (EXT-040) | 28 min | 48 | 104 | 190,772 | 4,606,297 | 22,056 | $1.44 |
 | S74 part 2 (running cockpit, EXT-058) | 23 min | 87 | 174 | 146,618 | 10,209,938 | 48,612 | $2.09 |
 | Hand-over (guide to try it by hand, next steps) | 23 min | 73 | 146 | 136,816 | 8,347,780 | 39,701 | $1.78 |
+| **Total (all 79 rows above)** | 16 h 54 min (sum of the rows) | 2,799 | 5,728 | 8,217,594 | 264,949,992 | 1,845,753 | **$77.82** |
 
 ## Time of the implementation
 

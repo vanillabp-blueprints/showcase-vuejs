@@ -34,13 +34,18 @@
   </properties>
 
   <profiles>
-    <!-- A release takes the registry. -Dbc-types.local=<folder with ui-uri-types.json> skips the download. -->
+    <!-- Next to the user interface repository the build reads its types library. Without that
+         folder a release takes the registry. -Dbc-types.local=<folder with ui-uri-types.json>
+         names another folder and skips the download. -->
     <profile>
       <id>bc-types-from-the-registry</id>
       <activation>
         <property>
           <name>!bc-types.local</name>
         </property>
+        <file>
+          <missing>${basedir}/../../business-cockpit-ui/packages/bc-types/ui-uri-types.json</missing>
+        </file>
       </activation>
       <build>
         <plugins>
@@ -65,6 +70,17 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+    <profile>
+      <id>bc-types-sibling-repository</id>
+      <activation>
+        <file>
+          <exists>${basedir}/../../business-cockpit-ui/packages/bc-types/ui-uri-types.json</exists>
+        </file>
+      </activation>
+      <properties>
+        <ui-uri-types.json>${basedir}/../../business-cockpit-ui/packages/bc-types/ui-uri-types.json</ui-uri-types.json>
+      </properties>
     </profile>
     <profile>
       <id>bc-types-local</id>

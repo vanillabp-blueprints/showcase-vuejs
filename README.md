@@ -140,7 +140,7 @@ cd business-cockpit-backend
 mvn verify
 ```
 
-`mvn verify` alone stops in the module `types` (`NoSuchFileException ... ui-uri-types.json`): it downloads `@acme/bc-types` from the npm registry, where it does not exist. Name the built types library instead, after step 1:
+`mvn verify` reads `ui-uri-types.json` from `business-cockpit-ui/packages/bc-types` when that folder sits next to the backend. Without it the module `types` downloads `@acme/bc-types` from the npm registry, where it does not exist (`NoSuchFileException ... ui-uri-types.json`). Then name the folder yourself:
 
 ```sh
 mvn verify -Dbc-types.local=$PWD/../business-cockpit-ui/packages/bc-types
@@ -169,7 +169,7 @@ These values stand in for the organisation's real ones. Replace them before anyt
 | organisation `com.acme` (Maven group of the backend, the UI jar and the types jar) | `business-cockpit-backend/pom.xml`, `types/pom.xml`, `application/pom.xml`, its `README.md`; `business-cockpit-ui/jars/build-jars.mjs`, `jars/publish-jars.mjs`; the tests `e2e/ui-jar.test.mjs`, `e2e/publish-jars.test.mjs` |
 | Java package `com.acme.cockpit` (and `com.acme.cockpit.ui` for the types jar) | the folders below `business-cockpit-backend/application/src/main/java` and `src/test/java`; the types jar's package is set in `types/pom.xml` |
 | npm scope `@acme` (seven packages) | every `package.json` below `business-cockpit-ui/packages`, `e2e/*`, the root `package.json`, `package-lock.json`, `renovate.json`, `packages/bc-module-kit/bin/bc-check-entries.mjs`, and `business-cockpit-backend/types/pom.xml` (the download address of `@acme/bc-types`) |
-| `-Dbc-types.local=<folder of bc-types>` | `business-cockpit-backend/types/pom.xml`: until `@acme/bc-types` is in the npm registry, the build of the backend needs `mvn verify -Dbc-types.local=$PWD/../business-cockpit-ui/packages/bc-types` (see its README). `mvn verify` fails without it, see step 6 |
+| `-Dbc-types.local=<folder of bc-types>` | `business-cockpit-backend/types/pom.xml`: until `@acme/bc-types` is in the npm registry, the build of the backend needs `mvn verify -Dbc-types.local=$PWD/../business-cockpit-ui/packages/bc-types` (see its README). `mvn verify` finds the folder by itself when both repositories sit side by side, see step 6 |
 | cockpit `0.9.0-SNAPSHOT` instead of `1.0.0` | `business-cockpit-backend/pom.xml` (`business-cockpit.version`, and the snapshot repository below it), `business-cockpit-ui/scripts/fetch-openapi.mjs` (`COCKPIT_VERSION`) |
 | versions `0.1.0-SNAPSHOT` of the UI jar and the npm packages | `business-cockpit-ui/package.json` and the workspaces (`npm run set-version <version>`), `ui.version` in `business-cockpit-backend/pom.xml` |
 | secrets, passwords, users | `business-cockpit-backend/keycloak/realm.json`, `business-cockpit-backend/application/src/main/resources/config/application-local.yaml`: for a developer's machine only |
