@@ -47,6 +47,7 @@ const es: Messages = {
   primaryFilters: { OpenTasksWithoutFollowUp: 'Abiertas', OpenTasksWithFollowUp: 'Todas abiertas', ClosedTasksOnly: 'Cerradas' },
   caseFilters: { InProgress: 'En curso', Done: 'Finalizados' },
   legend: { new: 'Nuevo', changed: 'Modificado', removed: 'Eliminado', completed: 'Completada', cancelled: 'Cancelada', suspended: 'Suspendida' },
+  notificationSettings: { loading: 'Cargando …', notLoaded: 'No se pudieron cargar o guardar los ajustes de notificaciones.', kindOfCase: 'Tipo de caso', allCases: 'Todos los casos', none: 'Ninguna', follow: 'Como todos los casos', where: 'Dónde le alcanzan los canales', save: 'Guardar' },
   routes: { allTasks: '/tareas', myTasks: '/mis-tareas', cases: '/casos', notifications: '/notificaciones', task: '/tarea', case: '/caso' },
 };
 

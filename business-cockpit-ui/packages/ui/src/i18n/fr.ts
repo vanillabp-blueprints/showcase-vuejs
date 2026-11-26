@@ -47,6 +47,7 @@ const fr: Messages = {
   primaryFilters: { OpenTasksWithoutFollowUp: 'Ouvertes', OpenTasksWithFollowUp: 'Toutes ouvertes', ClosedTasksOnly: 'Terminées' },
   caseFilters: { InProgress: 'En cours', Done: 'Terminés' },
   legend: { new: 'Nouveau', changed: 'Modifié', removed: 'Supprimé', completed: 'Terminée', cancelled: 'Annulée', suspended: 'Suspendue' },
+  notificationSettings: { loading: 'Chargement …', notLoaded: 'Les réglages des notifications n’ont pas pu être chargés ou enregistrés.', kindOfCase: 'Type de dossier', allCases: 'Tous les dossiers', none: 'Aucune', follow: 'Comme tous les dossiers', where: 'Où les canaux vous joignent', save: 'Enregistrer' },
   routes: { allTasks: '/taches', myTasks: '/mes-taches', cases: '/dossiers', notifications: '/notifications', task: '/tache', case: '/dossier' },
 };
 

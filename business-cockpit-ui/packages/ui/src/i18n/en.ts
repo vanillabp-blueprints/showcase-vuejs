@@ -47,6 +47,7 @@ const en = {
   primaryFilters: { OpenTasksWithoutFollowUp: 'Open', OpenTasksWithFollowUp: 'All open', ClosedTasksOnly: 'Closed' },
   caseFilters: { InProgress: 'In progress', Done: 'Done' },
   legend: { new: 'New', changed: 'Changed', removed: 'Removed', completed: 'Completed', cancelled: 'Cancelled', suspended: 'Suspended' },
+  notificationSettings: { loading: 'Loading …', notLoaded: 'The notification settings could not be loaded or stored.', kindOfCase: 'Kind of case', allCases: 'All cases', none: 'None', follow: 'Follow all cases', where: 'Where the channels reach you', save: 'Save' },
   routes: { allTasks: '/tasks', myTasks: '/my-tasks', cases: '/workflows', notifications: '/notifications', task: '/tasks', case: '/workflows' },
 };
 

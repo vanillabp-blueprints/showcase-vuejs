@@ -88,6 +88,12 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let hierarchyFails = false;
   let hierarchyDelayMilliseconds = 0;
   let hierarchyRequests = 0;
+  // the notification settings of the cockpit: the channels, the kinds of case, what the user chose and where each channel reaches them
+  let notificationMedia: { type: string; name?: Record<string, string> }[] = [];
+  let notificationWorkflows: object[] = [];
+  let notificationConfig: object = {};
+  let recipientValues = new Map<string, string>();
+  let notificationRequests: { method: string; path: string; body?: unknown }[] = [];
   // the address a browser wanted before it was sent to the login, which the backend keeps
   let savedAddress: string | undefined;
 
@@ -225,6 +231,45 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       return send(res, 200);
     }
     if (path === '/simulator-api/group-hierarchy-requests') return send(res, 200, hierarchyRequests);
+
+    // The notification settings (NOTI-001 to NOTI-003). A mail address which is not one mailbox is answered with 400 and one line of text.
+    const notifications = /^\/gui\/api\/v1\/notifications\/(media|config|recipient-config|workflows)(?:\/([^/]+))?$/.exec(path);
+    if (notifications) {
+      if (!userOf(req)) return send(res, 401);
+      const [, kind, medium] = notifications;
+      const body = method === 'PUT' ? await readBody(req) : undefined;
+      notificationRequests.push({ method, path: path.slice(guiApiPath.length), body });
+      if (kind === 'media' && method === 'GET') return send(res, 200, notificationMedia);
+      if (kind === 'workflows' && method === 'GET') return send(res, 200, notificationWorkflows);
+      if (kind === 'config' && method === 'GET') return send(res, 200, notificationConfig);
+      if (kind === 'config' && method === 'PUT') {
+        notificationConfig = body ?? {};
+        return send(res, 200);
+      }
+      if (kind === 'recipient-config' && method === 'GET') {
+        return send(res, 200, notificationMedia.filter((one) => one.type === 'email').map((one) => ({
+          medium: one.type,
+          name: one.name,
+          values: [{ type: 'emailAddress', title: { en: 'Address for notifications', de: 'Adresse für Benachrichtigungen' }, description: { en: 'Where the mails go', de: 'Wohin die Mails gehen' }, value: recipientValues.get(`${one.type}:emailAddress`) }],
+        })));
+      }
+      if (kind === 'recipient-config' && method === 'PUT' && medium) {
+        const address = String((body ?? {}).emailAddress ?? '');
+        if (!/^[^\s@,;]+@[^\s@,;]+$/.test(address)) {
+          res.writeHead(400, { 'content-type': 'text/plain' });
+          return void res.end('This is not one mailbox.');
+        }
+        recipientValues.set(`${medium}:emailAddress`, address);
+        return send(res, 200);
+      }
+    }
+    if (path === '/simulator-api/notifications' && method === 'POST') {
+      const body = await readBody(req);
+      notificationMedia = (body.media ?? []) as typeof notificationMedia;
+      notificationWorkflows = (body.workflows ?? []) as object[];
+      return send(res, 200);
+    }
+    if (path === '/simulator-api/notification-requests') return send(res, 200, notificationRequests);
 
     // The settings of the user. The key holds letters, digits, - _ and : only, like the cockpit demands.
     const setting = new RegExp(`^${guiApiPath}/app/current-user/settings/([^/]+)$`).exec(path);
@@ -698,6 +743,11 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       settingsOfUsers = new Map();
       appLanguages = 'en,de,fr,es';
       settingRequests = [];
+      notificationMedia = [];
+      notificationWorkflows = [];
+      notificationConfig = {};
+      recipientValues = new Map();
+      notificationRequests = [];
       hierarchyAnswer = { givenByOrganisation: [], modules: [] };
       hierarchyFails = false;
       hierarchyDelayMilliseconds = 0;

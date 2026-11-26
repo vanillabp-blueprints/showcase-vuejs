@@ -263,3 +263,10 @@ Story: S63 (NAV-019, NAV-020, NAV-021, NAV-022, NAV-027, NAV-030)
 Date: 2026-11-26
 Default taken: the reference does not say in which table a group of the organisation has its row. A group the organisation gives has its row (Role, Organisation) in the table of each module with an entry for it, and in every table if no module has an entry for it. A table without a row is left out. A target is a row for each group of its entry; one the organisation also gives shows only as the row of the organisation. The overview is the name and the overview as one element for `mouseenter`/`mouseleave`; there is no keyboard or touch way to open it. The badge is the initials only until the pictures (NAV-023 to NAV-026, later story). Backend unchanged: `UserRightsApiController` is in the business-cockpit library, and the backend build was not run as it was not touched.
 Answer: open
+
+## ASK-039 Notification settings: screen layout and the mail paths
+
+Story: S64 (BE-016, TF-014, NOTI-001, NOTI-002, NOTI-003)
+Date: 2026-11-26
+Default taken: the screen is a table, channels as columns, first row "all cases", one row per process of `GET /notifications/workflows`, a "None" checkbox and a "Follow all cases" button per row. A change in a row writes an entry for every channel of that row; a row with an entry no longer follows later changes of the first row. Each change is stored at once with `PUT /notifications/config` (whole table, requests one after the other); the fields of a channel are stored with a Save button, a 400 text is shown at the first field of the channel. Not shown: `description` of the table or a tooltip per channel. The backend does not set `business-cockpit.notification.task-path`/`task-list-path` (the keys are not in the 0.9.0-SNAPSHOT sources checked), so the mail links `/task/<id>` for English; the UI answers it and replaces the address with `/tasks/<id>`. BE-016 was not changed in the backend (Q-MAIL was already configured); only the test was added. The mail goes to the address of the recipient configuration, else to the e-mail of the Keycloak user.
+Answer: open

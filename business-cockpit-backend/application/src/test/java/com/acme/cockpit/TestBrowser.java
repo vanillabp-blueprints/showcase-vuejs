@@ -60,6 +60,17 @@ final class TestBrowser {
         HttpResponse.BodyHandlers.ofString());
   }
 
+  /** A call of the user interface to the GUI API that stores something, like the notification settings. */
+  HttpResponse<String> putJson(final String path, final String body) throws Exception {
+    return client.send(
+        HttpRequest.newBuilder(URI.create(base() + path))
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .PUT(HttpRequest.BodyPublishers.ofString(body))
+            .build(),
+        HttpResponse.BodyHandlers.ofString());
+  }
+
   Optional<HttpCookie> cookie(final String name) {
     return cookies.getCookieStore().getCookies().stream()
         .filter(candidate -> candidate.getName().equals(name))

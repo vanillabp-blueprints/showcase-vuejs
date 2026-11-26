@@ -1,6 +1,6 @@
 import { languages, messagesOf, text, type Language } from './i18n/messages';
 
-export type Page = 'allTasks' | 'myTasks' | 'cases' | 'case' | 'task' | 'none';
+export type Page = 'allTasks' | 'myTasks' | 'cases' | 'notifications' | 'case' | 'task' | 'none';
 
 /** Every path of the interview works in every language, so the page is found in the paths of all languages. */
 export function pageOf(pathname: string): Page {
@@ -9,6 +9,7 @@ export function pageOf(pathname: string): Page {
     if (pathname === routes.allTasks) return 'allTasks';
     if (pathname === routes.myTasks) return 'myTasks';
     if (pathname === routes.cases) return 'cases';
+    if (pathname === routes.notifications) return 'notifications';
   }
   if (caseIdOf(pathname) !== undefined) return 'case';
   return taskIdOf(pathname) === undefined ? 'none' : 'task';
@@ -17,10 +18,13 @@ export function pageOf(pathname: string): Page {
 /** The address of the page of one task, in the language in use. */
 export const taskAddress = (id: string): string => `${text().routes.task}/${encodeURIComponent(id)}`;
 
+// the mail of the cockpit library links /task/<id> in every language but German, and the English path of this interface is /tasks/<id>
+const taskPrefixes = (): string[] => [...languages.map((code) => messagesOf(code).routes.task), '/task'];
+
 /** The id of the task whose page the address names, in the path of any language; `undefined` for another address. */
 export function taskIdOf(pathname: string): string | undefined {
-  for (const code of languages) {
-    const prefix = `${messagesOf(code).routes.task}/`;
+  for (const base of taskPrefixes()) {
+    const prefix = `${base}/`;
     if (pathname.startsWith(prefix) && pathname.length > prefix.length && !pathname.slice(prefix.length).includes('/')) {
       return decodeURIComponent(pathname.slice(prefix.length));
     }
@@ -55,6 +59,7 @@ export function pathInLanguage(pathname: string, to: Language): string {
       if (pathname.startsWith(`${routes[page]}/`)) return `${target[page]}${pathname.slice(routes[page].length)}`;
     }
   }
+  if (pathname.startsWith('/task/')) return `${target.task}${pathname.slice('/task'.length)}`;
   return pathname;
 }
 

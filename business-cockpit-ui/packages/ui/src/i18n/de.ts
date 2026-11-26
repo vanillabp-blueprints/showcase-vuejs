@@ -47,6 +47,7 @@ const de: Messages = {
   primaryFilters: { OpenTasksWithoutFollowUp: 'Offen', OpenTasksWithFollowUp: 'Alle offenen', ClosedTasksOnly: 'Erledigt' },
   caseFilters: { InProgress: 'In Bearbeitung', Done: 'Abgeschlossen' },
   legend: { new: 'Neu', changed: 'Geändert', removed: 'Entfernt', completed: 'Erledigt', cancelled: 'Abgebrochen', suspended: 'Ausgesetzt' },
+  notificationSettings: { loading: 'Lädt …', notLoaded: 'Die Einstellungen für Benachrichtigungen konnten nicht geladen oder gespeichert werden.', kindOfCase: 'Art des Vorgangs', allCases: 'Alle Vorgänge', none: 'Keine', follow: 'Wie alle Vorgänge', where: 'Wohin die Kanäle Sie erreichen', save: 'Speichern' },
   routes: { allTasks: '/aufgaben', myTasks: '/meine-aufgaben', cases: '/vorgaenge', notifications: '/benachrichtigungen', task: '/aufgabe', case: '/vorgang' },
 };
 
