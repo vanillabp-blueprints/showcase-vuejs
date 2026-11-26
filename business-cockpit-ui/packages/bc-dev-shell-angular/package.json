@@ -11,6 +11,10 @@
     "@acme/bc-module-kit": "0.1.0-SNAPSHOT",
     "@acme/bc-theme": "0.1.0-SNAPSHOT"
   },
+  "peerDependencies": {
+    "@angular/core": ">=20.0.0",
+    "@angular/platform-browser": ">=20.0.0"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json"
   }

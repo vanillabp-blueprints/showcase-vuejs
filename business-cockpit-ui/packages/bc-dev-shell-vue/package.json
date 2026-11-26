@@ -11,6 +11,9 @@
     "@acme/bc-module-kit": "0.1.0-SNAPSHOT",
     "@acme/bc-theme": "0.1.0-SNAPSHOT"
   },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json"
   }

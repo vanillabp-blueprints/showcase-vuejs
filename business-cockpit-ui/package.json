@@ -13,6 +13,7 @@
     "packages/bc-theme",
     "packages/ui",
     "packages/bc-dev-shell-*",
+    "e2e/dev-shell",
     "e2e/compare",
     "e2e/modules"
   ],

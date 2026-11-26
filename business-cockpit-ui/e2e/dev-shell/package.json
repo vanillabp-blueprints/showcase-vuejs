@@ -1,0 +1,17 @@
+{
+  "name": "@acme/e2e-dev-shell",
+  "version": "0.1.0-SNAPSHOT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@acme/bc-dev-shell-vue": "0.1.0-SNAPSHOT",
+    "@acme/bc-module-kit": "0.1.0-SNAPSHOT",
+    "vue": "3.5.46"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

@@ -14,6 +14,7 @@ const cookieName = 'bc';
 const idTokenCookieName = 'bc-id-token';
 const testModules = ['react-module', 'vue-module', 'angular-module'];
 const uiFolder = new URL('../../packages/ui/dist/', import.meta.url).pathname;
+const devShellFolder = new URL('../dev-shell/dist/', import.meta.url).pathname;
 const modulesFolder = new URL('../modules/', import.meta.url).pathname;
 
 type SimulatedModule = WorkflowModule & { accessibleToGroups: string[] };
@@ -198,7 +199,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
 
   const route = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const url = new URL(req.url ?? '/', 'http://simulator');
-    const path = url.pathname;
+    // The official GUI API below /official-api answers what the GUI API of the cockpit answers, from the same data.
+    const path = url.pathname.startsWith(`${officialGuiApiPath}/`) ? guiApiPath + url.pathname.slice(officialGuiApiPath.length) : url.pathname;
     const method = req.method ?? 'GET';
 
     if (path === `${guiApiPath}/app/info`) {
@@ -770,9 +772,19 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       }
     }
 
+    // The test application of the dev shell, built without a cockpit.
+    const devShellFile = /^\/dev-shell-app\/([A-Za-z0-9._-]+)$/.exec(path);
+    if (devShellFile && method === 'GET') {
+      const file = join(devShellFolder, devShellFile[1]!);
+      if (existsSync(file)) {
+        res.writeHead(200, { 'content-type': file.endsWith('.js') ? 'text/javascript' : 'text/html' });
+        return void res.end(readFileSync(file));
+      }
+    }
+
     // The built user interface: files below /assets/ stay open, index.html for every other path of
     // a page asks for a login first, before any deep link.
-    if (method === 'GET' && !/^\/(gui|official-api|bpms|dev-shell|simulator-api|simulator-idp|wm)\//.test(path)) {
+    if (method === 'GET' && !/^\/(gui|official-api|bpms|dev-shell|dev-shell-app|simulator-api|simulator-idp|wm)\//.test(path)) {
       if (!path.startsWith('/assets/') && protectPages && !userOf(req)) {
         savedAddress = path + url.search;
         return send(res, 302, undefined, { location: '/oauth2/authorization/keycloak' });
