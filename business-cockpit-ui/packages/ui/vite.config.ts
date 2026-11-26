@@ -19,12 +19,28 @@ const languageFilesComplete = (): Plugin => ({
   },
 });
 
+// The gateway of the backend, which the browser passes on its way to the dev server, rebuilds the
+// query of a request from its parsed parameters: ?vue&type=style&lang.css becomes
+// ?vue=&type=style&lang.css= . Vite then no longer sees a style request and answers with raw CSS,
+// which the browser refuses as a script. This puts the parameters without a value back. It runs
+// before the middlewares of Vite.
+const queryParametersWithoutValue = (): Plugin => ({
+  name: 'query-parameters-without-value',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use((request, _response, next) => {
+      request.url = request.url?.replace(/([?&][^=&]+)=(?=&|$)/g, '$1');
+      next();
+    });
+  },
+});
+
 // index.html is the shell. Every other file lies below /assets/, which the backend serves.
 // The dev server listens where the backend looks for it, serves the same base path as the
 // built bundle, and answers an unknown path with index.html (appType 'spa').
 export default defineConfig({
   base: '/',
-  plugins: [vue(), languageFilesComplete()],
+  plugins: [vue(), languageFilesComplete(), queryParametersWithoutValue()],
   build: { outDir: 'dist', assetsDir: 'assets' },
   appType: 'spa',
   server: {
