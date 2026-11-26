@@ -329,11 +329,14 @@ test('PKG-064 the root script dev starts the dev server of packages/ui', () => {
 
 test('PKG-064 the dev server listens on 127.0.0.1 at a fixed port, at the base path /', () => {
   const config = readFileSync(join(root, 'packages/ui/vite.config.ts'), 'utf8');
-  assert.match(config, /host: '127\.0\.0\.1'/);
+  // 0.0.0.0 only when BC_DEV_SERVER_PUBLIC_PORT says a container publishes the port
+  assert.match(config, /BC_DEV_SERVER_PUBLIC_PORT \? '0\.0\.0\.0' : '127\.0\.0\.1'/);
+  assert.match(config, /host: listenOn/);
   assert.match(config, /const devServerPort = 5173;/);
   assert.match(config, /port: devServerPort/);
   assert.match(config, /strictPort: true/);
-  assert.match(config, /clientPort: devServerPort/);
+  assert.match(config, /BC_DEV_SERVER_PUBLIC_PORT \?\? devServerPort/);
+  assert.match(config, /clientPort: browserPort/);
   assert.match(config, /base: '\/'/);
 });
 

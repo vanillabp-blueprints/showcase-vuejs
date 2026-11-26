@@ -11,7 +11,7 @@ const root = new URL('../packages/ui/', import.meta.url).pathname;
 const style = '/src/rights/RightsOverview.vue?vue&type=style&index=0&scoped=17b71019&lang.css';
 const styleAsTheGatewayForwardsIt = style.replace('vue&', 'vue=&').replace('lang.css', 'lang.css=');
 
-test('the dev server answers a style request with a script, also when the proxy added "=" to empty parameters', async () => {
+test('PKG-064 the dev server answers a style request with a script, also when the proxy added "=" to empty parameters', async () => {
   const server = await createServer({
     root,
     configFile: new URL('../packages/ui/vite.config.ts', import.meta.url).pathname,
