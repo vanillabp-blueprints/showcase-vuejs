@@ -33,6 +33,8 @@ import org.testcontainers.mongodb.MongoDBContainer;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
+        // no nginx here: the UI jar on the class path answers, see UserInterfaceBehindTest for the route
+        "user-interface.uri=false",
         "bpms-api.username=abc",
         "bpms-api.password={noop}123",
         "business-cockpit.application-uri=http://localhost",
@@ -94,8 +96,8 @@ class ApplicationStartTest {
   }
 
   @Test
-  @DisplayName("BE-031 without the profile ui-dev-server the backend has no route to a dev server")
-  void BE_031_without_the_profile_ui_dev_server_the_backend_has_no_route_to_a_dev_server() {
+  @DisplayName("BE-031 without an address of a user interface the backend has no route to it")
+  void BE_031_without_an_address_the_backend_has_no_route_to_a_user_interface() {
     assertThat(context.containsBean("userInterfaceRoute")).isFalse();
   }
 

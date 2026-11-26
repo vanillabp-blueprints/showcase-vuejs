@@ -23,7 +23,8 @@
     "dev": "npm run dev --workspace packages/ui",
     "fetch:openapi": "node scripts/fetch-openapi.mjs",
     "test": "node --test e2e/*.test.mjs && playwright test",
-    "set-version": "node scripts/set-version.mjs"
+    "set-version": "node scripts/set-version.mjs",
+    "publish:jars": "node jars/publish-jars.mjs"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.99.0",

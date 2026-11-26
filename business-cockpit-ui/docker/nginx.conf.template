@@ -1,0 +1,16 @@
+# Behind the backend: the browser talks to the backend only, and the backend passes every path it
+# does not know to this server. So it serves files and forwards nothing.
+server {
+  listen 80;
+  root /usr/share/nginx/html;
+
+  # index.html names the bundle files, so a browser must ask for it again every time.
+  location = /index.html {
+    add_header Cache-Control "no-cache";
+  }
+
+  # A path that is no file is a route of the single-page application.
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+}

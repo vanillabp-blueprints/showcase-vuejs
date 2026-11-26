@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "updateInternalDeps": false,
+  "ignoreDeps": ["@acme/bc-types", "@acme/bc-module-kit", "@acme/bc-module-host", "@acme/bc-theme", "@acme/bc-dev-shell-vue", "@acme/bc-dev-shell-react", "@acme/bc-dev-shell-angular"],
+  "packageRules": [
+    {
+      "matchPackageNames": ["vue", "vue-tsc", "@vitejs/plugin-vue", "@vue/*"],
+      "groupName": "vue"
+    },
+    {
+      "matchPackageNames": ["vuetify", "vite-plugin-vuetify", "@mdi/font"],
+      "groupName": "vuetify"
+    },
+    {
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"],
+      "groupName": "react"
+    },
+    {
+      "matchPackageNames": ["@angular/*", "@angular-devkit/*", "zone.js"],
+      "groupName": "angular"
+    }
+  ]
+}

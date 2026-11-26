@@ -33,6 +33,8 @@ import org.testcontainers.mongodb.MongoDBContainer;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
+        // no nginx here: the UI jar on the class path answers, see UserInterfaceBehindTest for the route
+        "user-interface.uri=false",
         "bpms-api.username=abc",
         "bpms-api.password={noop}123",
         "business-cockpit.application-uri=http://localhost",

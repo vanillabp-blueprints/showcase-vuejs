@@ -1,3 +1,6 @@
+# The nginx image of the user interface. The backend passes every path it does not answer itself to it.
+user-interface:
+  uri: ${USER_INTERFACE_URI:http://user-interface:80}
 mongodb:
   write-concern: majority
   write-concern-journal: true
