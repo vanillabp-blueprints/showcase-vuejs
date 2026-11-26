@@ -17,6 +17,7 @@ import io.vanillabp.cockpit.support.security.jwt.JwtUserDetailsProvider;
 import io.vanillabp.cockpit.support.security.jwt.PassiveJwtSecurityFilter;
 import io.vanillabp.cockpit.support.security.usercontext.UserDetailsProvider;
 import jakarta.servlet.DispatcherType;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -57,7 +58,9 @@ public class GuiSecurityConfiguration {
       final HttpSecurity http,
       final JwtSecurityContextRepository jwtSecurityContextRepository,
       final JwtMapper<? extends JwtAuthenticationToken> jwtMapper,
-      final ClientRegistrationRepository clientRegistrationRepository) throws Exception {
+      final ClientRegistrationRepository clientRegistrationRepository,
+      @Value("${KEYCLOAK_URL}") final String keycloakUrl,
+      @Value("${keycloak-browser-url:}") final String keycloakBrowserUrl) throws Exception {
 
     // Spring Authorization Server asks every client for PKCE, although the client has a secret
     final var authorizationRequests = new DefaultOAuth2AuthorizationRequestResolver(
@@ -104,7 +107,8 @@ public class GuiSecurityConfiguration {
             }))
         .logout(logout -> logout
             .logoutUrl("/logout")
-            .logoutSuccessHandler(new LogoutAtTheProvider(properties.getJwt(), clientRegistrationRepository)))
+            .logoutSuccessHandler(new LogoutAtTheProvider(
+                properties.getJwt(), clientRegistrationRepository, keycloakUrl, keycloakBrowserUrl)))
         .addFilterAfter(new PassiveJwtSecurityFilter(properties.getJwt(), jwtMapper),
             BasicAuthenticationFilter.class)
         .addFilterAfter(new JwtRenewalFilter(properties.getJwt(), jwtMapper, updatesRequestMatcher),

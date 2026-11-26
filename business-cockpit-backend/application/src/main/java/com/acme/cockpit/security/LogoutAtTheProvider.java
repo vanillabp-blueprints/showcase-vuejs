@@ -28,10 +28,23 @@ class LogoutAtTheProvider implements LogoutSuccessHandler {
 
   private final ClientRegistrationRepository clientRegistrations;
 
+  /** Where the application reaches Keycloak. */
+  private final String keycloakUrl;
+
+  /**
+   * Where the browser reaches Keycloak when that differs, for example behind a port mapping of a
+   * dev container. Empty when it is the same.
+   */
+  private final String keycloakBrowserUrl;
+
   LogoutAtTheProvider(final JwtProperties jwtProperties,
-      final ClientRegistrationRepository clientRegistrations) {
+      final ClientRegistrationRepository clientRegistrations,
+      final String keycloakUrl,
+      final String keycloakBrowserUrl) {
     this.jwtProperties = jwtProperties;
     this.clientRegistrations = clientRegistrations;
+    this.keycloakUrl = keycloakUrl;
+    this.keycloakBrowserUrl = keycloakBrowserUrl;
   }
 
   @Override
@@ -52,12 +65,20 @@ class LogoutAtTheProvider implements LogoutSuccessHandler {
       response.sendRedirect(startPage);
       return;
     }
-    response.sendRedirect(UriComponentsBuilder.fromUriString(endOfSession.toString())
+    response.sendRedirect(UriComponentsBuilder.fromUriString(forTheBrowser(endOfSession.toString()))
         .queryParamIfPresent("id_token_hint", Optional.ofNullable(idToken).map(Cookie::getValue))
         .queryParam("client_id", provider.getClientId())
         .queryParam("post_logout_redirect_uri", startPage)
         .encode()
         .toUriString());
+  }
+
+  /** The discovery document names Keycloak as the application reaches it, not as the browser does. */
+  private String forTheBrowser(final String address) {
+    if (keycloakBrowserUrl.isBlank() || !address.startsWith(keycloakUrl)) {
+      return address;
+    }
+    return keycloakBrowserUrl + address.substring(keycloakUrl.length());
   }
 
 }
