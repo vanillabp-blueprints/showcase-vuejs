@@ -15,6 +15,15 @@ export const areaNames = {
 /** The parts which have the buttons that call the functions of the cockpit. */
 export const hasButtons = (name) => ['task', 'case', 'talkBody', 'talkActions'].includes(name);
 
+const column = (path, title, type = 'value') => ({ path, title: { en: title, de: `${title} (de)` }, type, priority: 10, width: '', show: true, sortable: false, filterable: false, resizeable: false });
+
+/** The pages only the dev shell shows (DS-025); `?duplicate` and `?badid` in the address make the lists the dev shell must refuse. */
+export const devShellPages = (component) => [
+  { id: 'reset-data', title: { en: 'Reset data', de: 'Daten zuruecksetzen' }, component },
+  ...(location.search.includes('duplicate') ? [{ id: 'reset-data', title: { en: 'Again' }, component }] : []),
+  ...(location.search.includes('badid') ? [{ id: 'Bad Id', title: { en: 'Bad' }, component }] : []),
+];
+
 export const moduleOptions = {
   guiApiBase: '/official-api/gui/api/v1',
   workflowModuleId: 'dev-module',
@@ -28,6 +37,11 @@ export const moduleOptions = {
     if (task?.bpmnProcessId === 'missing') return { element: names.userTask('missing', 'check', 'page'), entry: 'Form' };
     return { element: areaNames.task, entry: 'Form' };
   },
+  // the columns of the lists (DS-026): a path with a value, a path without one, a date and no columns for another kind of task
+  userTaskListColumns: (task) => task?.bpmnProcessId === 'ride'
+    ? [column('businessId', 'Business id'), column('details.risk', 'Risk'), column('details.typo', 'Typo'), column('createdAt', 'Created', 'date-time')]
+    : undefined,
+  workflowListColumns: () => [column('workflowTitle', 'Case title', 'i18n'), column('details.nothing', 'Nothing')],
   workflowPage: () => ({ element: areaNames.case, entry: 'Page' }),
   // the header function is asked with the user chosen: ben gets no button
   header: (currentUser) => currentUser?.id === 'ben' ? undefined : [{ element: areaNames.header, entry: 'Header' }],

@@ -23,6 +23,7 @@ export function createDevShellSettings() {
   };
 }
 const LANGUAGE_SETTING = 'bc:language';
+const MODULE_SETTING = 'bc:workflow-module';
 
 /** What every part gets besides its data: the user chosen and the language chosen. */
 export interface DevShellContext { user: string; language: string; currentUser?: { id: string } }
@@ -36,6 +37,23 @@ export interface DevShellRenderer<Component> {
   draw(target: HTMLElement, component: Component, props: Record<string, unknown>): { update(props: Record<string, unknown>): void; stop(): void };
 }
 
+/** A page only the dev shell shows (dev-shell.md, "Pages of the dev shell"): a short id, a title per language, a framework component. */
+export interface DevShellPage<Component> { id: string; title: Record<string, string>; component: Component }
+/** The columns a module returns for one row of a list (types.md, Column), as far as the dev shell shows them. */
+export interface DevShellColumn { title: Partial<Record<string, string>>; path: string; type?: 'value' | 'i18n' | 'person' | 'date' | 'date-time' | 'time' }
+export type DevShellColumnsFunction = (row: any) => DevShellColumn[] | undefined;
+
+/** Why a list of dev shell pages is refused, or undefined if it is fine: an id twice, or an id which is not a short name. */
+export function devShellPagesNote(pages: DevShellPage<unknown>[]): string | undefined {
+  const seen = new Set<string>();
+  for (const { id } of pages) {
+    if (!/^[a-z0-9-]+$/.test(id)) return `devShellPages: the id "${id}" is not a short name, it may hold only lower case letters, digits and "-".`;
+    if (seen.has(id)) return `devShellPages: the id "${id}" is there twice, every page needs an id of its own.`;
+    seen.add(id);
+  }
+  return undefined;
+}
+
 export interface DevShellCoreOptions<Component> {
   /** The address of the GUI API, the one the simulator of the dev shell maps to the cockpit paths. */
   guiApiBase: string;
@@ -44,6 +62,11 @@ export interface DevShellCoreOptions<Component> {
   workflowPage?: (workflow: any, area: string) => BcElementDescriptor | undefined;
   /** The extension point `Header`: asked with the user chosen, answers the buttons of the header. */
   header?: (currentUser: { id: string }) => BcElementDescriptor[] | undefined;
+  /** Pages only the dev shell shows, at `#/dev-shell-pages/<id>`; drawn by the dev shell itself, not in a host element. */
+  devShellPages?: DevShellPage<Component>[];
+  /** The data entries `UserTaskList` and `WorkflowList`: the columns of a row, shown at `#/columns`. */
+  userTaskListColumns?: DevShellColumnsFunction;
+  workflowListColumns?: DevShellColumnsFunction;
   /** The components by web component name, imported from their source files. */
   components: Record<string, Component>;
   /** The text of the style the module's web components write into their shadow roots. */
@@ -82,8 +105,14 @@ export function createDevShellApi(guiApiBase: string) {
       (await call<{ userTasks: Record<string, unknown>[] }>(`${guiApiBase}/workflow/${encodeURIComponent(workflowId)}/usertasks`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'All' }),
       })).userTasks,
+    /** The workflow modules the chosen user sees (GET /workflow-module lists them by the groups of the user). */
+    modules: async (): Promise<string[]> => (await call<{ modules?: { id: string }[] }>(`${guiApiBase}/workflow-module`)).modules?.map((one) => one.id) ?? [],
     users: () => call<DevShellUser[]>('/dev-shell/user/all'),
-    chosenUser: async () => (await (await fetch('/dev-shell/user/')).text()) || '---',
+    // the simulator answers the id as a JSON string, another one may answer it as plain text
+    chosenUser: async () => {
+      const answer = (await (await fetch('/dev-shell/user/')).text()).trim();
+      return (answer.startsWith('"') ? (JSON.parse(answer) as string) : answer) || '---';
+    },
     chooseUser: async (id: string) => { await fetch(`/dev-shell/user/${encodeURIComponent(id)}`, { method: 'POST' }); },
   };
 }
@@ -203,6 +232,10 @@ html { overflow-x: hidden; overflow-y: auto; }
 .bc-note { margin: 16px; }
 .bc-start { margin: 16px; }
 .bc-start a { display: block; padding: 2px 0; }
+.bc-columns { margin: 16px; }
+.bc-columns table { border-collapse: collapse; margin-bottom: 16px; }
+.bc-columns th, .bc-columns td { border: 1px solid rgba(128, 128, 128, 0.4); padding: 4px 8px; text-align: left; }
+.bc-columns td[data-empty='true'] { font-style: italic; opacity: 0.6; background: rgba(255, 160, 0, 0.15); }
 `;
 
 /** The areas of the task page and of the case page of the cockpit (Q-TASK-PAGE-AREAS, Q-WORKFLOW-PAGE-AREAS). */
@@ -250,20 +283,83 @@ export async function drawDevShellPart<Component>(
 }
 
 type Kind = 'tasks' | 'workflows';
-type Route = { kind: Kind; id: string } | { kind: 'header' } | undefined;
+type Route = { kind: Kind; id: string } | { kind: 'header' } | { kind: 'columns' } | { kind: 'page'; id: string } | undefined;
+const partRoute = (route: Route): { kind: Kind; id: string } | undefined => route && (route.kind === 'tasks' || route.kind === 'workflows') ? route : undefined;
 const routeOf = (): Route => {
   const hash = window.location.hash;
   if (hash === '#/header') return { kind: 'header' };
+  if (hash === '#/columns') return { kind: 'columns' };
+  const devPage = /^#\/dev-shell-pages\/(.+)$/.exec(hash);
+  if (devPage) return { kind: 'page', id: devPage[1]! };
   const found = /^#\/(tasks|workflows)\/(.+)$/.exec(hash);
   return found ? { kind: found[1] as Kind, id: found[2]! } : undefined;
 };
 
+const NO_VALUE = '(no value)';
+
+/** What a cell shows for the value at the path of a column, drawn by the type of the column as the cockpit does; undefined: no value. */
+export function devShellCellText(value: unknown, column: DevShellColumn, language: string): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const moment = typeof value === 'string' ? new Date(value) : undefined;
+  if (column.type === 'i18n') { const texts = value as Record<string, string>; return texts[language] ?? texts.en ?? Object.values(texts)[0] ?? ''; }
+  if (column.type === 'person') { const person = value as { id?: string; displayShort?: string; email?: string }; return person.displayShort ?? person.email ?? person.id ?? ''; }
+  if (column.type === 'date' && moment) return new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(new Date(`${(value as string).slice(0, 10)}T12:00:00`));
+  if (column.type === 'date-time' && moment) return new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'medium' }).format(moment);
+  if (column.type === 'time' && typeof value === 'string') { const [hours = 0, minutes = 0] = value.split(':').map(Number); return new Intl.DateTimeFormat(language, { timeStyle: 'short' }).format(new Date(2000, 0, 1, hours, minutes)); }
+  if (typeof value === 'object') return '(an object: the column needs a type)';
+  if (typeof value === 'number') return new Intl.NumberFormat(language).format(value);
+  return String(value);
+}
+
+const valueAt = (row: unknown, path: string): unknown =>
+  path.split('.').reduce<unknown>((value, key) => (value !== null && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined), row);
+
+/** One table of the page /columns: a row per entry, a column per column the module returned (merged by path, in order of appearance). */
+export function drawDevShellColumnsTable(
+  title: string, testid: string, rows: DevShellEntry[], columnsOf: DevShellColumnsFunction | undefined, language: string, missing: string,
+): HTMLElement {
+  const section = document.createElement('section');
+  section.append(Object.assign(document.createElement('h2'), { textContent: title }));
+  if (!columnsOf) return (section.append(Object.assign(document.createElement('p'), { textContent: missing })), section);
+  const answers = rows.map((row) => ({ row, columns: columnsOf(row) }));
+  const merged = new Map<string, DevShellColumn>();
+  for (const { columns } of answers) for (const column of columns ?? []) if (!merged.has(column.path)) merged.set(column.path, column);
+  const table = Object.assign(document.createElement('table'), {});
+  table.dataset.testid = testid;
+  const cell = (tag: 'th' | 'td', text: string) => Object.assign(document.createElement(tag), { textContent: text });
+  const head = table.createTHead().insertRow();
+  head.append(cell('th', ''));
+  for (const column of merged.values()) head.append(cell('th', `${column.title[language] ?? Object.values(column.title)[0] ?? column.path} (${column.path})`));
+  const body = table.createTBody();
+  for (const { row, columns } of answers) {
+    const line = body.insertRow();
+    line.append(cell('th', row.title?.[language] ?? row.title?.en ?? row.id));
+    if (!columns) { line.append(Object.assign(cell('td', 'the module has no columns for this entry'), { colSpan: Math.max(merged.size, 1) })); continue; }
+    for (const [path, column] of merged) {
+      const own = columns.find((one) => one.path === path);
+      const shown = own ? devShellCellText(valueAt(row, path), own, language) : '';
+      const td = cell('td', shown ?? NO_VALUE);
+      if (own && shown === undefined) td.dataset.empty = 'true';
+      line.append(td);
+    }
+  }
+  section.append(table);
+  return section;
+}
+
 /**
  * The page of the dev shell for the frameworks which draw into an element they are given: the bar with the choice of kind, entry
  * and user, a note, the start page and the stage with the parts. The routes are `#/` (start page), `#/tasks/<id>`,
- * `#/workflows/<id>` and `#/header`.
+ * `#/workflows/<id>`, `#/header`, `#/columns` and `#/dev-shell-pages/<id>`.
  */
 export function startDevShell<Component>(target: HTMLElement, options: DevShellCoreOptions<Component>, renderer: DevShellRenderer<Component>): void {
+  const refused = devShellPagesNote(options.devShellPages ?? []);
+  if (refused) {
+    target.append(Object.assign(document.createElement('p'), { textContent: `The dev shell is stopped. ${refused}` }));
+    target.lastElementChild!.setAttribute('data-testid', 'dev-shell-stopped');
+    target.lastElementChild!.setAttribute('role', 'alert');
+    return;
+  }
   const api = createDevShellApi(options.guiApiBase);
   const settings = createDevShellSettings();
   document.head.append(Object.assign(document.createElement('style'), { textContent: DEV_SHELL_LAYOUT_CSS }));
@@ -278,6 +374,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
   const note = element('p', 'shell-note', { className: 'bc-note', hidden: true });
   note.setAttribute('role', 'alert');
   const start = element('div', 'start-page', { className: 'bc-start', hidden: true });
+  const columnsPage = element('div', 'columns-page', { className: 'bc-columns', hidden: true });
   const stage = element('div', 'shell-stage', { className: 'bc-stage' });
   const container = stage.appendChild(Object.assign(document.createElement('div'), { className: 'bc-container' }));
   bar.append(element('a', 'start-link', { href: '#/', textContent: 'Start page' }));
@@ -295,7 +392,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
   const kinds: [string, string][] = [['tasks', 'User tasks'], ['workflows', 'Cases']];
   fill(kindSelect, kinds, 'tasks');
   bar.append(header);
-  page.append(bar, note, start, stage);
+  page.append(bar, note, start, columnsPage, stage);
   const main = Object.assign(document.createElement('main'), { className: 'bc-main' });
   const wrap = Object.assign(document.createElement('div'), { className: 'bc-wrap' });
   const application = Object.assign(document.createElement('div'), { className: 'bc-app' });
@@ -309,6 +406,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
   let language = settings.read<string>(LANGUAGE_SETTING) ?? DEV_SHELL_DEFAULT_LANGUAGE;
   const contextOf = (): DevShellContext => ({ user, language, ...(user === '---' ? {} : { currentUser: { id: user } }) });
   let shown = 0;
+  let pageHandle: ReturnType<DevShellRenderer<Component>['draw']> | undefined;
   const go = (to: Kind, id: string) => { window.location.hash = `#/${to}/${id}`; };
   const labelOf = (entry: DevShellEntry) => entry.title?.[language] ?? entry.title?.en ?? entry.id;
   const block = (kind: Kind, number = 0, search = '') => kind === 'tasks' ? api.userTasks(number, search) : api.workflows(number, search);
@@ -340,14 +438,23 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
     return item;
   };
   async function drawStart(): Promise<void> {
-    const [tasks, cases] = await Promise.all([block('tasks'), block('workflows')]);
+    const [tasks, cases, visibleModules] = await Promise.all([block('tasks'), block('workflows'), api.modules()]);
+    const chosenModule = settings.read<string>(MODULE_SETTING);
+    const moduleChoice = element('select', 'module-select') as HTMLSelectElement;
+    fill(moduleChoice, visibleModules.map((id) => [id, id]), visibleModules.includes(chosenModule ?? '') ? chosenModule! : visibleModules.includes(options.workflowModuleId) ? options.workflowModuleId : visibleModules[0] ?? '');
+    moduleChoice.addEventListener('change', () => settings.write(MODULE_SETTING, moduleChoice.value));
     start.replaceChildren(
+      Object.assign(document.createElement('h2'), { textContent: 'Workflow module' }),
+      visibleModules.length ? moduleChoice : element('p', 'start-no-modules', { textContent: 'The chosen user sees no workflow module.' }),
       Object.assign(document.createElement('h2'), { textContent: 'User tasks' }),
       ...tasks.entries.map((entry) => link(`start-task-${entry.id}`, `#/tasks/${entry.id}`, labelOf(entry))),
       Object.assign(document.createElement('h2'), { textContent: 'Cases' }),
       ...cases.entries.map((entry) => link(`start-workflow-${entry.id}`, `#/workflows/${entry.id}`, labelOf(entry))),
       Object.assign(document.createElement('h2'), { textContent: 'Extension points' }),
       ...(options.header ? [link('start-extension-header', '#/header', 'Header')] : []),
+      Object.assign(document.createElement('h2'), { textContent: 'Pages' }),
+      link('start-columns', '#/columns', 'Columns of the lists'),
+      ...(options.devShellPages ?? []).map((one) => link(`start-dev-page-${one.id}`, `#/dev-shell-pages/${one.id}`, one.title[language] ?? Object.values(one.title)[0] ?? one.id)),
     );
   }
 
@@ -357,13 +464,31 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
     say(undefined);
     const route = routeOf();
     start.hidden = Boolean(route);
-    stage.hidden = !route;
+    columnsPage.hidden = route?.kind !== 'columns';
+    stage.hidden = !route || route.kind === 'columns';
     container.replaceChildren();
+    pageHandle?.stop();
+    pageHandle = undefined;
     const headerNote = drawDevShellHeader(header, options, renderer, contextOf());
     try {
       if (!route) {
         start.replaceChildren();
         await drawStart();
+        return;
+      }
+      if (route.kind === 'columns') {
+        const [tasks, cases] = await Promise.all([block('tasks'), block('workflows')]);
+        if (turn !== shown) return;
+        columnsPage.replaceChildren(
+          drawDevShellColumnsTable('User tasks', 'columns-usertasks', tasks.entries, options.userTaskListColumns, language, 'The module names no UserTaskList entry, so it has no columns for user tasks.'),
+          drawDevShellColumnsTable('Cases', 'columns-workflows', cases.entries, options.workflowListColumns, language, 'The module names no WorkflowList entry, so it has no columns for cases.'),
+        );
+        return;
+      }
+      if (route.kind === 'page') {
+        const found = options.devShellPages?.find((one) => one.id === route.id);
+        if (!found) return say(`The dev shell has no page ${route.id}.`);
+        pageHandle = renderer.draw(container, found.component, { ...contextOf() });
         return;
       }
       if (route.kind === 'header') {
@@ -387,12 +512,11 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
     }
   }
 
-  const currentKind = (): Kind => { const route = routeOf(); return route && route.kind !== 'header' ? route.kind : (kindSelect.value as Kind); };
+  const currentKind = (): Kind => partRoute(routeOf())?.kind ?? (kindSelect.value as Kind);
   entrySelect.addEventListener('change', () => go(currentKind(), entrySelect.value));
   moreButton.addEventListener('click', async () => {
     await loadEntries(currentKind(), false);
-    const route = routeOf();
-    showEntries(route && route.kind !== 'header' ? route.id : '');
+    showEntries(partRoute(routeOf())?.id ?? '');
   });
   let typing: ReturnType<typeof setTimeout> | undefined;
   searchInput.addEventListener('input', () => {
@@ -401,8 +525,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
       if (searchInput.value === search) return;
       search = searchInput.value;
       await loadEntries(currentKind(), true).catch(() => undefined);
-      const route = routeOf();
-      showEntries(route && route.kind !== 'header' ? route.id : '');
+      showEntries(partRoute(routeOf())?.id ?? '');
     }, 250);
   });
   kindSelect.addEventListener('change', async () => {
@@ -420,6 +543,9 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
     settings.write(LANGUAGE_SETTING, language);
     setDevShellContext(container, { language });
     setDevShellContext(header, { language });
+    pageHandle?.update({ ...contextOf() });
+    if (!routeOf()) void drawStart().catch(() => undefined);
+    if (routeOf()?.kind === 'columns') void load();
   });
   window.addEventListener('hashchange', () => void load());
   void (async () => {

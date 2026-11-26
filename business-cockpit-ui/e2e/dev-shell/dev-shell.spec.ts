@@ -357,6 +357,86 @@ test(`DS-023 [${framework}] the dev shell keeps its settings in memory only: not
   await expect(page.getByTestId('language-select')).toHaveValue('en');
 });
 
+
+test(`DS-024 [${framework}] the start page lists only the workflow modules the chosen user sees, and again after a change of the user`, async ({ page }) => {
+  await seed(page);
+  await page.request.post('/bpms/api/v1_1/workflow-module/dev-module', { data: { uri: '/a' } });
+  await page.request.post('/bpms/api/v1_1/workflow-module/sales-module', { data: { uri: '/b', accessibleToGroups: ['sales'] } });
+  await page.request.post('/bpms/api/v1_1/workflow-module/support-module', { data: { uri: '/c', accessibleToGroups: ['support'] } });
+  const moduleRequests: string[] = [];
+  page.on('request', (request) => { if (new URL(request.url()).pathname === '/official-api/gui/api/v1/workflow-module') moduleRequests.push(request.method()); });
+  await page.goto(shell);
+  const modules = () => page.getByTestId('module-select').locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+  await expect.poll(modules).toEqual(['dev-module', 'sales-module']);
+  expect(moduleRequests).toEqual(['GET']);
+  await page.getByTestId('user-select').selectOption('ben');
+  await expect.poll(modules).toEqual(['dev-module', 'support-module']);
+  expect(moduleRequests).toEqual(['GET', 'GET']);
+  // a user who sees no module is told so, instead of an empty list
+  await page.request.post('/simulator-api/reset');
+  await page.request.post('/bpms/api/v1_1/workflow-module/sales-module', { data: { uri: '/b', accessibleToGroups: ['sales'] } });
+  await page.getByTestId('user-select').selectOption('anna');
+  await expect.poll(modules).toEqual(['sales-module']);
+  await page.getByTestId('user-select').selectOption('ben');
+  await expect(page.getByTestId('start-no-modules')).toBeVisible();
+  await expect(page.getByTestId('module-select')).toHaveCount(0);
+});
+
+test(`DS-025 [${framework}] devShellPages are listed with their title in the chosen language and drawn with the user and the language`, async ({ page }) => {
+  await seed(page);
+  await page.goto(shell);
+  const entry = page.getByTestId('start-dev-page-reset-data');
+  await expect(entry).toHaveText('Reset data');
+  await expect(entry).toHaveAttribute('href', '#/dev-shell-pages/reset-data');
+  await page.getByTestId('language-select').selectOption('de');
+  await expect(entry).toHaveText('Daten zuruecksetzen');
+  await entry.click();
+  await expect(page).toHaveURL(/#\/dev-shell-pages\/reset-data$/);
+  await expect(page.getByTestId('dev-page')).toHaveText('page: anna de');
+  // drawn by the dev shell itself, not inside a host element with a shadow root
+  expect(await page.getByTestId('dev-page').evaluate((element) => element.getRootNode() instanceof ShadowRoot)).toBe(false);
+  await page.getByTestId('user-select').selectOption('ben');
+  await expect(page.getByTestId('dev-page')).toHaveText('page: ben de');
+  await page.getByTestId('language-select').selectOption('en');
+  await expect(page.getByTestId('dev-page')).toHaveText('page: ben en');
+  // an id twice or not a short name stops the dev shell with a note naming it
+  for (const [query, id] of [['duplicate', 'reset-data'], ['badid', 'Bad Id']]) {
+    await page.goto(`${shell}?${query}`);
+    await expect(page.getByTestId('dev-shell-stopped')).toContainText(id);
+    await expect(page.getByTestId('start-page')).toHaveCount(0);
+    await expect(page.getByTestId('user-select')).toHaveCount(0);
+  }
+});
+
+test(`DS-026 [${framework}] the page /columns shows the columns the module returns for the user tasks and cases, and marks a path without a value`, async ({ page }) => {
+  await seed(page);
+  await page.request.post('/simulator-api/user-tasks', { data: { userTasks: [{ ...task('t1', 'ride', 'Assess risk'), details: { risk: 'high' } }, task('t2', 'areas', 'Second task')] } });
+  await page.goto(shell);
+  await page.getByTestId('start-columns').click();
+  await expect(page).toHaveURL(/#\/columns$/);
+  const tasks = page.getByTestId('columns-usertasks');
+  const headers = () => tasks.locator('thead th').evaluateAll((cells) => cells.map((cell) => cell.textContent));
+  await expect.poll(headers).toEqual(['', 'Business id (businessId)', 'Risk (details.risk)', 'Typo (details.typo)', 'Created (createdAt)']);
+  const row = tasks.locator('tr', { hasText: 'Assess risk' });
+  await expect(row.locator('td').nth(0)).toHaveText('B-t1');
+  await expect(row.locator('td').nth(1)).toHaveText('high');
+  // a path which finds no value shows an empty cell, marked as such
+  await expect(row.locator('td').nth(2)).toHaveAttribute('data-empty', 'true');
+  await expect(row.locator('td').nth(1)).not.toHaveAttribute('data-empty', 'true');
+  // the date is drawn by its type, not as the ISO text
+  expect(await row.locator('td').nth(3).textContent()).not.toContain('2026-11-20T');
+  await expect(row.locator('td').nth(3)).toContainText('2026');
+  // a task the module has no columns for
+  await expect(tasks.locator('tr', { hasText: 'Second task' })).toContainText('no columns');
+  const cases = page.getByTestId('columns-workflows');
+  const caseRow = cases.locator('tr', { hasText: 'A case' });
+  await expect(caseRow.locator('td').nth(0)).toHaveText('A case');
+  await expect(caseRow.locator('td').nth(1)).toHaveAttribute('data-empty', 'true');
+  // the title of a column in the language chosen
+  await page.getByTestId('language-select').selectOption('de');
+  await expect.poll(headers).toContain('Risk (de) (details.risk)');
+});
+
 }
 
 test('DS-016 [angular] the dev shell for Angular runs zoneless', async ({ page }) => {

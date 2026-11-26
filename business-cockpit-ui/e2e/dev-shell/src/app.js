@@ -1,7 +1,7 @@
 // A module as its developer writes it: data entries and Vue components, handed to the dev shell as they are, not through a manifest.
 import { h } from 'vue';
 import { bootstrapDevShell } from '@acme/bc-dev-shell-vue';
-import { actions, areaNames, hasButtons, moduleOptions } from './module-data.js';
+import { actions, areaNames, devShellPages, hasButtons, moduleOptions } from './module-data.js';
 
 const part = (name) => ({
   props: ['userTask', 'workflow', 'area', 'user', 'language'],
@@ -13,4 +13,6 @@ const part = (name) => ({
   },
 });
 
-bootstrapDevShell('dev-shell', { ...moduleOptions, components: Object.fromEntries(Object.entries(areaNames).map(([name, element]) => [element, part(name)])) });
+const devPage = { props: ['user', 'language'], render() { return h('div', { 'data-testid': 'dev-page' }, `page: ${this.user} ${this.language}`); } };
+
+bootstrapDevShell('dev-shell', { ...moduleOptions, devShellPages: devShellPages(devPage), components: Object.fromEntries(Object.entries(areaNames).map(([name, element]) => [element, part(name)])) });
