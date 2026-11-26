@@ -29,6 +29,11 @@ const props = defineProps<{ title: string; user: User }>();
 const menuOpen = ref(false);
 // A link to a task or a case opens it in this page, so what the loader kept is used again (TF-039); the back button and the actions of the modules use the same way.
 const path = ref(window.location.pathname);
+// The start page is the list of my tasks, in the path of the language in use, and the address is replaced, not added to the history (CUST-003).
+if (path.value === '/') {
+  window.history.replaceState(window.history.state, '', text().routes.myTasks + window.location.search + window.location.hash);
+  path.value = window.location.pathname;
+}
 const page = computed(() => pageOf(path.value));
 const taskId = computed(() => taskIdOf(path.value));
 const caseId = computed(() => caseIdOf(path.value));
@@ -122,6 +127,24 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
 .title { color: inherit; text-decoration: none; font-size: 1.25rem; margin: 0 16px; }
 .toggle { margin-left: 8px; }
 /* the look of a state as in the rows of the list (TL-023): grey when ended, lighter text when suspended */
-.v-toolbar.task-completed, .v-toolbar.task-cancelled { background-color: #e0e0e0; }
-.v-toolbar.task-suspended { color: rgba(33, 33, 33, 0.55); }
+.v-toolbar.task-completed, .v-toolbar.task-cancelled { background-color: var(--row-ended); }
+.v-toolbar.task-suspended { color: var(--muted-text); }
+/* the overview of rights opens below the header, so the header must not cut it off */
+.v-toolbar, :deep(.v-toolbar__content) { overflow: visible; }
+</style>
+
+<style>
+/* The colours of the lists and popups, light as the operating system is, dark when it is. */
+:root {
+  --row-new: #c8e6c9; --row-changed: #fff59d; --row-removed: #ffcdd2; --row-ended: #e0e0e0;
+  --list-background: rgba(255, 255, 255, 0.85); --list-text: #212121; --popup-background: #fff; --popup-hover: #eeeeee;
+  --muted-text: rgba(33, 33, 33, 0.55); --field-border: #9e9e9e; --capped-background: #fff8e1;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --row-new: #1b3a1f; --row-changed: #3a3216; --row-removed: #3d1d22; --row-ended: #2c2c2c;
+    --list-background: rgba(33, 33, 33, 0.85); --list-text: #ffffff; --popup-background: #2b2b2b; --popup-hover: #3a3a3a;
+    --muted-text: rgba(255, 255, 255, 0.55); --field-border: #757575; --capped-background: #3a3216;
+  }
+}
 </style>

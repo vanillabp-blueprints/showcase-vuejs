@@ -955,7 +955,7 @@ thead th { position: relative; overflow: hidden; }
 /* the right edge of a header is the handle to drag (COL-022) */
 .resize-edge { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; touch-action: none; }
 .filter-cell { position: sticky; top: 56px; z-index: 2; padding: 0 4px !important; height: 36px !important; }
-.column-filter { width: 100%; border: 1px solid #bdbdbd; border-radius: 4px; padding: 2px 24px 2px 6px; font-size: 0.85em; }
+.column-filter { width: 100%; border: 1px solid var(--field-border); border-radius: 4px; padding: 2px 24px 2px 6px; font-size: 0.85em; }
 .filter-cell .v-btn { position: absolute; right: 6px; top: 6px; }
 /* both scroll bars are always there, so the list does not draw itself again when one appears (COL-018) */
 .task-list :deep(.v-table__wrapper) { overflow: scroll; overflow-anchor: none; }
@@ -964,21 +964,21 @@ thead th { position: relative; overflow: hidden; }
 .task-list :deep(table) { min-width: 1100px; }
 /* white, partly transparent, so the background shows through, blurred where the browser can (TL-032) */
 .task-row > td { height: 46px; box-sizing: border-box; white-space: nowrap; }
-.capped-notice > td { height: 46px; box-sizing: border-box; text-align: center; font-style: italic; user-select: none; background-color: #fff8e1; }
+.capped-notice > td { height: 46px; box-sizing: border-box; text-align: center; font-style: italic; user-select: none; background-color: var(--capped-background); }
 .space > td { padding: 0 !important; border: 0 !important; }
-.task-list { background-color: rgba(255, 255, 255, 0.85); color: #212121; backdrop-filter: blur(8px); }
+.task-list { background-color: var(--list-background); color: var(--list-text); backdrop-filter: blur(8px); }
 .bar-slot { display: inline-block; width: 6px; margin-right: 6px; height: 1.2em; vertical-align: middle; }
 .bar { display: block; width: 3px; height: 100%; background-color: rgb(var(--v-theme-primary)); }
 .icon-cell { width: 48px; max-width: 48px; padding: 0 !important; text-align: center; }
 /* the look of a state (TL-023), a row the user has not read is bold, the whole row (TL-007) */
 .task-row.unread td, .task-row.unread a { font-weight: 700; }
-.task-row.completed, .task-row.cancelled { background-color: #e0e0e0; }
+.task-row.completed, .task-row.cancelled { background-color: var(--row-ended); }
 .task-row.cancelled a { text-decoration: line-through; }
 /* the markers of the legend: new, changed by somebody else, no longer returned by the server */
-.task-row.new { background-color: #c8e6c9; }
-.task-row.changed { background-color: #fff59d; }
-.task-row.removed { background-color: #ffcdd2; }
-.task-row.suspended td, .task-row.suspended a { color: rgba(33, 33, 33, 0.55); }
+.task-row.new { background-color: var(--row-new); }
+.task-row.changed { background-color: var(--row-changed); }
+.task-row.removed { background-color: var(--row-removed); }
+.task-row.suspended td, .task-row.suspended a { color: var(--muted-text); }
 /* the claim checkbox shows on mouse-over of the assignee cell only (TL-014) */
 .assignee-cell { position: relative; }
 .claim-checkbox { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); visibility: hidden; }
@@ -988,12 +988,12 @@ thead th { position: relative; overflow: hidden; }
 .tools-cell, .tools-header { width: 96px; white-space: nowrap; }
 .tools-cell { right: 0; }
 .follow-up-popup { right: 0; left: auto; }
-.over-list { position: absolute; z-index: 5; top: 100%; left: 0; min-width: 240px; padding: 8px; text-align: left; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+.over-list { position: absolute; z-index: 5; top: 100%; left: 0; min-width: 240px; padding: 8px; text-align: left; background: var(--popup-background); color: var(--list-text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
 .tools { position: relative; display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .selected-info { margin-right: 8px; white-space: nowrap; }
 .select-cell { width: 48px; text-align: center; }
 .bulk-popup { top: 100%; }
 .candidate-person { display: flex; align-items: center; justify-content: space-between; }
-.propose-search, .note-popup textarea { width: 100%; border: 1px solid #9e9e9e; padding: 4px; }
+.propose-search, .note-popup textarea { width: 100%; border: 1px solid var(--field-border); padding: 4px; }
 .propose-result { display: block; width: 100%; padding: 4px; text-align: left; }
 </style>

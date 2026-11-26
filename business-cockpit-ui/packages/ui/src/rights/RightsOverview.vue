@@ -51,7 +51,7 @@ const opened = (): void => {
 .rights { position: relative; display: inline-block; }
 /* directly below the name with no gap, so the mouse can move in; right edges aligned */
 .overview { position: absolute; top: 100%; right: 0; z-index: 2000; width: max-content; max-width: min(90vw, 560px); max-height: 66vh; overflow: auto;
-  padding: 12px 16px; background: #fff; color: #212121; border-radius: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); font-size: 0.875rem; font-weight: normal; }
+  padding: 12px 16px; background: var(--popup-background); color: var(--list-text); border-radius: 4px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); font-size: 0.875rem; font-weight: normal; }
 .head { display: flex; align-items: center; margin-bottom: 8px; }
 h3 { margin: 12px 0 4px; font-size: 1rem; }
 table { border-collapse: collapse; width: 100%; }

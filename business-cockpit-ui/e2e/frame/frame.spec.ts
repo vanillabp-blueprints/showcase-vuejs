@@ -16,6 +16,15 @@ const openMenu = async (page: Page) => {
   await expect(page.getByTestId('menu')).toBeVisible();
 };
 
+test('CUST-003 the start page shows my tasks, under the path of the language, without a new entry in the history', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/my-tasks$/);
+  await expect(page.getByTestId('task-list')).toBeVisible();
+  // the address was replaced: one step back leaves the application
+  await page.goBack();
+  expect(page.url()).toBe('about:blank');
+});
+
 test('NAV-006 the header toggle shows My tasks, All tasks and Cases with their counts and opens the list without narrowing', async ({ page }) => {
   await page.goto('/');
   const toggle = page.getByTestId('toggle');
@@ -44,7 +53,7 @@ test('NAV-009 every text uses the word Case from the interview and no other word
 });
 
 test('NAV-010 counts are asked again on open, on an update event once, and on return to the tab, always with the default primary filter', async ({ page, request }) => {
-  await page.goto('/');
+  await page.goto('/nowhere'); // a path with no list, the start page opens my tasks
   await expect(page.getByTestId('toggle-cases')).toHaveText('Cases (5)');
   const opened = await countRequests(page);
   // three counts: my tasks and all tasks with the default filter of Q-PRIMARY-FILTERS, cases with the one of Q-WORKFLOW-FILTERS

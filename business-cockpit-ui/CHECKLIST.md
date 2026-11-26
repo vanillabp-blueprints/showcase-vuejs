@@ -503,3 +503,4 @@ These items apply when the skill creates the backend (`Q-BACKEND`). Without it t
 |----|------|---------|
 | `CUST-001` | The user interface offers the language switch for English, German, French and Spanish, and the wording of a case is Case, Vorgang, Dossier and Caso. | always |
 | `CUST-002` | Workflow modules may draw cells of a list themselves (`Q-CELL-RENDERING` = yes). The skill does not describe this yet, see `plan/QUESTIONS.md`. | always |
+| `CUST-003` | The start page `/` shows the list of my tasks, in the path of the language of the user, without a new entry in the history. | always |

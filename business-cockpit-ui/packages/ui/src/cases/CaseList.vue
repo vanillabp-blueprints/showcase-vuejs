@@ -281,21 +281,21 @@ onMounted(async () => {
 .cannot-open { display: block; font-size: 0.8rem; opacity: 0.7; }
 .case-list :deep(.v-table__wrapper) { overflow: scroll; overflow-anchor: none; }
 .case-list :deep(table) { min-width: 900px; }
-.case-list { background-color: rgba(255, 255, 255, 0.85); color: #212121; backdrop-filter: blur(8px); }
+.case-list { background-color: var(--list-background); color: var(--list-text); backdrop-filter: blur(8px); }
 .case-row > td { height: 46px; box-sizing: border-box; white-space: nowrap; }
 .case-list .fraction { display: inline-block; text-align: left; }
 .case-list .module-cell { font-variant-numeric: tabular-nums; }
 .select-cell { width: 48px; text-align: center; }
 .note-cell { position: relative; }
-.over-list { position: absolute; z-index: 5; top: 100%; left: 0; min-width: 240px; padding: 8px; text-align: left; background: #fff; color: #212121; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); white-space: normal; }
+.over-list { position: absolute; z-index: 5; top: 100%; left: 0; min-width: 240px; padding: 8px; text-align: left; background: var(--popup-background); color: var(--list-text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); white-space: normal; }
 .tools { position: relative; display: flex; align-items: center; gap: 2px; margin: 8px 16px 0; height: 40px; }
 .selected-info { margin-right: 8px; white-space: nowrap; }
-.note-popup textarea { width: 100%; border: 1px solid #9e9e9e; padding: 4px; }
+.note-popup textarea { width: 100%; border: 1px solid var(--field-border); padding: 4px; }
 .case-list a { color: inherit; }
 .tools-header, .tools-cell { width: 96px; }
 /* the look of a state as in the rows of the task list (TL-023) */
-.case-row.completed, .case-row.cancelled { background-color: #e0e0e0; }
+.case-row.completed, .case-row.cancelled { background-color: var(--row-ended); }
 .case-row.cancelled td { text-decoration: line-through; }
-.case-row.suspended td { color: rgba(33, 33, 33, 0.55); }
+.case-row.suspended td { color: var(--muted-text); }
 .status-line { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 48px; padding: 0 16px; margin: 0 16px; overflow-x: auto; }
 </style>

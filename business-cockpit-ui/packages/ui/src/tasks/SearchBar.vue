@@ -74,9 +74,9 @@ onBeforeUnmount(() => clearTimeout(timer));
 <style scoped>
 .search-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; margin: 0 16px; }
 .search-field { position: relative; flex: 1 1 160px; min-width: 0; display: flex; align-items: center; }
-.search-input { flex: 1; min-width: 0; width: 100%; border: 1px solid #9e9e9e; border-radius: 4px; padding: 6px 8px; background: rgba(255, 255, 255, 0.85); color: #212121; }
-.suggestions { position: absolute; z-index: 6; top: 100%; left: 0; right: 0; max-height: 400px; overflow-y: auto; background: #fff; color: #212121; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+.search-input { flex: 1; min-width: 0; width: 100%; border: 1px solid var(--field-border); border-radius: 4px; padding: 6px 8px; background: var(--list-background); color: var(--list-text); }
+.suggestions { position: absolute; z-index: 6; top: 100%; left: 0; right: 0; max-height: 400px; overflow-y: auto; background: var(--popup-background); color: var(--list-text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
 .suggestion { display: block; width: 100%; padding: 6px 8px; text-align: left; }
-.suggestion:hover { background: #eeeeee; }
+.suggestion:hover { background: var(--popup-hover); }
 .search-field .v-btn { position: absolute; right: 4px; }
 </style>

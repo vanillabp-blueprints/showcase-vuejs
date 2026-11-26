@@ -23,6 +23,24 @@ const example: Hierarchy = {
   ],
 };
 
+test('NAV-019 the overview is drawn over the header and the main area, nothing cuts it off or covers it', async ({ page }) => {
+  await answer(page, example);
+  await page.goto('/tasks');
+  await hover(page);
+  const overview = page.getByTestId('rights-overview');
+  await expect(page.getByTestId('rights-table-orders')).toBeVisible();
+
+  // the lowest point of the overview lies below the header, and the element on top there is the overview
+  const onTop = await overview.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const header = document.querySelector('[data-testid="header"]')!.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.bottom - 4;
+    return { belowHeader: y > header.bottom, covered: !element.contains(document.elementFromPoint(x, y)) };
+  });
+  expect(onTop).toEqual({ belowHeader: true, covered: false });
+});
+
 test('NAV-019 the overview opens on the first mouse-over of the name, asks once, shows Loading, can be entered, is limited in height and closes when the mouse leaves both', async ({ page }) => {
   const many: Hierarchy = { givenByOrganisation: ['Boss'], modules: [{ workflowModuleId: 'orders', entries: [{ group: 'Boss', givenByOrganisation: true, targets: Array.from({ length: 80 }, (_, i) => `Orders.Right${String(i).padStart(2, '0')}`) }] }] };
   await answer(page, many, { delayMilliseconds: 800 });

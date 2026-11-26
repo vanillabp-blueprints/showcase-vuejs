@@ -37,7 +37,7 @@ test('AUTH-003 after the login the user interface shows the user from current-us
 });
 
 test('AUTH-004 a 401 on a later request sends the browser to the login and shows no error page', async ({ page, request }) => {
-  await page.goto('/');
+  await page.goto('/nowhere'); // a path with no list, the start page opens my tasks
   await expect(page.getByTestId('current-user')).toHaveText('Anna Sales');
   await request.post('/simulator-api/expire-sessions');
   const login = page.waitForRequest((r) => new URL(r.url()).pathname === loginPath);
@@ -50,7 +50,7 @@ test('AUTH-004 a 401 on a later request sends the browser to the login and shows
 });
 
 test('AUTH-005 the user interface has no login form, no user management and no rights check of its own', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/nowhere'); // a path with no list, the start page opens my tasks
   await expect(page.getByTestId('current-user')).toBeVisible();
   await expect(page.locator('input, form, [type=password]')).toHaveCount(0);
   for (const file of sources('packages/ui/src')) {
