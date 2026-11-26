@@ -1,7 +1,7 @@
 import { reactive } from 'vue';
 import { OfficialTasklistApi, OfficialWorkflowlistApi } from '../generated/official-gui-api';
 import { myTasksBasePath, toggleCaseFilter, toggleTaskFilter } from '../config';
-import { openUpdateStream } from '../api/updateStream';
+import { firstReloadOf, openUpdateStream } from '../api/updateStream';
 
 /** The counts of the header toggle. A count is missing until its first answer arrives. */
 export const counts = reactive<{ myTasks?: number; allTasks?: number; cases?: number }>({});
@@ -44,8 +44,10 @@ export const askAllCountsAgain = (): Promise<unknown> => Promise.all([askUserTas
 export function keepCountsCurrent(): void {
   void askAllCountsAgain();
   const stream = openUpdateStream();
-  stream.addEventListener('UserTask', () => void askUserTaskCountsAgain());
-  stream.addEventListener('Workflow', () => void askCaseCountAgain());
+  // the RELOAD of the first connection of the tab comes right after the counts were asked, so it tells them nothing
+  const isFirstOfTab = (message: Event): boolean => firstReloadOf(message) === 1;
+  stream.addEventListener('UserTask', (message) => { if (!isFirstOfTab(message)) void askUserTaskCountsAgain(); });
+  stream.addEventListener('Workflow', (message) => { if (!isFirstOfTab(message)) void askCaseCountAgain(); });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void askAllCountsAgain();
   });

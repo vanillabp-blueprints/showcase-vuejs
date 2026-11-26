@@ -108,8 +108,8 @@ test('SRCH-029 opening the list twice adds no second subscription to the update 
   await page.goto('/tasks');
   await expect(rows(page).first()).toBeVisible();
   const first = await open();
-  // the header counts and the list: one stream each
-  expect(first.opened - first.closed).toBe(2);
+  // the header counts and the list share the one stream of the tab (LIVE-023)
+  expect(first.opened - first.closed).toBe(1);
   await page.getByTestId('column-header-id').click();
   await expect(page.getByTestId('sort-mark')).toBeVisible();
   await page.getByTestId('primary-filter-ClosedTasksOnly').click();
@@ -118,7 +118,7 @@ test('SRCH-029 opening the list twice adds no second subscription to the update 
   await page.goto('/tasks');
   await expect(rows(page).first()).toBeVisible();
   const second = await open();
-  expect(second.opened - second.closed).toBe(2);
+  expect(second.opened - second.closed).toBe(1);
 });
 
 test('SRCH-029 a capped list is as long as the limit, shows the real total, and keeps what a live update added above the last rows', async ({ page }) => {

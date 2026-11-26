@@ -5,7 +5,7 @@ import { mdiAccount, mdiAccountMultiple, mdiAccountArrowRight, mdiAccountCheckOu
 import type { Column } from '@acme/bc-types';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
 import { FailedCall } from '../api/clients';
-import { openUpdateStream } from '../api/updateStream';
+import { firstReloadOf, openUpdateStream } from '../api/updateStream';
 import { guiApiBasePath, myTasksBasePath } from '../config';
 import { dateCellDetails, dateCellText } from '../i18n/format';
 import { language, text } from '../i18n/messages';
@@ -161,6 +161,9 @@ watch(drawn, loadPartsOfRows, { immediate: true });
 const loadingFirst = ref(false);
 // the moment the user started to look at this list; a new sort, a new search and opening the list start it again (SRCH-027)
 const startedAt = ref<string>();
+const updates = openUpdateStream();
+// the connection of the update stream which was open when the list started, 0 when none was (LIVE-024)
+let startedOnConnection = 0;
 const sort = ref<Sort>();
 const failed = ref(false);
 // the text of a sort the server refused with 400, shown as it is (SRCH-034)
@@ -379,6 +382,7 @@ const unacknowledged = computed(() => loadedTasks().some((task) => markOfRow(tas
 async function load(startAgain = false, live = false): Promise<void> {
   if (startAgain) {
     startedAt.value = undefined;
+    startedOnConnection = updates.openConnection();
     changedByOthers.clear();
     clearWindow();
   }
@@ -489,8 +493,9 @@ function answerClaimQuestion(yes: boolean): void {
 const workedOn = (task: UserTask): boolean => Boolean(task.endedAt || task.suspendedAt);
 
 // an update of a task may show it activated again, so the rows are read again without a reload (ACT-017)
-const updates = openUpdateStream();
 updates.addEventListener('UserTask', (message) => {
+  // the RELOAD right after the stream opened tells nothing to a list which started after that (LIVE-024)
+  if (firstReloadOf(message) === startedOnConnection) return;
   for (const event of eventsOf(message)) if (event.id && isChangeOfOthers(event, props.currentUserId)) changedByOthers.add(event.id);
   void load(false, true);
   void askCounts(countedFilters());

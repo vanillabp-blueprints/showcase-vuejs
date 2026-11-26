@@ -55,6 +55,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   // a test makes the update stream answer with a status instead of opening, and reads when it was asked for
   let streamRefusal: number | undefined;
   let streamAttempts: number[] = [];
+  // like the cockpit, a new stream gets a RELOAD right after it opened; a test may hold it back to say when it comes
+  let reloadAfterOpenMs = 0;
   // every login before this moment has ended, the way a login ends after its maximal duration
   let sessionsEndedAt = 0;
   // the session at the identity provider, which a logout has to end
@@ -580,6 +582,10 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       streamRefusal = ((await readBody(req)).status as number | undefined) ?? undefined;
       return send(res, 200);
     }
+    if (path === '/simulator-api/reload-after-open' && method === 'POST') {
+      reloadAfterOpenMs = Number((await readBody(req)).milliseconds ?? 0);
+      return send(res, 200);
+    }
     if (path === '/simulator-api/stream-attempts') return send(res, 200, streamAttempts);
 
     if (path === `${guiApiPath}/updates`) {
@@ -588,6 +594,12 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
       streams.add(res);
       res.write(': stream open\n\n');
+      setTimeout(() => {
+        for (const event of ['UserTask', 'Workflow']) {
+          const data = JSON.stringify([{ event: { name: event, id: '', type: 'RELOAD', initiatorKind: 'SYSTEM' } }], null, 2).split('\n').map((line) => `data: ${line}`).join('\n');
+          if (streams.has(res)) res.write(`id: ${crypto.randomUUID()}\nevent: ${event}\n${data}\n\n`);
+        }
+      }, reloadAfterOpenMs);
       req.on('close', () => streams.delete(res));
       return;
     }
@@ -643,6 +655,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       endSessions = [];
       streamRefusal = undefined;
       streamAttempts = [];
+      reloadAfterOpenMs = 0;
       protectPages = true;
       groupsOfCurrentUser = undefined;
       namesOfCurrentUser = {};
