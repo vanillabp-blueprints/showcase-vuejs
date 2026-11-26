@@ -239,3 +239,10 @@ Story: S57 (LIVE-019, LIVE-020, LIVE-021, LIVE-022, LIVE-023, LIVE-024)
 Date: 2026-11-26
 Default taken: LIVE-021 applies only to a list limited to workflow modules; the task lists (own, all) and the case list send no `workflowModuleIds`, so nothing was built and no test written. A tab opens one `fetch` stream shared by the counts, the task list, the task page and the case page; it closes with its last listener, and after a 401 it stays closed. Every ordinary request of the two generated clients connects a waiting stream at once (requests outside them, such as the module files, do not). A list notes the open connection when it starts (first page without `initialTimestamp`, so also after the acknowledge button) and skips only the first RELOAD of that connection, per kind of event; a list which started before the stream was open takes it, a few ms of race at page load costs one extra read. The counts skip the RELOAD of the first connection of the tab (they were just asked), else they take every RELOAD; the task page and the case page do not skip it. SRCH-029 expects one stream of the tab instead of two. The simulator sends a RELOAD for UserTask and Workflow right after a stream opened, like the cockpit. Backend unchanged. Supersedes the note of ASK-033 on one stream per component.
 Answer: open
+
+## ASK-035 LIVE-025: no list limited to workflow modules or business ids
+
+Story: S58 (LIVE-025)
+Date: 2026-11-26
+Default taken: no task list and no case list sends `workflowModuleIds` or `businessIds` (same as ASK-034 for LIVE-021), so no row filter for live updates was built. The test `e2e/tasks/live-updates-limits.spec.ts` checks that no list request carries such a limit, also after a live update; it passed at once and was shown to fail when the case list sent `workflowModuleIds` (code restored). A list which gets such a limit later needs the check of its rows. Backend unchanged.
+Answer: open
