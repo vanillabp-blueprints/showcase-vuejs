@@ -71,7 +71,7 @@ Started: 2026-11-25
 | S62 | A clerk works in their language, in every browser (2 of 2) | done | I18N-008 | `sh plan/checks/S62.sh` |
 | S63 | A clerk sees their rights and the pictures of persons | done | NAV-019, NAV-020, NAV-021, NAV-022, NAV-027, NAV-030 | `sh plan/checks/S63.sh` |
 | S64 | A clerk sets up notifications and gets mails | done | BE-016, TF-014, NOTI-001, NOTI-002, NOTI-003 | `sh plan/checks/S64.sh` |
-| S65 | A module developer works on a form in the dev shell (1 of 5) | in-progress | PKG-034, DS-001, DS-002, DS-003, DS-004, DS-005 | `sh plan/checks/S65.sh` |
+| S65 | A module developer works on a form in the dev shell (1 of 5) | done | PKG-034, DS-001, DS-002, DS-003, DS-004, DS-005 | `sh plan/checks/S65.sh` |
 | S66 | A module developer works on a form in the dev shell (2 of 5) | open | DS-006, DS-007, DS-008, DS-009, DS-010, DS-011 | `sh plan/checks/S66.sh` |
 | S67 | A module developer works on a form in the dev shell (3 of 5) | open | DS-012, DS-013, DS-014, DS-015, DS-016, DS-017 | `sh plan/checks/S67.sh` |
 | S68 | A module developer works on a form in the dev shell (4 of 5) | open | DS-018, DS-019, DS-020, DS-021, DS-022, DS-023 | `sh plan/checks/S68.sh` |

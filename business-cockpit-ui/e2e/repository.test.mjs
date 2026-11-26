@@ -136,7 +136,7 @@ test('PKG-047 each workspace names the workspaces it depends on with their exact
     '@acme/bc-dev-shell-react': ['@acme/bc-module-kit', '@acme/bc-theme'],
     '@acme/bc-dev-shell-angular': ['@acme/bc-module-kit', '@acme/bc-theme'],
     '@acme/e2e-modules': ['@acme/bc-module-kit'],
-    '@acme/e2e-dev-shell': ['@acme/bc-dev-shell-vue', '@acme/bc-module-kit'],
+    '@acme/e2e-dev-shell': ['@acme/bc-dev-shell-angular', '@acme/bc-dev-shell-react', '@acme/bc-dev-shell-vue', '@acme/bc-module-kit'],
   };
   for (const [name, { manifest }] of Object.entries(workspaces)) {
     const own = Object.keys(manifest.dependencies ?? {}).filter((dependency) => dependency in workspaces);

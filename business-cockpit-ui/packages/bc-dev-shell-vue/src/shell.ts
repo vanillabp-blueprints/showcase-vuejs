@@ -1,10 +1,10 @@
 import { defineComponent, h, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
-import { createApi, NotAllowed, type DevShellUser, type Entry } from './api.js';
+import { createDevShellApi as createApi, DevShellNotAllowed as NotAllowed, DEV_SHELL_LAYOUT_CSS, type DevShellUser, type DevShellEntry as Entry } from '@acme/bc-module-kit';
 import { drawPart, type DataFunction } from './parts.js';
 import type { BcElementDescriptor } from '@acme/bc-module-kit';
 
 export interface DevShellOptions {
-  /** The address of the GUI API, with the dev shell simulator `/official-api/gui/api/v1`. */
+  /** The address of the GUI API, the one the simulator of the dev shell maps. */
   guiApiBase: string;
   workflowModuleId: string;
   /** The data entries of the module, imported from their source files. */
@@ -15,23 +15,6 @@ export interface DevShellOptions {
   /** The text of the style the module's web components write into their shadow roots. */
   style?: string;
 }
-
-/** The layout boxes of the task page and the case page of the cockpit: the same elements, the same CSS (TaskPage.vue). */
-const LAYOUT_CSS = `
-/* what the cockpit's application passes down to a part: the text colour and the line height (Vuetify's .v-application) */
-.bc-page { height: 100vh; overflow: auto; color: rgba(0, 0, 0, 0.87); line-height: 1.5; }
-@media (prefers-color-scheme: dark) { .bc-page { color: rgba(255, 255, 255, 0.87); } }
-.bc-stage { position: relative; margin: 16px; }
-.bc-stage:has(> .bc-container > [data-area='body'], > .bc-container > [data-area='information'], > .bc-container > [data-area='actions']) { height: calc(100% - 32px); }
-.bc-container:has(> [data-area='body'], > [data-area='information'], > [data-area='actions']) {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 320px); grid-template-rows: minmax(0, 1fr) auto; gap: 16px; height: 100%;
-}
-.bc-container > [data-area='body'] { grid-column: 1; grid-row: 1 / 3; min-height: 0; overflow: auto; }
-.bc-container > [data-area='information'] { grid-column: 2; grid-row: 1; min-height: 0; overflow-y: auto; }
-.bc-container > [data-area='actions'] { grid-column: 2; grid-row: 2; }
-.bc-bar { display: flex; gap: 8px; align-items: center; padding: 8px 16px; background: var(--bc-color-surface); }
-.bc-note { margin: 16px; }
-`;
 
 const routeOf = () => /^#\/(tasks|workflows)\/(.+)$/.exec(window.location.hash)?.slice(1, 3) as ['tasks' | 'workflows', string] | undefined;
 
@@ -62,7 +45,7 @@ export function createDevShell(options: DevShellOptions) {
           const [which, id] = route.value;
           const data = await (which === 'tasks' ? api.userTask(id) : api.workflow(id));
           const ask = (which === 'tasks' ? options.userTaskForm : options.workflowPage) as DataFunction | undefined;
-          note.value = await drawPart(container.value, ask, data, which === 'tasks' ? 'userTask' : 'workflow', options.components, style, user.value, options.workflowModuleId);
+          note.value = await drawPart(container.value, ask, data, which === 'tasks' ? 'userTask' : 'workflow', options, style, user.value);
         } catch (error) {
           container.value?.replaceChildren();
           note.value = error instanceof NotAllowed ? 'No user is chosen: the simulator answers only for a user.' : String(error);
@@ -70,7 +53,7 @@ export function createDevShell(options: DevShellOptions) {
       }
 
       onMounted(async () => {
-        document.head.append(Object.assign(document.createElement('style'), { textContent: LAYOUT_CSS }));
+        document.head.append(Object.assign(document.createElement('style'), { textContent: DEV_SHELL_LAYOUT_CSS }));
         window.addEventListener('hashchange', onHash);
         [users.value, user.value] = await Promise.all([api.users(), api.chosenUser()]);
         await load();

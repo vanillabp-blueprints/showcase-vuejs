@@ -3,7 +3,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 const at = '2026-11-20T08:00:00Z';
 const task = (id: string, bpmnProcessId: string, title: string) => ({ id, bpmnProcessId, workflowModuleId: 'dev-module', createdAt: at, updatedAt: at, businessId: `B-${id}`, title: { en: title } });
-const shell = '/dev-shell-app/index.html';
+// Q-MODULE-FRAMEWORKS: one test application per framework, each with the same parts, handed to its own dev shell
+const apps = { vue: 'index.html', react: 'react.html', angular: 'angular.html' } as const;
 
 async function seed(page: Page, title = 'Assess risk') {
   await page.request.post('/simulator-api/reset');
@@ -12,7 +13,10 @@ async function seed(page: Page, title = 'Assess risk') {
   await page.request.post('/dev-shell/user/anna');
 }
 
-test('DS-002 the dev shell draws the component it was handed, in a host element with a shadow root, and loads no module', async ({ page }) => {
+for (const [framework, file] of Object.entries(apps)) {
+const shell = `/dev-shell-app/${file}`;
+
+test(`DS-002 [${framework}] the dev shell draws the component it was handed, in a host element with a shadow root, and loads no module`, async ({ page }) => {
   await seed(page);
   const requests: string[] = [];
   page.on('request', (request) => requests.push(new URL(request.url()).pathname));
@@ -26,7 +30,7 @@ test('DS-002 the dev shell draws the component it was handed, in a host element 
   expect(requests.filter((path) => path.startsWith('/wm/') || path.endsWith('bc-manifest.json'))).toEqual([]);
 });
 
-test('DS-003 the data of the form is the user task of the GUI API of the simulator', async ({ page }) => {
+test(`DS-003 [${framework}] the data of the form is the user task of the GUI API of the simulator`, async ({ page }) => {
   await seed(page, 'First title');
   const apiRequests: string[] = [];
   page.on('request', (request) => { const path = new URL(request.url()).pathname; if (path.startsWith('/official-api/')) apiRequests.push(path); });
@@ -38,7 +42,7 @@ test('DS-003 the data of the form is the user task of the GUI API of the simulat
   await expect(page.getByTestId('part-task')).toHaveText('task: Second title');
 });
 
-test('DS-004 the dev shell switches between user tasks, cases and the choice of a user', async ({ page }) => {
+test(`DS-004 [${framework}] the dev shell switches between user tasks, cases and the choice of a user`, async ({ page }) => {
   await seed(page);
   await page.goto(`${shell}#/tasks/t1`);
   await expect(page.getByTestId('part-task')).toBeVisible();
@@ -58,7 +62,7 @@ test('DS-004 the dev shell switches between user tasks, cases and the choice of 
   await expect(page.getByTestId('part-task')).toBeVisible();
 });
 
-test('DS-005 the areas are laid out as on the task page of the cockpit, with the same theme and font inside the part', async ({ page }) => {
+test(`DS-005 [${framework}] the areas are laid out as on the task page of the cockpit, with the same theme and font inside the part`, async ({ page }) => {
   await seed(page);
   await page.request.post('/bpms/api/v1_1/workflow-module/react-module', { data: { uri: '/bc-manifest.json' } });
   await page.request.post('/simulator-api/user-tasks', { data: { userTasks: [{ ...task('t2', 'areas', 'Second task'), workflowModuleId: 'react-module', uiUriType: 'ES_MODULES', uiUri: '/bc-manifest.json' }] } });
@@ -92,3 +96,5 @@ test('DS-005 the areas are laid out as on the task page of the cockpit, with the
   // the text of the parts differs, the boxes, the fonts and the theme do not
   expect(devShell).toEqual(cockpit);
 });
+
+}
