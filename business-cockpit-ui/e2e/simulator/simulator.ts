@@ -52,6 +52,9 @@ function moduleAnswer(file: string, type: string, asked: IncomingMessage['header
 export async function startSimulator(options: { port: number }): Promise<Simulator> {
   let modules = new Map<string, SimulatedModule>();
   const streams = new Set<ServerResponse>();
+  // a test makes the update stream answer with a status instead of opening, and reads when it was asked for
+  let streamRefusal: number | undefined;
+  let streamAttempts: number[] = [];
   // every login before this moment has ended, the way a login ends after its maximal duration
   let sessionsEndedAt = 0;
   // the session at the identity provider, which a logout has to end
@@ -573,8 +576,15 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       return send(res, 200);
     }
     if (path === '/simulator-api/stream-count') return send(res, 200, streams.size);
+    if (path === '/simulator-api/stream-refusal' && method === 'POST') {
+      streamRefusal = ((await readBody(req)).status as number | undefined) ?? undefined;
+      return send(res, 200);
+    }
+    if (path === '/simulator-api/stream-attempts') return send(res, 200, streamAttempts);
 
     if (path === `${guiApiPath}/updates`) {
+      streamAttempts.push(Date.now());
+      if (streamRefusal) return send(res, streamRefusal);
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
       streams.add(res);
       res.write(': stream open\n\n');
@@ -631,6 +641,8 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       providerSession = false;
       loginPrompts = 0;
       endSessions = [];
+      streamRefusal = undefined;
+      streamAttempts = [];
       protectPages = true;
       groupsOfCurrentUser = undefined;
       namesOfCurrentUser = {};

@@ -1,4 +1,7 @@
-export interface UpdateEvent { id?: string; type?: string; initiatorKind?: string; initiator?: string }
+import type { UserTaskEvent } from '../generated/cockpit-gui-api';
+
+/** What the update stream tells about one change; the type comes from the generated client (LIVE-017). */
+export type UpdateEvent = Partial<UserTaskEvent>;
 
 /** The events of one delivery of the update stream; an entry without an `event` object says nothing about an id. */
 export function eventsOf(message: Event): UpdateEvent[] {

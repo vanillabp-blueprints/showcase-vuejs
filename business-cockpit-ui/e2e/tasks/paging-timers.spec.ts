@@ -91,18 +91,16 @@ test('SRCH-029 fast scroll events load only the range drawn after the pause', as
 
 test('SRCH-029 opening the list twice adds no second subscription to the update stream, and a new search or sort adds none', async ({ page }) => {
   await page.addInitScript(() => {
-    const Original = window.EventSource;
+    // the update stream is a fetch stream: it is open from the call until its signal aborts it
+    const original = window.fetch.bind(window);
     const state = { opened: 0, closed: 0 };
     (window as unknown as { streams: typeof state }).streams = state;
-    window.EventSource = class extends Original {
-      constructor(url: string | URL, init?: EventSourceInit) {
-        super(url, init);
+    window.fetch = (input, init) => {
+      if (String(input instanceof Request ? input.url : input).endsWith('/updates')) {
         state.opened++;
+        init?.signal?.addEventListener('abort', () => state.closed++);
       }
-      close() {
-        state.closed++;
-        super.close();
-      }
+      return original(input, init);
     };
   });
   await generate(page, 300);

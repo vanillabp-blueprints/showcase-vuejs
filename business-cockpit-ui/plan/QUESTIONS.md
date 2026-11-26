@@ -224,3 +224,10 @@ Date: 2026-11-26
 Default taken: removed rows remember their position in the whole list, so a page asked later is read from the server shifted by the removed rows above it and the rows are put in place (LIVE-005). A list read again because of the update stream keeps the pages of its window with the same page numbers; removed rows above a window which does not start at page 0 shift that read by their number (not handled). The acknowledge button shows while a row is marked or an ended row stays in a list of open rows; it starts the list again from the top (primary filter, sorting and searches stay). Every error of the update stream (end or break) is answered by a new connection after 300 ms, a fixed pause; the growing pause and the 401 case are LIVE-013 and LIVE-014. Each tab component still opens its own stream (LIVE-023). Backend unchanged.
 Answer: open
 
+
+## ASK-033 Update stream: fetch stream and limits of S56
+
+Story: S56 (LIVE-013, LIVE-014, LIVE-015, LIVE-016, LIVE-017, LIVE-018)
+Date: 2026-11-26
+Default taken: the update stream is read as a `fetch` stream (not `EventSource`), because `EventSource` hides the status of a new connection and LIVE-014 needs the 401. The pause is 0.3 s doubled per failed try, at most 15 s, and starts again once a connection is answered with 200; a server which ends the stream at once after opening would be answered every 0.3 s. 401 calls `goToLogin` and the stream stays closed. Each component still has its own stream, so a lost connection makes each of them try on its own (LIVE-023). A comment line or a `retry:` field of the stream is ignored. LIVE-015, LIVE-016 and LIVE-018 needed no change of the list. Backend unchanged. Supersedes the fixed pause named in ASK-032.
+Answer: open
