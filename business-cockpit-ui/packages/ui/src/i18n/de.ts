@@ -12,6 +12,7 @@ const de: Messages = {
   actions: { markRead: 'Als gelesen markieren', markUnread: 'Als ungelesen markieren', followUp: 'Wiedervorlage', deleteFollowUp: 'Wiedervorlage löschen', tools: 'Werkzeuge', claim: 'Übernehmen', unclaim: 'Zurückgeben', remove: 'Entfernen', proposeTo: 'Vorschlagen an', searchPerson: 'Person suchen', noPerson: 'Keine Person gefunden', editNote: 'Notiz bearbeiten', note: 'Notiz', save: 'Speichern', cancel: 'Abbrechen', failed: 'Die Aktion ist fehlgeschlagen', claimFromOther: 'Diese Aufgabe übernehmen? Sie liegt bei {name}.', yes: 'Ja', no: 'Nein', ended: 'Die Aufgabe ist beendet', suspendedNow: 'Die Aufgabe wurde angehalten', heldByOther: 'Ein anderer Benutzer hat die Aufgabe' },
   bulk: { selectRow: 'Zeile auswählen', selected: 'ausgewählt', leaveOut: { claim: 'Die Auswahl enthält auch beendete oder ausgesetzte Aufgaben. Alle außer diesen übernehmen?', propose: 'Die Auswahl enthält auch beendete oder ausgesetzte Aufgaben. Allen außer diesen vorschlagen?' }, claimFromOthers: 'Einige der ausgewählten Aufgaben liegen bei Kollegen. Trotzdem übernehmen?', proposeSelected: 'Die ausgewählten Aufgaben vorschlagen' },
   search: { placeholder: 'Suchen', clear: 'Leeren', reset: 'Zurücksetzen', filterBy: 'Filtern nach' },
+  acknowledge: 'Änderungen bestätigen',
   noTasks: 'Keine Aufgaben',
   noCases: 'Keine Vorgänge',
   listNotLoaded: "Die Liste konnte nicht geladen werden",

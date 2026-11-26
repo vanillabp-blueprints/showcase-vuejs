@@ -12,6 +12,7 @@ const en = {
   actions: { markRead: 'Mark as read', markUnread: 'Mark as unread', followUp: 'Follow-up', deleteFollowUp: 'Delete follow-up', tools: 'Tools', claim: 'Claim', unclaim: 'Give back', remove: 'Remove', proposeTo: 'Propose to', searchPerson: 'Search a person', noPerson: 'No person found', editNote: 'Edit note', note: 'Note', save: 'Save', cancel: 'Cancel', failed: 'The action could not be done', claimFromOther: 'Claim this task? It is held by {name}.', yes: 'Yes', no: 'No', ended: 'The task has ended', suspendedNow: 'The task was suspended', heldByOther: 'Another user holds the task' },
   bulk: { selectRow: 'Select row', selected: 'selected', leaveOut: { claim: 'The selection also holds ended or suspended tasks. Claim all but these?', propose: 'The selection also holds ended or suspended tasks. Propose all but these?' }, claimFromOthers: 'Some of the selected tasks are held by colleagues. Claim them anyway?', proposeSelected: 'Propose the selected tasks' },
   search: { placeholder: 'Search', clear: 'Clear', reset: 'Reset', filterBy: 'Filter' },
+  acknowledge: 'Acknowledge changes',
   noTasks: 'No tasks',
   noCases: 'No cases',
   listNotLoaded: "The list could not be loaded",

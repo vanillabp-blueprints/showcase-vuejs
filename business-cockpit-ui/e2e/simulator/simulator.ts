@@ -566,6 +566,14 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       return send(res, 200);
     }
 
+    // a test lets the server end the streams, and asks how many are open
+    if (path === '/simulator-api/end-streams' && method === 'POST') {
+      for (const stream of [...streams]) stream.end();
+      streams.clear();
+      return send(res, 200);
+    }
+    if (path === '/simulator-api/stream-count') return send(res, 200, streams.size);
+
     if (path === `${guiApiPath}/updates`) {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
       streams.add(res);

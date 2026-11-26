@@ -12,6 +12,7 @@ const es: Messages = {
   actions: { markRead: 'Marcar como leída', markUnread: 'Marcar como no leída', followUp: 'Seguimiento', deleteFollowUp: 'Eliminar seguimiento', tools: 'Herramientas', claim: 'Asumir', unclaim: 'Devolver', remove: 'Quitar', proposeTo: 'Proponer a', searchPerson: 'Buscar una persona', noPerson: 'Ninguna persona encontrada', editNote: 'Editar nota', note: 'Nota', save: 'Guardar', cancel: 'Cancelar', failed: 'No se pudo realizar la acción', claimFromOther: '¿Asumir esta tarea? La tiene {name}.', yes: 'Sí', no: 'No', ended: 'La tarea ha terminado', suspendedNow: 'La tarea fue suspendida', heldByOther: 'Otro usuario tiene la tarea' },
   bulk: { selectRow: 'Seleccionar fila', selected: 'seleccionadas', leaveOut: { claim: 'La selección también contiene tareas terminadas o suspendidas. ¿Asumir todas menos estas?', propose: 'La selección también contiene tareas terminadas o suspendidas. ¿Proponer todas menos estas?' }, claimFromOthers: 'Algunas tareas seleccionadas las tienen compañeros. ¿Asumirlas de todos modos?', proposeSelected: 'Proponer las tareas seleccionadas' },
   search: { placeholder: 'Buscar', clear: 'Borrar', reset: 'Restablecer', filterBy: 'Filtrar por' },
+  acknowledge: 'Confirmar los cambios',
   noTasks: 'Sin tareas',
   noCases: 'Sin casos',
   listNotLoaded: "No se pudo cargar la lista",

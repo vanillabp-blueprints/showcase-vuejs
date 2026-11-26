@@ -216,3 +216,11 @@ Story: S54 (TF-011, TF-037, LIVE-001, LIVE-002, LIVE-003, LIVE-004)
 Date: 2026-11-26
 Default taken: the task page shows the toast `taskChangedByOther` (sticky) from the event alone, named by `displayShort` of the assignee or a candidate user of the task read again, else by the user id; the toast of ASK-030 for the task page is done. The list marks rows `new` (created after the list started), `changed` (updated after the start and an event of another initiator, also SYSTEM and COCKPIT, was seen for it) and `removed`; the marks are `data-mark` and a class, with the colours of the legend. A row the server no longer returns is kept only when the list is read again because of the update stream and the window is in one piece from the same pages; the kept rows count in the total, so a page asked later is shifted by them. A row pushed out of the window by a new row would show as removed too. The first `RELOAD` of a stream is not skipped (an extra read, no harm). The acknowledge button (markers away, ended rows go) is not built; no id of this story needs it. The simulator keeps a task which ended after `initialTimestamp` in open lists. Backend unchanged.
 Answer: open
+
+## ASK-032 Live list: limits of S55
+
+Story: S55 (LIVE-005, LIVE-006, LIVE-007, LIVE-010, LIVE-011, LIVE-012)
+Date: 2026-11-26
+Default taken: removed rows remember their position in the whole list, so a page asked later is read from the server shifted by the removed rows above it and the rows are put in place (LIVE-005). A list read again because of the update stream keeps the pages of its window with the same page numbers; removed rows above a window which does not start at page 0 shift that read by their number (not handled). The acknowledge button shows while a row is marked or an ended row stays in a list of open rows; it starts the list again from the top (primary filter, sorting and searches stay). Every error of the update stream (end or break) is answered by a new connection after 300 ms, a fixed pause; the growing pause and the 401 case are LIVE-013 and LIVE-014. Each tab component still opens its own stream (LIVE-023). Backend unchanged.
+Answer: open
+

@@ -1,7 +1,7 @@
 import { reactive } from 'vue';
 import { OfficialTasklistApi, OfficialWorkflowlistApi } from '../generated/official-gui-api';
 import { myTasksBasePath, toggleCaseFilter, toggleTaskFilter } from '../config';
-import { updateStreamUrl } from '../api/clients';
+import { openUpdateStream } from '../api/updateStream';
 
 /** The counts of the header toggle. A count is missing until its first answer arrives. */
 export const counts = reactive<{ myTasks?: number; allTasks?: number; cases?: number }>({});
@@ -43,7 +43,7 @@ export const askAllCountsAgain = (): Promise<unknown> => Promise.all([askUserTas
  */
 export function keepCountsCurrent(): void {
   void askAllCountsAgain();
-  const stream = new EventSource(updateStreamUrl());
+  const stream = openUpdateStream();
   stream.addEventListener('UserTask', () => void askUserTaskCountsAgain());
   stream.addEventListener('Workflow', () => void askCaseCountAgain());
   document.addEventListener('visibilitychange', () => {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { updateStreamUrl } from '../api/clients';
+import { openUpdateStream } from '../api/updateStream';
 import { text } from '../i18n/messages';
 import { toast } from '../modules/actions';
 import { drawCasePageOf, leaveFormOf, updateCasePageOf } from '../modules/modules';
@@ -18,7 +18,7 @@ const state = ref<State>('loading-case');
 const note = ref<{ kind: NoteKind | 'case-failed'; message: string }>();
 
 // An update of the open case reads it again; the toast comes from the event alone, only for a change of another user (WP-014).
-const updates = new EventSource(updateStreamUrl());
+const updates = openUpdateStream();
 updates.addEventListener('Workflow', (message) => {
   const mine = (JSON.parse((message as MessageEvent<string>).data) as { event: { id: string; initiatorKind?: string; initiator?: string } }[]).map(({ event }) => event).filter((event) => event.id === props.id);
   if (mine.length === 0) return;

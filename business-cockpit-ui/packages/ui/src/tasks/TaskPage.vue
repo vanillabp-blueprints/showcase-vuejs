@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { updateStreamUrl } from '../api/clients';
+import { openUpdateStream } from '../api/updateStream';
 import { text } from '../i18n/messages';
 import { drawFormOf, leaveFormOf, updateFormOf } from '../modules/modules';
 import { USER_TASK_FORM } from '@acme/bc-module-kit';
@@ -20,7 +20,7 @@ const state = ref<State>('loading-task');
 const note = ref<{ kind: NoteKind | 'task-failed'; message: string }>();
 
 // an update of the task shows in the header at once, for example a task activated again (ACT-017)
-const updates = new EventSource(updateStreamUrl());
+const updates = openUpdateStream();
 // the toast comes from the event alone (TF-037); the task is read again whatever the initiator is, and the name comes from the task read again (TF-011)
 updates.addEventListener('UserTask', async (message) => {
   const other = eventsOf(message).find((event) => event.id === props.id && isChangeByOtherUser(event, props.currentUserId));

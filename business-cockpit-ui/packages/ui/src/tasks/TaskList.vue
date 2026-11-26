@@ -4,7 +4,8 @@ import { VBtn, VCard, VCardActions, VCardText, VDialog, VIcon, VProgressLinear, 
 import { mdiAccount, mdiAccountMultiple, mdiAccountArrowRight, mdiAccountCheckOutline, mdiArrowDown, mdiArrowUp, mdiCalendarClock, mdiClose, mdiDelete, mdiEmailOpenOutline, mdiEmailOutline, mdiNoteEditOutline } from '@mdi/js';
 import type { Column } from '@acme/bc-types';
 import { OfficialTasklistApi, type Person, type UserTask } from '../generated/official-gui-api';
-import { FailedCall, updateStreamUrl } from '../api/clients';
+import { FailedCall } from '../api/clients';
+import { openUpdateStream } from '../api/updateStream';
 import { guiApiBasePath, myTasksBasePath } from '../config';
 import { dateCellDetails, dateCellText } from '../i18n/format';
 import { language, text } from '../i18n/messages';
@@ -236,6 +237,9 @@ const baseUrl = (): string => (props.own ? myTasksBasePath : guiApiBasePath);
 // each list keeps the primary filter its user chose last (TL-005)
 const filterSetting = (): string => settingKey('tasks', props.own ? 'own' : 'all', 'primaryFilter');
 
+// the counts the status line shows; the count of closed tasks is only there once the user asked for it (TL-003)
+const countedFilters = (): PrimaryFilter[] => [...['OpenTasksWithoutFollowUp', 'OpenTasksWithFollowUp' as const], ...(counts[countedOnMouseOver] === undefined ? [] : [countedOnMouseOver])] as PrimaryFilter[];
+
 async function askCounts(filters: PrimaryFilter[]): Promise<void> {
   try {
     const answer = await new OfficialTasklistApi().countUserTasks(
@@ -271,6 +275,21 @@ function keepOnly(numbers: number[]): void {
   if (kept.size !== pages.value.size) pages.value = kept;
 }
 
+// A page asked later: the server does not hold the removed rows, so its rows lie before the rows of the list by the number of
+// removed rows above them. The page asks the server for the rows it lacks and puts the removed rows in their places (LIVE-005).
+async function askPageWithRemoved(pageNumber: number): Promise<{ rows: UserTask[]; total: number }> {
+  const first = pageNumber * pageSize;
+  const positions = [...removedAt.values()].map(({ position }) => position).sort((a, b) => a - b);
+  const inPage = removedAt.size === 0 ? [] : [...removedAt.values()].filter(({ position }) => position >= first && position < first + pageSize);
+  const fromServer = first - positions.filter((position) => position < first).length;
+  const wanted = pageSize - inPage.length;
+  const serverPages = [...new Set([Math.floor(fromServer / pageSize), Math.floor((fromServer + wanted - 1) / pageSize)])];
+  const answers = await Promise.all(serverPages.map((number) => askPage(number)));
+  const rows = answers.flatMap((answer) => answer.rows).slice(fromServer - serverPages[0]! * pageSize, fromServer - serverPages[0]! * pageSize + wanted);
+  for (const { position, row } of inPage.sort((a, b) => a.position - b.position)) rows.splice(position - first, 0, row);
+  return { rows, total: answers[0]!.total + removedAt.size };
+}
+
 async function loadPage(pageNumber: number): Promise<void> {
   const key = keyOf(pageNumber);
   if (pages.value.has(pageNumber) || onTheWay.has(key)) return;
@@ -278,7 +297,7 @@ async function loadPage(pageNumber: number): Promise<void> {
   pending.value++;
   const startedIn = generation;
   try {
-    const answer = await askPage(pageNumber);
+    const answer = removedAt.size === 0 ? await askPage(pageNumber) : await askPageWithRemoved(pageNumber);
     // an answer of a list that started again, or of a page the window has left, is dropped
     if (startedIn !== generation || !windowNumbers().includes(pageNumber)) return;
     await askColumnsOf(answer.rows);
@@ -327,6 +346,7 @@ function clearWindow(): void {
   pages.value = new Map();
   total.value = 0;
   removedRows.value = new Set();
+  removedAt.clear();
   onTheWay.clear();
   pending.value = 0;
   if (scrollArea) scrollArea.scrollTop = 0;
@@ -336,7 +356,24 @@ function clearWindow(): void {
 // rows the user's colleagues changed after the list started, and rows the server no longer returns (LIVE-002, LIVE-004)
 const changedByOthers = reactive(new Set<string>());
 const removedRows = ref(new Set<string>());
+// where the removed rows stand in the whole list, also when their page is out of the window (LIVE-005)
+const removedAt = new Map<string, { position: number; row: UserTask }>();
 const markOfRow = (task: UserTask) => markOf(task, startedAt.value, changedByOthers, removedRows.value);
+
+function rememberRemoved(window: ReadonlyMap<number, UserTask[]>, removed: ReadonlySet<string>): number {
+  const numbers = [...window.keys()].sort((a, b) => a - b);
+  const rows = numbers.flatMap((number) => window.get(number)!);
+  const shown = new Set(rows.map((row) => row.id));
+  const [from, to] = [(numbers[0] ?? 0) * pageSize, ((numbers.at(-1) ?? 0) + 1) * pageSize];
+  for (const [id, { position }] of [...removedAt]) if (shown.has(id) || (position >= from && position < to)) removedAt.delete(id);
+  rows.forEach((row, index) => { if (removed.has(row.id)) removedAt.set(row.id, { position: (numbers[0] ?? 0) * pageSize + index, row }); });
+  removedRows.value = new Set(removedAt.keys());
+  // the removed rows out of the window count in the total as well
+  return [...removedAt.keys()].filter((id) => !shown.has(id)).length;
+}
+
+// something to acknowledge: a marked row, or an ended row a list of open rows still shows (LIVE-007)
+const unacknowledged = computed(() => loadedTasks().some((task) => markOfRow(task) !== undefined || (Boolean(task.endedAt) && !showsEnded(filter.value))));
 
 // `live`: the list is read again because of the update stream, so a row the server no longer returns stays, marked as removed
 async function load(startAgain = false, live = false): Promise<void> {
@@ -358,8 +395,8 @@ async function load(startAgain = false, live = false): Promise<void> {
     failed.value = false;
     const read = new Map([[firstNumber!, first.rows], ...others]);
     const kept = live && !startAgain ? keepRemovedRows(pages.value, read, first.total, pageSize) : { pages: read, total: first.total, removed: new Set<string>() };
-    total.value = kept.total;
-    removedRows.value = kept.removed;
+    if (!live || startAgain) removedAt.clear();
+    total.value = kept.total + rememberRemoved(kept.pages, kept.removed);
     pages.value = kept.pages;
     for (const rows of [first.rows, ...others.map(([, other]) => other)]) refreshSelected(rows);
     await nextTick();
@@ -452,10 +489,11 @@ function answerClaimQuestion(yes: boolean): void {
 const workedOn = (task: UserTask): boolean => Boolean(task.endedAt || task.suspendedAt);
 
 // an update of a task may show it activated again, so the rows are read again without a reload (ACT-017)
-const updates = new EventSource(updateStreamUrl());
+const updates = openUpdateStream();
 updates.addEventListener('UserTask', (message) => {
   for (const event of eventsOf(message)) if (event.id && isChangeOfOthers(event, props.currentUserId)) changedByOthers.add(event.id);
   void load(false, true);
+  void askCounts(countedFilters());
 });
 // a task tab tells which task it changed; the rows are read again at once, without waiting for the update stream (ACT-019)
 const stopListening = onTaskChangedInAnotherTab(() => void load());
@@ -880,6 +918,7 @@ const shortForm = (person: Person): string => person.displayShort ?? person.disp
       <tr v-if="spaceBelow > 0" class="space" aria-hidden="true"><td :colspan="columns.length + moduleColumns.length + 1" :style="{ height: `${spaceBelow}px` }" /></tr>
     </tbody>
   </v-table>
+  <v-btn v-if="unacknowledged" data-testid="acknowledge" size="small" variant="tonal" class="ma-2" @click="load(true)">{{ text().acknowledge }}</v-btn>
   <p v-if="total === 0 && !failed" class="ma-4" data-testid="no-tasks">{{ text().noTasks }}</p>
   <status-line :selected="filter" :counts="counts" @choose="choose" @ask-count="askCounts([$event])" />
    <v-snackbar :model-value="actionFailed" data-testid="action-toast" timeout="4000" color="error" @update:model-value="actionFailed = false">{{ text().actions[failure] }}</v-snackbar>

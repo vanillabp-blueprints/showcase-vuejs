@@ -12,6 +12,7 @@ const fr: Messages = {
   actions: { markRead: 'Marquer comme lu', markUnread: 'Marquer comme non lu', followUp: 'Rappel', deleteFollowUp: 'Supprimer le rappel', tools: 'Outils', claim: 'Prendre', unclaim: 'Rendre', remove: 'Retirer', proposeTo: 'Proposer à', searchPerson: 'Chercher une personne', noPerson: 'Aucune personne trouvée', editNote: 'Modifier la note', note: 'Note', save: 'Enregistrer', cancel: 'Annuler', failed: "L'action a échoué", claimFromOther: 'Prendre cette tâche ? Elle est chez {name}.', yes: 'Oui', no: 'Non', ended: 'La tâche est terminée', suspendedNow: 'La tâche a été suspendue', heldByOther: 'Un autre utilisateur détient la tâche' },
   bulk: { selectRow: 'Sélectionner la ligne', selected: 'sélectionnées', leaveOut: { claim: 'La sélection contient aussi des tâches terminées ou suspendues. Prendre toutes sauf celles-ci ?', propose: 'La sélection contient aussi des tâches terminées ou suspendues. Proposer toutes sauf celles-ci ?' }, claimFromOthers: 'Certaines tâches sélectionnées sont détenues par des collègues. Les prendre quand même ?', proposeSelected: 'Proposer les tâches sélectionnées' },
   search: { placeholder: 'Rechercher', clear: 'Effacer', reset: 'Réinitialiser', filterBy: 'Filtrer par' },
+  acknowledge: 'Acquitter les changements',
   noTasks: 'Aucune tâche',
   noCases: 'Aucun dossier',
   listNotLoaded: "La liste n'a pas pu être chargée",
