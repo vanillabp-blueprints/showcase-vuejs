@@ -10,6 +10,51 @@ docker compose up -d --wait
 mvn -pl application spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
+Open `http://localhost:8080`. The profile `local` sets the secrets of `keycloak/realm.json`, the
+BPMS API user `local` (password `local`) and the addresses of MongoDB, Keycloak (`localhost:8081`)
+and Mailpit (`localhost:8025`). Everything in it is for a developer's machine only.
+
+Kafka is not read. If a deployment reads Kafka, it also needs the system property `workerId`, for
+example `-Dspring-boot.run.jvmArguments=-DworkerId=1`.
+
+## Local users
+
+Keycloak imports `keycloak/realm.json` at its first start. It holds one group, `template-group`,
+and one user, `template-user` with the password `template-user`, a member of that group. They are
+a template, for local use only.
+
+## Test users and groups
+
+The groups decide which user tasks and cases a user sees. One template user is not enough to try
+the visibilities out. Add test users with different groups to `keycloak/realm.json`, for example
+one per group a workflow module names in `accessibleToGroups`. Then import the realm again. Keycloak
+imports it only into an empty volume:
+
+```
+docker compose down -v
+docker compose up -d --wait
+```
+
+`down -v` also removes the data of MongoDB. These users and secrets are for a developer's machine
+only, never for a deployment.
+
+## What a deployment sets
+
+The application reads these environment variables. None of them has a value for production in
+this repository:
+
+| Variable | Meaning |
+|---|---|
+| `MONGODB_URI` | address of MongoDB |
+| `COCKPIT_JWT_KEY` | base64 key (HMAC SHA-256) which signs the tokens of the cockpit |
+| `BPMS_API_USERNAME`, `BPMS_API_PASSWORD` | the user whom workflow modules report with |
+| `KEYCLOAK_URL` | address of Keycloak, the realm is `business-cockpit` |
+| `KEYCLOAK_CLIENT_SECRET` | secret of the client `business-cockpit` (the login) |
+| `KEYCLOAK_DIRECTORY_SECRET` | secret of the client `business-cockpit-directory` (the user directory) |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM` | the mail server for notifications |
+| `COCKPIT_URI` | the public address of the cockpit |
+| `USER_INTERFACE_URI` | address of the nginx image of the user interface |
+
 ## Developing the user interface
 
 The user interface runs behind its own nginx image, so the backend embeds no UI jar. For a
@@ -53,7 +98,11 @@ types jar and the application). Why:
   first.
 - If the types were part of the UI build, the UI repository, which only needs npm, would need Java.
 
-In this repository they fit, because the backend comes after the user interface anyway.
+In this repository they fit, because the backend comes after the user interface anyway. The order
+is: the cockpit release, then the user interface, then this backend repository.
+
+A new version of the user interface gets in as a new value of `ui.version` in the parent
+`pom.xml`. The types jar is built from the npm package of that version.
 
 The nginx image of the UI repository (`docker/Dockerfile`) serves the files of the user interface.
 The backend passes every path it does not answer itself to it. Its address is
