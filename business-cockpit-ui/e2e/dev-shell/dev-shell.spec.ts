@@ -1,6 +1,7 @@
 // DS-002 to DS-011: the dev shell shows a form from the GUI API of the simulator, without a cockpit.
 import { createServer, type Server } from 'node:http';
 import { expect, test, type Page } from '@playwright/test';
+import en from '../../packages/ui/src/i18n/en';
 import { createDevShellProxy } from '../../packages/bc-module-kit/dist/dev-server-proxy.js';
 
 const at = '2026-11-20T08:00:00Z';
@@ -256,6 +257,104 @@ test(`DS-017 [${framework}] the dev shell asks the module's data entries and sho
   await page.goto(`${shell}#/workflows/c1`);
   await expect(page.getByTestId('part-case')).toBeVisible();
   await expect(page.getByTestId('shell-note')).toBeHidden();
+});
+
+test(`DS-020 [${framework}] a web component name without the prefix of the module id is refused, with the note of the cockpit`, async ({ page }) => {
+  await seed(page);
+  await page.request.post('/simulator-api/user-tasks', { data: { userTasks: [task('t8', 'foreign', 'Foreign name')] } });
+  await page.goto(`${shell}#/tasks/t8`);
+  const cockpitNote = en.partNotes.nameRefused.replace('{module}', 'dev-module').replace('{element}', 'other-module-ride--check--page').replace('{prefix}', 'dev-module');
+  await expect(page.getByTestId('shell-note')).toHaveText(cockpitNote);
+  await expect(page.locator('other-module-ride--check--page')).toHaveCount(0);
+});
+
+const manyTasks = (count: number) => Array.from({ length: count }, (_, index) => {
+  const number = index + 1;
+  return { ...task(`n${String(number).padStart(2, '0')}`, 'ride', `${number <= 30 ? 'Alpha' : 'Beta'} ${number}`), createdAt: `2026-11-01T00:00:${String(number).padStart(2, '0')}Z` };
+});
+const optionIds = (page: Page) => page.getByTestId('entry-select').locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+
+test(`DS-021 [${framework}] the drop-down is searchable by name, loads blocks of 20 and sorts by createdAt, the newest first`, async ({ page }) => {
+  await seed(page);
+  await page.request.post('/simulator-api/user-tasks', { data: { userTasks: manyTasks(45) } });
+  await page.request.post('/simulator-api/workflows', { data: { workflows: [
+    { ...task('c1', 'ride', 'Old case'), createdAt: '2026-11-01T00:00:00Z' }, { ...task('c2', 'ride', 'New case'), createdAt: '2026-11-02T00:00:00Z' },
+  ] } });
+  const bodies: Record<string, unknown>[] = [];
+  page.on('request', (request) => { if (request.method() === 'POST' && /\/usertask$/.test(new URL(request.url()).pathname)) bodies.push(JSON.parse(request.postData()!)); });
+  await page.goto(`${shell}#/tasks/n45`);
+  await expect(page.getByTestId('part-task')).toBeVisible();
+  // the first block: 20 entries, the newest first
+  expect(await optionIds(page)).toEqual(Array.from({ length: 20 }, (_, index) => `n${45 - index}`));
+  expect(bodies[0]).toMatchObject({ pageNumber: 0, pageSize: 20, sort: 'createdAt', sortAscending: false });
+  // the next blocks
+  await page.getByTestId('entry-more').click();
+  await expect.poll(async () => (await optionIds(page)).length).toBe(40);
+  await page.getByTestId('entry-more').click();
+  await expect.poll(async () => (await optionIds(page)).length).toBe(45);
+  await expect(page.getByTestId('entry-more')).toBeHidden();
+  expect(bodies.map((body) => body.pageNumber)).toContain(2);
+  // a search by name, case-insensitive, asks the server and starts again with the first block
+  await page.getByTestId('entry-search').fill('beta');
+  await expect.poll(async () => (await optionIds(page)).length).toBe(15);
+  expect((await optionIds(page))[0]).toBe('n45');
+  expect(bodies.at(-1)).toMatchObject({ pageNumber: 0, searchQueries: [{ path: 'title', query: 'beta', caseInsensitive: true }] });
+  // the same for the cases
+  await page.getByTestId('entry-search').fill('');
+  await page.getByTestId('kind-select').selectOption('workflows');
+  await expect(page.getByTestId('part-case')).toBeVisible();
+  expect(await optionIds(page)).toEqual(['c2', 'c1']);
+  await page.getByTestId('entry-search').fill('old');
+  await expect.poll(optionIdsOf(page)).toEqual(['c1']);
+});
+const optionIdsOf = (page: Page) => () => optionIds(page);
+
+test(`DS-022 [${framework}] the start page leads to each part and each extension point and offers the choice of the user`, async ({ page }) => {
+  await seed(page);
+  await page.goto(shell);
+  const start = page.getByTestId('start-page');
+  await expect(start).toBeVisible();
+  await expect(page.getByTestId('part-task')).toHaveCount(0);
+  expect(await page.getByTestId('user-select').locator('option').evaluateAll((options) => options.map((option) => option.textContent))).toEqual(['no user', 'Anna Sales', 'Ben Support']);
+  await expect(start.getByTestId('start-task-t1')).toHaveAttribute('href', '#/tasks/t1');
+  await expect(start.getByTestId('start-workflow-c1')).toHaveAttribute('href', '#/workflows/c1');
+  // the page of a part has the id in its address
+  await start.getByTestId('start-task-t2').click();
+  await expect(page).toHaveURL(/#\/tasks\/t2$/);
+  await expect(page.getByTestId('part-body')).toBeVisible();
+  await page.getByTestId('start-link').click();
+  await expect(page).toHaveURL(/#\/$/);
+  await start.getByTestId('start-workflow-c1').click();
+  await expect(page).toHaveURL(/#\/workflows\/c1$/);
+  await expect(page.getByTestId('part-case')).toBeVisible();
+  // the extension point Header
+  await page.getByTestId('start-link').click();
+  await start.getByTestId('start-extension-header').click();
+  await expect(page).toHaveURL(/#\/header$/);
+  await expect(page.getByTestId('shell-stage').getByTestId('part-header')).toBeVisible();
+  // no user: the start page says so instead of a list
+  await page.getByTestId('start-link').click();
+  await page.getByTestId('user-select').selectOption('---');
+  await expect(page.getByTestId('shell-note')).toBeVisible();
+  await expect(start.getByTestId('start-task-t1')).toHaveCount(0);
+});
+
+test(`DS-023 [${framework}] the dev shell keeps its settings in memory only: nothing is stored, no settings are asked from the simulator`, async ({ page }) => {
+  await seed(page);
+  const requests: string[] = [];
+  page.on('request', (request) => requests.push(new URL(request.url()).pathname));
+  await page.goto(shell);
+  await page.getByTestId('language-select').selectOption('de');
+  await page.getByTestId('start-task-t1').click();
+  await expect(page.getByTestId('part-language')).toHaveText('language: de');
+  await page.getByTestId('entry-select').selectOption('t2');
+  await expect(page.getByTestId('part-body')).toBeVisible();
+  await expect(page.getByTestId('language-select')).toHaveValue('de');
+  expect(await page.evaluate(() => [localStorage.length, sessionStorage.length, document.cookie.includes('language')])).toEqual([0, 0, false]);
+  expect(requests.filter((path) => /settings/.test(path))).toEqual([]);
+  // a fresh page starts again with the first language
+  await page.reload();
+  await expect(page.getByTestId('language-select')).toHaveValue('en');
 });
 
 }

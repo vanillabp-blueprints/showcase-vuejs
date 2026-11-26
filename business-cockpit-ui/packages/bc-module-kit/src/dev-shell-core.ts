@@ -9,6 +9,21 @@ export interface DevShellEntry { id: string; title?: Record<string, string> }
 export interface DevShellUser { id: string; name: string }
 export class DevShellNotAllowed extends Error {}
 
+/** One block of the drop-down: its entries, and whether the server has more blocks behind it. */
+export interface DevShellBlock { entries: DevShellEntry[]; more: boolean }
+/** The drop-down loads its entries in blocks of 20 (dev-shell.md). */
+export const DEV_SHELL_BLOCK_SIZE = 20;
+
+/** The settings of the dev shell live in memory only: the simulator has no settings, and the dev shell stores nothing in the browser. */
+export function createDevShellSettings() {
+  const values = new Map<string, unknown>();
+  return {
+    read: <T = unknown>(key: string): T | undefined => values.get(key) as T | undefined,
+    write: (key: string, value: unknown): void => { values.set(key, value); },
+  };
+}
+const LANGUAGE_SETTING = 'bc:language';
+
 /** What every part gets besides its data: the user chosen and the language chosen. */
 export interface DevShellContext { user: string; language: string; currentUser?: { id: string } }
 export const DEV_SHELL_DEFAULT_LANGUAGE = 'en';
@@ -42,15 +57,19 @@ export function createDevShellApi(guiApiBase: string) {
     if (!response.ok) throw new Error(`${path} answered ${response.status}`);
     return (await response.json()) as T;
   };
-  const list = async (kind: 'usertask' | 'workflow'): Promise<DevShellEntry[]> => {
-    // the drop-down asks with the primary filter All, newest first, in blocks of 20 (dev-shell.md)
-    const body = JSON.stringify({ mode: 'All', pageNumber: 0, pageSize: 20, sort: 'createdAt', sortAscending: false });
-    const answer = await call<{ userTasks?: DevShellEntry[]; workflows?: DevShellEntry[] }>(`${guiApiBase}/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
-    return (kind === 'usertask' ? answer.userTasks : answer.workflows) ?? [];
+  const list = async (kind: 'usertask' | 'workflow', pageNumber: number, search: string): Promise<DevShellBlock> => {
+    // the drop-down asks with the primary filter All, newest first, a block of 20 at a time, searched by name (dev-shell.md)
+    const body = JSON.stringify({
+      mode: 'All', pageNumber, pageSize: DEV_SHELL_BLOCK_SIZE, sort: 'createdAt', sortAscending: false,
+      ...(search ? { searchQueries: [{ path: 'title', query: search, caseInsensitive: true }] } : {}),
+    });
+    const answer = await call<{ page?: { number: number; totalPages: number }; userTasks?: DevShellEntry[]; workflows?: DevShellEntry[] }>(
+      `${guiApiBase}/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+    return { entries: (kind === 'usertask' ? answer.userTasks : answer.workflows) ?? [], more: answer.page ? answer.page.number + 1 < answer.page.totalPages : false };
   };
   return {
-    userTasks: () => list('usertask'),
-    workflows: () => list('workflow'),
+    userTasks: (pageNumber = 0, search = '') => list('usertask', pageNumber, search),
+    workflows: (pageNumber = 0, search = '') => list('workflow', pageNumber, search),
     userTask: (id: string) => call<Record<string, unknown>>(`${guiApiBase}/usertask/${encodeURIComponent(id)}`),
     workflow: (id: string) => call<Record<string, unknown>>(`${guiApiBase}/workflow/${encodeURIComponent(id)}`),
     /** The languages of the cockpit, as its application information names them. */
@@ -132,7 +151,7 @@ function drawElement<Component>(
   page: Page, properties: Record<string, unknown>, area?: string,
 ): string | undefined {
   const prefix = options.workflowModuleId.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-  if (!name.startsWith(`${prefix}-`)) return `the name ${name} is refused, it has to start with ${prefix}-`;
+  if (!name.startsWith(`${prefix}-`)) return `Module ${options.workflowModuleId}: the name ${name} is refused, it has to start with ${prefix}-.`;
   const component = options.components[name];
   if (!component) return `no component was handed over for the web component ${name}`;
   define(name, component, options.style ?? '', renderer);
@@ -163,6 +182,11 @@ export function drawDevShellHeader<Component>(
 /** The layout boxes of the task page and the case page of the cockpit: the same elements, the same CSS (TaskPage.vue). */
 export const DEV_SHELL_LAYOUT_CSS = `
 /* what the cockpit's application passes down to a part: the text colour and the line height (Vuetify's .v-application) */
+html { overflow-x: hidden; overflow-y: auto; }
+/* the boxes around the page in the cockpit: Vuetify's .v-application, .v-application__wrap and the main element */
+.bc-app { display: flex; }
+.bc-wrap { display: flex; position: relative; flex: 1 1 auto; min-width: 0; }
+.bc-main { display: block; flex: 1 1 auto; min-width: 0; }
 .bc-page { height: 100vh; overflow: auto; color: rgba(0, 0, 0, 0.87); line-height: 1.5; }
 @media (prefers-color-scheme: dark) { .bc-page { color: rgba(255, 255, 255, 0.87); } }
 .bc-stage { position: relative; margin: 16px; }
@@ -177,6 +201,8 @@ export const DEV_SHELL_LAYOUT_CSS = `
 .bc-header { display: flex; gap: 8px; align-items: center; margin-left: auto; }
 .bc-header > div { display: flex; }
 .bc-note { margin: 16px; }
+.bc-start { margin: 16px; }
+.bc-start a { display: block; padding: 2px 0; }
 `;
 
 /** The areas of the task page and of the case page of the cockpit (Q-TASK-PAGE-AREAS, Q-WORKFLOW-PAGE-AREAS). */
@@ -223,94 +249,184 @@ export async function drawDevShellPart<Component>(
   return undefined;
 }
 
-const routeOf = () => /^#\/(tasks|workflows)\/(.+)$/.exec(window.location.hash)?.slice(1, 3) as ['tasks' | 'workflows', string] | undefined;
+type Kind = 'tasks' | 'workflows';
+type Route = { kind: Kind; id: string } | { kind: 'header' } | undefined;
+const routeOf = (): Route => {
+  const hash = window.location.hash;
+  if (hash === '#/header') return { kind: 'header' };
+  const found = /^#\/(tasks|workflows)\/(.+)$/.exec(hash);
+  return found ? { kind: found[1] as Kind, id: found[2]! } : undefined;
+};
 
 /**
  * The page of the dev shell for the frameworks which draw into an element they are given: the bar with the choice of kind, entry
- * and user, a note, and the stage with the parts. The behaviour is the one of the Vue dev shell.
+ * and user, a note, the start page and the stage with the parts. The routes are `#/` (start page), `#/tasks/<id>`,
+ * `#/workflows/<id>` and `#/header`.
  */
 export function startDevShell<Component>(target: HTMLElement, options: DevShellCoreOptions<Component>, renderer: DevShellRenderer<Component>): void {
   const api = createDevShellApi(options.guiApiBase);
+  const settings = createDevShellSettings();
   document.head.append(Object.assign(document.createElement('style'), { textContent: DEV_SHELL_LAYOUT_CSS }));
-  const page = Object.assign(document.createElement('div'), { className: 'bc-page' });
-  const bar = Object.assign(document.createElement('div'), { className: 'bc-bar' });
-  bar.dataset.testid = 'shell-bar';
-  const header = Object.assign(document.createElement('div'), { className: 'bc-header' });
-  header.dataset.testid = 'shell-header';
-  const note = Object.assign(document.createElement('p'), { className: 'bc-note', hidden: true });
-  note.dataset.testid = 'shell-note';
-  note.setAttribute('role', 'alert');
-  const stage = Object.assign(document.createElement('div'), { className: 'bc-stage' });
-  const container = stage.appendChild(Object.assign(document.createElement('div'), { className: 'bc-container' }));
-  const select = (testid: string) => {
-    const element = bar.appendChild(document.createElement('select'));
-    element.dataset.testid = testid;
-    return element;
+  const element = (tag: string, testid: string, props: Record<string, unknown> = {}): HTMLElement & Record<string, any> => {
+    const created = Object.assign(document.createElement(tag), props);
+    created.dataset.testid = testid;
+    return created;
   };
+  const page = Object.assign(document.createElement('div'), { className: 'bc-page' });
+  const bar = element('div', 'shell-bar', { className: 'bc-bar' });
+  const header = element('div', 'shell-header', { className: 'bc-header' });
+  const note = element('p', 'shell-note', { className: 'bc-note', hidden: true });
+  note.setAttribute('role', 'alert');
+  const start = element('div', 'start-page', { className: 'bc-start', hidden: true });
+  const stage = element('div', 'shell-stage', { className: 'bc-stage' });
+  const container = stage.appendChild(Object.assign(document.createElement('div'), { className: 'bc-container' }));
+  bar.append(element('a', 'start-link', { href: '#/', textContent: 'Start page' }));
+  const select = (testid: string) => bar.appendChild(element('select', testid)) as HTMLSelectElement;
   const kindSelect = select('kind-select');
+  const searchInput = bar.appendChild(element('input', 'entry-search', { type: 'search', placeholder: 'Search by name' })) as HTMLInputElement;
   const entrySelect = select('entry-select');
+  const moreButton = bar.appendChild(element('button', 'entry-more', { textContent: 'More', hidden: true }));
   const userSelect = select('user-select');
   const languageSelect = select('language-select');
-  const fill = (element: HTMLSelectElement, choices: [string, string][], value: string) => {
-    element.replaceChildren(...choices.map(([id, label]) => Object.assign(document.createElement('option'), { value: id, textContent: label })));
-    element.value = value;
+  const fill = (choice: HTMLSelectElement, choices: [string, string][], value: string) => {
+    choice.replaceChildren(...choices.map(([id, label]) => Object.assign(document.createElement('option'), { value: id, textContent: label })));
+    choice.value = value;
   };
-  fill(kindSelect, [['tasks', 'User tasks'], ['workflows', 'Cases']], 'tasks');
+  const kinds: [string, string][] = [['tasks', 'User tasks'], ['workflows', 'Cases']];
+  fill(kindSelect, kinds, 'tasks');
   bar.append(header);
-  page.append(bar, note, stage);
-  target.append(page);
+  page.append(bar, note, start, stage);
+  const main = Object.assign(document.createElement('main'), { className: 'bc-main' });
+  const wrap = Object.assign(document.createElement('div'), { className: 'bc-wrap' });
+  const application = Object.assign(document.createElement('div'), { className: 'bc-app' });
+  main.append(page);
+  wrap.append(main);
+  application.append(wrap);
+  target.append(application);
 
   const say = (text: string | undefined) => { note.textContent = text ?? ''; note.hidden = !text; };
   let user = '---';
+  let language = settings.read<string>(LANGUAGE_SETTING) ?? DEV_SHELL_DEFAULT_LANGUAGE;
   const contextOf = (): DevShellContext => ({ user, language, ...(user === '---' ? {} : { currentUser: { id: user } }) });
-  let language = DEV_SHELL_DEFAULT_LANGUAGE;
   let shown = 0;
-  const go = (to: 'tasks' | 'workflows', id: string) => { window.location.hash = `#/${to}/${id}`; };
+  const go = (to: Kind, id: string) => { window.location.hash = `#/${to}/${id}`; };
+  const labelOf = (entry: DevShellEntry) => entry.title?.[language] ?? entry.title?.en ?? entry.id;
+  const block = (kind: Kind, number = 0, search = '') => kind === 'tasks' ? api.userTasks(number, search) : api.workflows(number, search);
 
-  // loads the drop-down of the kind and draws the entry of the address; run again after every change of the address or the user
-  async function load(): Promise<void> {
+  // the entries of the drop-down: blocks of 20, searched by name; a block is added at the end
+  let loadedKind: Kind | undefined;
+  let entries: DevShellEntry[] = [];
+  let blocks = 0;
+  let more = false;
+  let search = '';
+  const showEntries = (selected: string) => {
+    fill(entrySelect, entries.map((entry) => [entry.id, labelOf(entry)]), selected);
+    moreButton.hidden = !more;
+  };
+  let entryTurn = 0;
+  async function loadEntries(kind: Kind, again: boolean): Promise<void> {
+    const turn = ++entryTurn;
+    const fetched = await block(kind, again ? 0 : blocks, search);
+    if (turn !== entryTurn) return;
+    entries = again ? fetched.entries : [...entries, ...fetched.entries];
+    blocks = again ? 1 : blocks + 1;
+    more = fetched.more;
+    loadedKind = kind;
+  }
+
+  const link = (testid: string, to: string, text: string) => {
+    const item = document.createElement('div');
+    item.append(element('a', testid, { href: to, textContent: text }));
+    return item;
+  };
+  async function drawStart(): Promise<void> {
+    const [tasks, cases] = await Promise.all([block('tasks'), block('workflows')]);
+    start.replaceChildren(
+      Object.assign(document.createElement('h2'), { textContent: 'User tasks' }),
+      ...tasks.entries.map((entry) => link(`start-task-${entry.id}`, `#/tasks/${entry.id}`, labelOf(entry))),
+      Object.assign(document.createElement('h2'), { textContent: 'Cases' }),
+      ...cases.entries.map((entry) => link(`start-workflow-${entry.id}`, `#/workflows/${entry.id}`, labelOf(entry))),
+      Object.assign(document.createElement('h2'), { textContent: 'Extension points' }),
+      ...(options.header ? [link('start-extension-header', '#/header', 'Header')] : []),
+    );
+  }
+
+  // draws what the address names; run again after every change of the address or the user
+  async function load(userChanged = false): Promise<void> {
     const turn = ++shown;
     say(undefined);
-    const headerNote = drawDevShellHeader(header, options, renderer, contextOf());
     const route = routeOf();
-    const kind = route?.[0] ?? (kindSelect.value as 'tasks' | 'workflows');
+    start.hidden = Boolean(route);
+    stage.hidden = !route;
+    container.replaceChildren();
+    const headerNote = drawDevShellHeader(header, options, renderer, contextOf());
     try {
-      const entries = await (kind === 'tasks' ? api.userTasks() : api.workflows());
-      if (turn !== shown) return;
-      fill(kindSelect, [['tasks', 'User tasks'], ['workflows', 'Cases']], kind);
-      fill(entrySelect, entries.map((entry) => [entry.id, entry.title?.[language] ?? entry.title?.en ?? entry.id]), route?.[1] ?? '');
       if (!route) {
-        container.replaceChildren();
-        if (entries[0]) go(kind, entries[0].id);
+        start.replaceChildren();
+        await drawStart();
         return;
       }
-      const data = await (kind === 'tasks' ? api.userTask(route[1]) : api.workflow(route[1]));
+      if (route.kind === 'header') {
+        say(user === '---' ? 'No user is chosen: the header has no buttons.' : drawDevShellHeader(container, options, renderer, contextOf()) ?? headerNote);
+        return;
+      }
+      if (userChanged || loadedKind !== route.kind) await loadEntries(route.kind, true);
       if (turn !== shown) return;
-      const ask = (kind === 'tasks' ? options.userTaskForm : options.workflowPage) as DevShellDataFunction | undefined;
-      say(await drawDevShellPart(container, ask, data, kind === 'tasks' ? 'userTask' : 'workflow', options, renderer, contextOf()) ?? headerNote);
+      fill(kindSelect, kinds, route.kind);
+      showEntries(route.id);
+      const data = await (route.kind === 'tasks' ? api.userTask(route.id) : api.workflow(route.id));
+      if (turn !== shown) return;
+      const ask = (route.kind === 'tasks' ? options.userTaskForm : options.workflowPage) as DevShellDataFunction | undefined;
+      const drawn = await drawDevShellPart(container, ask, data, route.kind === 'tasks' ? 'userTask' : 'workflow', options, renderer, contextOf());
+      if (turn === shown) say(drawn ?? headerNote);
     } catch (error) {
       if (turn !== shown) return;
       container.replaceChildren();
+      start.replaceChildren();
       say(error instanceof DevShellNotAllowed ? 'No user is chosen: the simulator answers only for a user.' : String(error));
     }
   }
 
-  entrySelect.addEventListener('change', () => go((routeOf()?.[0] ?? kindSelect.value) as 'tasks', entrySelect.value));
+  const currentKind = (): Kind => { const route = routeOf(); return route && route.kind !== 'header' ? route.kind : (kindSelect.value as Kind); };
+  entrySelect.addEventListener('change', () => go(currentKind(), entrySelect.value));
+  moreButton.addEventListener('click', async () => {
+    await loadEntries(currentKind(), false);
+    const route = routeOf();
+    showEntries(route && route.kind !== 'header' ? route.id : '');
+  });
+  let typing: ReturnType<typeof setTimeout> | undefined;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(typing);
+    typing = setTimeout(async () => {
+      if (searchInput.value === search) return;
+      search = searchInput.value;
+      await loadEntries(currentKind(), true).catch(() => undefined);
+      const route = routeOf();
+      showEntries(route && route.kind !== 'header' ? route.id : '');
+    }, 250);
+  });
   kindSelect.addEventListener('change', async () => {
-    const to = kindSelect.value as 'tasks' | 'workflows';
-    window.location.hash = '';
-    const entries = await (to === 'tasks' ? api.userTasks() : api.workflows()).catch(() => []);
+    const to = kindSelect.value as Kind;
+    clearTimeout(typing);
+    search = '';
+    searchInput.value = '';
+    await loadEntries(to, true).catch(() => undefined);
     if (entries[0]) go(to, entries[0].id);
     else { fill(entrySelect, [], ''); container.replaceChildren(); }
   });
-  userSelect.addEventListener('change', () => { user = userSelect.value; void api.chooseUser(user).then(load); });
-  languageSelect.addEventListener('change', () => { language = languageSelect.value; setDevShellContext(container, { language }); setDevShellContext(header, { language }); });
+  userSelect.addEventListener('change', () => { user = userSelect.value; void api.chooseUser(user).then(() => load(true)); });
+  languageSelect.addEventListener('change', () => {
+    language = languageSelect.value;
+    settings.write(LANGUAGE_SETTING, language);
+    setDevShellContext(container, { language });
+    setDevShellContext(header, { language });
+  });
   window.addEventListener('hashchange', () => void load());
   void (async () => {
     const [users, chosen, languages] = await Promise.all([api.users(), api.chosenUser(), api.languages().catch(() => [DEV_SHELL_DEFAULT_LANGUAGE])]);
     user = chosen;
     fill(languageSelect, languages.map((one) => [one, one]), language);
     fill(userSelect, [['---', 'no user'], ...users.map((one) => [one.id, one.name] as [string, string])], user);
-    await load();
+    await load(true);
   })();
 }

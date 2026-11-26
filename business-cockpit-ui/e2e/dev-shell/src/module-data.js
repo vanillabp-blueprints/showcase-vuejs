@@ -22,6 +22,8 @@ export const moduleOptions = {
   userTaskForm: (task) => {
     if (task?.bpmnProcessId === 'areas') return { element: { body: areaNames.body, information: areaNames.information, actions: areaNames.actions }, entry: 'Form' };
     if (task?.bpmnProcessId === 'talk') return { element: { body: areaNames.talkBody, actions: areaNames.talkActions }, entry: 'Form' };
+    // a name of another module
+    if (task?.bpmnProcessId === 'foreign') return { element: 'other-module-ride--check--page', entry: 'Form' };
     // a name for which the module hands over no component
     if (task?.bpmnProcessId === 'missing') return { element: names.userTask('missing', 'check', 'page'), entry: 'Form' };
     return { element: areaNames.task, entry: 'Form' };

@@ -74,7 +74,7 @@ Started: 2026-11-25
 | S65 | A module developer works on a form in the dev shell (1 of 5) | done | PKG-034, DS-001, DS-002, DS-003, DS-004, DS-005 | `sh plan/checks/S65.sh` |
 | S66 | A module developer works on a form in the dev shell (2 of 5) | done | DS-006, DS-007, DS-008, DS-009, DS-010, DS-011 | `sh plan/checks/S66.sh` |
 | S67 | A module developer works on a form in the dev shell (3 of 5) | done | DS-012, DS-013, DS-014, DS-015, DS-016, DS-017 | `sh plan/checks/S67.sh` |
-| S68 | A module developer works on a form in the dev shell (4 of 5) | open | DS-018, DS-019, DS-020, DS-021, DS-022, DS-023 | `sh plan/checks/S68.sh` |
+| S68 | A module developer works on a form in the dev shell (4 of 5) | done | DS-018, DS-019, DS-020, DS-021, DS-022, DS-023 | `sh plan/checks/S68.sh` |
 | S69 | A module developer works on a form in the dev shell (5 of 5) | open | DS-024, DS-025, DS-026 | `sh plan/checks/S69.sh` |
 | S70 | The cockpit is released and deployed (1 of 2) | open | PKG-011, PKG-024, PKG-025, PKG-032, PKG-036, PKG-037 | `sh plan/checks/S70.sh` |
 | S71 | The cockpit is released and deployed (2 of 2) | open | PKG-061, BE-018, BE-019, EXT-058 | `sh plan/checks/S71.sh` |

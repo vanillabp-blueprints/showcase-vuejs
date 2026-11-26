@@ -523,13 +523,17 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       const initialTimestamp = url.searchParams.get('initialTimestamp') ?? undefined;
       const serverTimestamp = initialTimestamp ?? new Date().toISOString();
       listRequests.push({ path, body, initialTimestamp, serverTimestamp });
-      const shown = workflows.filter((one) => inWorkflowMode(one, body.mode as string | undefined));
+      const searches = (body.searchQueries ?? []) as Query[];
+      const shown = workflows
+        .filter((one) => inWorkflowMode(one, body.mode as string | undefined))
+        .filter((one) => searches.every((search) => matches(one as unknown as UserTask, search)));
+      const sorted = sortedBy(shown as unknown as UserTask[], String(body.sort ?? ''), body.sortAscending !== false) as unknown as Workflow[];
       const size = Number(body.pageSize ?? 20);
       const number = Number(body.pageNumber ?? 0);
       return send(res, 200, {
         serverTimestamp,
         page: { totalElements: shown.length, totalPages: Math.ceil(shown.length / size), number, size },
-        workflows: shown.slice(number * size, (number + 1) * size),
+        workflows: sorted.slice(number * size, (number + 1) * size),
       });
     }
     if (path === `${guiApiPath}/usertasks`) {
