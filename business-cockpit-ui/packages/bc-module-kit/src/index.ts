@@ -7,3 +7,4 @@ export * from './define-element.js';
 export * from './functions.js';
 export * from './dev-shell-core.js';
 export * from './toast.js';
+export * from './page.js';

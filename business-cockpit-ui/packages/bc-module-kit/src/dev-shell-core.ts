@@ -1,7 +1,8 @@
 // What every dev shell shares, whatever the framework of the module: the client of the GUI API, the layout of the task
 // page and the case page, and the drawing of a part. A dev shell supplies only how its framework builds a web component.
-import { ERROR_CODES, REQUEST_EVENT, RESPONSE_EVENT, type BcElementDescriptor, type BcNotification, type BcRequestDetail, type BcResponseDetail } from '@acme/bc-types';
+import { ACTIONS, ERROR_CODES, REQUEST_EVENT, RESPONSE_EVENT, type BcElementDescriptor, type BcNotification, type BcRequestDetail, type BcResponseDetail } from '@acme/bc-types';
 import { defineBcElement, type BcProps } from './define-element.js';
+import { ActionFailed, createPage, type MessagePage as Page } from './page.js';
 import { toast } from './toast.js';
 
 export interface DevShellEntry { id: string; title?: Record<string, string> }
@@ -9,7 +10,7 @@ export interface DevShellUser { id: string; name: string }
 export class DevShellNotAllowed extends Error {}
 
 /** What every part gets besides its data: the user chosen and the language chosen. */
-export interface DevShellContext { user: string; language: string }
+export interface DevShellContext { user: string; language: string; currentUser?: { id: string } }
 export const DEV_SHELL_DEFAULT_LANGUAGE = 'en';
 
 export type DevShellDataFunction = (data: Record<string, unknown> | undefined, area: string) => BcElementDescriptor | undefined | Promise<BcElementDescriptor | undefined>;
@@ -26,6 +27,8 @@ export interface DevShellCoreOptions<Component> {
   workflowModuleId: string;
   userTaskForm?: (userTask: any, area: string) => BcElementDescriptor | undefined;
   workflowPage?: (workflow: any, area: string) => BcElementDescriptor | undefined;
+  /** The extension point `Header`: asked with the user chosen, answers the buttons of the header. */
+  header?: (currentUser: { id: string }) => BcElementDescriptor[] | undefined;
   /** The components by web component name, imported from their source files. */
   components: Record<string, Component>;
   /** The text of the style the module's web components write into their shadow roots. */
@@ -80,7 +83,7 @@ const NOT_ANSWERED = ['userTask.claim', 'userTask.unclaim', 'userTask.assign', '
  * What the dev shell answers a part which asks the cockpit through its host element (the event protocol). Every request gets one
  * answer: a function which is not simulated says so in a toast and resolves, one nobody knows says so and fails.
  */
-function answerRequests(element: HTMLElement, api: ReturnType<typeof createDevShellApi>): void {
+function answerRequests(element: HTMLElement, api: ReturnType<typeof createDevShellApi>, page: Page): void {
   const say = (level: BcNotification['level'], message: string) => toast({ level, text: `Dev shell: ${message}` });
   const handlers: Record<string, (args: unknown) => unknown> = {
     'cockpit.showNotification': (args) => toast(args as BcNotification),
@@ -94,6 +97,9 @@ function answerRequests(element: HTMLElement, api: ReturnType<typeof createDevSh
       const tasks = await api.userTasksOfWorkflow(text(args, 'workflowId'));
       return (args as { activeOnly?: boolean }).activeOnly ?? true ? tasks.filter((task) => !task.endedAt) : tasks;
     },
+    [ACTIONS.sendTo]: (args) => page.send(element, text(args, 'target'), (args as { message: unknown }).message),
+    [ACTIONS.subscribe]: () => ({ subscriptionId: page.subscribe(element) }),
+    [ACTIONS.unsubscribe]: (args) => page.unsubscribe(text(args, 'subscriptionId')),
   };
   const respond = (detail: BcResponseDetail) => element.dispatchEvent(new CustomEvent(RESPONSE_EVENT, { detail }));
   element.addEventListener(REQUEST_EVENT, async (event) => {
@@ -109,7 +115,8 @@ function answerRequests(element: HTMLElement, api: ReturnType<typeof createDevSh
     try {
       respond({ requestId, ok: true, result: await handlers[action]!(args) });
     } catch (error) {
-      respond({ requestId, ok: false, error: { code: ERROR_CODES.FAILED, message: String(error) } });
+      const code = error instanceof ActionFailed ? error.code : ERROR_CODES.FAILED;
+      respond({ requestId, ok: false, error: { code, message: error instanceof Error ? error.message : String(error) } });
     }
   });
 }
@@ -117,6 +124,40 @@ function answerRequests(element: HTMLElement, api: ReturnType<typeof createDevSh
 /** The user or the language changed: every part on the page gets it, without being drawn again. */
 export function setDevShellContext(container: HTMLElement, context: Partial<DevShellContext>): void {
   for (const slot of container.children) Object.assign(slot.firstElementChild ?? {}, context);
+}
+
+/** Draws the web component of a name, without a framework of its own, into a new slot of the container. */
+function drawElement<Component>(
+  container: HTMLElement, name: string, options: DevShellCoreOptions<Component>, renderer: DevShellRenderer<Component>,
+  page: Page, properties: Record<string, unknown>, area?: string,
+): string | undefined {
+  const prefix = options.workflowModuleId.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  if (!name.startsWith(`${prefix}-`)) return `the name ${name} is refused, it has to start with ${prefix}-`;
+  const component = options.components[name];
+  if (!component) return `no component was handed over for the web component ${name}`;
+  define(name, component, options.style ?? '', renderer);
+  const slot = container.appendChild(document.createElement('div'));
+  if (area && area !== 'all') slot.dataset.area = area;
+  const element = document.createElement(name);
+  if (area) page.register(area, element);
+  answerRequests(element, createDevShellApi(options.guiApiBase), page);
+  Object.assign(element, properties);
+  slot.append(element);
+  return undefined;
+}
+
+/** Draws the buttons of the header the module's function names for the user chosen; none for no user. */
+export function drawDevShellHeader<Component>(
+  container: HTMLElement, options: DevShellCoreOptions<Component>, renderer: DevShellRenderer<Component>, context: DevShellContext,
+): string | undefined {
+  container.replaceChildren();
+  if (!options.header || !context.currentUser) return undefined;
+  const page = createPage();
+  for (const { element } of options.header(context.currentUser) ?? []) {
+    const note = drawElement(container, element, options, renderer, page, { ...context });
+    if (note) return note;
+  }
+  return undefined;
 }
 
 /** The layout boxes of the task page and the case page of the cockpit: the same elements, the same CSS (TaskPage.vue). */
@@ -133,6 +174,8 @@ export const DEV_SHELL_LAYOUT_CSS = `
 .bc-container > [data-area='information'] { grid-column: 2; grid-row: 1; min-height: 0; overflow-y: auto; }
 .bc-container > [data-area='actions'] { grid-column: 2; grid-row: 2; }
 .bc-bar { display: flex; gap: 8px; align-items: center; padding: 8px 16px; background: var(--bc-color-surface); }
+.bc-header { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.bc-header > div { display: flex; }
 .bc-note { margin: 16px; }
 `;
 
@@ -169,22 +212,13 @@ export async function drawDevShellPart<Component>(
   const first = await ask?.(data, 'all');
   if (!first) return `the module names no part for ${dataName} ${String(data.id)}`;
   const named: Record<string, string> = typeof first.element === 'string' ? { all: first.element } : first.element;
-  const api = createDevShellApi(options.guiApiBase);
-  const prefix = options.workflowModuleId.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  const page = createPage();
   const areas = PAGE_AREAS.filter((area) => Object.hasOwn(named, area));
   for (const area of areas.length ? areas : ['all']) {
     const name = named[area];
     if (name === undefined) return `the module names no web component for the area ${area}`;
-    if (!name.startsWith(`${prefix}-`)) return `the name ${name} is refused, it has to start with ${prefix}-`;
-    const component = options.components[name];
-    if (!component) return `no component was handed over for the web component ${name}`;
-    define(name, component, options.style ?? '', renderer);
-    const slot = container.appendChild(document.createElement('div'));
-    if (area !== 'all') slot.dataset.area = area;
-    const element = document.createElement(name);
-    answerRequests(element, api);
-    Object.assign(element, { [dataName]: data, area, ...context });
-    slot.append(element);
+    const note = drawElement(container, name, options, renderer, page, { [dataName]: data, area, ...context }, area);
+    if (note) return note;
   }
   return undefined;
 }
@@ -201,6 +235,8 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
   const page = Object.assign(document.createElement('div'), { className: 'bc-page' });
   const bar = Object.assign(document.createElement('div'), { className: 'bc-bar' });
   bar.dataset.testid = 'shell-bar';
+  const header = Object.assign(document.createElement('div'), { className: 'bc-header' });
+  header.dataset.testid = 'shell-header';
   const note = Object.assign(document.createElement('p'), { className: 'bc-note', hidden: true });
   note.dataset.testid = 'shell-note';
   note.setAttribute('role', 'alert');
@@ -220,11 +256,13 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
     element.value = value;
   };
   fill(kindSelect, [['tasks', 'User tasks'], ['workflows', 'Cases']], 'tasks');
+  bar.append(header);
   page.append(bar, note, stage);
   target.append(page);
 
   const say = (text: string | undefined) => { note.textContent = text ?? ''; note.hidden = !text; };
   let user = '---';
+  const contextOf = (): DevShellContext => ({ user, language, ...(user === '---' ? {} : { currentUser: { id: user } }) });
   let language = DEV_SHELL_DEFAULT_LANGUAGE;
   let shown = 0;
   const go = (to: 'tasks' | 'workflows', id: string) => { window.location.hash = `#/${to}/${id}`; };
@@ -233,6 +271,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
   async function load(): Promise<void> {
     const turn = ++shown;
     say(undefined);
+    const headerNote = drawDevShellHeader(header, options, renderer, contextOf());
     const route = routeOf();
     const kind = route?.[0] ?? (kindSelect.value as 'tasks' | 'workflows');
     try {
@@ -248,7 +287,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
       const data = await (kind === 'tasks' ? api.userTask(route[1]) : api.workflow(route[1]));
       if (turn !== shown) return;
       const ask = (kind === 'tasks' ? options.userTaskForm : options.workflowPage) as DevShellDataFunction | undefined;
-      say(await drawDevShellPart(container, ask, data, kind === 'tasks' ? 'userTask' : 'workflow', options, renderer, { user, language }));
+      say(await drawDevShellPart(container, ask, data, kind === 'tasks' ? 'userTask' : 'workflow', options, renderer, contextOf()) ?? headerNote);
     } catch (error) {
       if (turn !== shown) return;
       container.replaceChildren();
@@ -265,7 +304,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
     else { fill(entrySelect, [], ''); container.replaceChildren(); }
   });
   userSelect.addEventListener('change', () => { user = userSelect.value; void api.chooseUser(user).then(load); });
-  languageSelect.addEventListener('change', () => { language = languageSelect.value; setDevShellContext(container, { language }); });
+  languageSelect.addEventListener('change', () => { language = languageSelect.value; setDevShellContext(container, { language }); setDevShellContext(header, { language }); });
   window.addEventListener('hashchange', () => void load());
   void (async () => {
     const [users, chosen, languages] = await Promise.all([api.users(), api.chosenUser(), api.languages().catch(() => [DEV_SHELL_DEFAULT_LANGUAGE])]);

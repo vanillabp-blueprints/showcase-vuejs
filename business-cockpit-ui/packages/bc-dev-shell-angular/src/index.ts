@@ -1,4 +1,4 @@
-import { createComponent, type ApplicationRef, type Type } from '@angular/core';
+import { createComponent, provideZonelessChangeDetection, type ApplicationRef, type Type } from '@angular/core';
 import { createApplication } from '@angular/platform-browser';
 import { startDevShell, type DevShellCoreOptions, type DevShellRenderer } from '@acme/bc-module-kit';
 import { installTheme } from '@acme/bc-theme';
@@ -19,7 +19,7 @@ const renderer: DevShellRenderer<Type<any>> = {
       for (const [key, value] of Object.entries(props)) if (key !== 'element') ref?.setInput(key, value);
       ref?.changeDetectorRef.detectChanges();
     };
-    application ??= createApplication();
+    application ??= createApplication({ providers: [provideZonelessChangeDetection()] });
     void application.then((app) => {
       if (stopped) return;
       ref = createComponent(component, { environmentInjector: app.injector, hostElement: target.appendChild(document.createElement('dev-shell-part')) });

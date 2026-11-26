@@ -171,7 +171,105 @@ test(`DS-011 [${framework}] the dev shell has no lists, no live updates, no logi
   expect(await page.locator('table, [role="grid"], [data-testid*="list"], [data-testid*="row"]').count()).toBe(0);
 });
 
+test(`DS-012 [${framework}] the dev shell offers the users of the simulator, one can be picked, switched and deselected, and picking sets a real JWT cookie`, async ({ page }) => {
+  await seed(page);
+  await page.request.post('/dev-shell/user/---');
+  await page.goto(`${shell}#/tasks/t1`);
+  const choice = page.getByTestId('user-select');
+  expect(await choice.locator('option').evaluateAll((options) => options.map((option) => [(option as HTMLOptionElement).value, option.textContent]))).toEqual([['---', 'no user'], ['anna', 'Anna Sales'], ['ben', 'Ben Support']]);
+  const cookie = async () => (await page.context().cookies()).find((one) => one.name === 'bc');
+  const claims = async () => JSON.parse(Buffer.from((await cookie())!.value.split('.')[1]!, 'base64url').toString());
+  await choice.selectOption('anna');
+  await expect(page.getByTestId('part-task')).toBeVisible();
+  // a real JWT: three parts, and the user in its claims
+  expect((await cookie())!.value.split('.')).toHaveLength(3);
+  expect((await claims()).preferred_username ?? (await claims()).sub).toContain('anna');
+  await choice.selectOption('ben');
+  await expect(page.getByTestId('part-task')).toBeVisible();
+  expect((await claims()).preferred_username ?? (await claims()).sub).toContain('ben');
+  await choice.selectOption('---');
+  await expect(page.getByTestId('shell-note')).toBeVisible();
+  expect(await cookie()).toBeUndefined();
+});
+
+test(`DS-013 [${framework}] the header, the extension point the interview chose, can be tried: its buttons show in a header for the user chosen`, async ({ page }) => {
+  await seed(page);
+  await page.goto(`${shell}#/tasks/t1`);
+  const header = page.getByTestId('shell-header');
+  await expect(header.getByTestId('part-header')).toHaveText('header: no data');
+  // the function is asked with the user chosen: ben gets no button, no user none
+  await page.getByTestId('user-select').selectOption('ben');
+  await expect(page.getByTestId('part-task')).toBeVisible();
+  await expect(header.getByTestId('part-header')).toHaveCount(0);
+  await page.getByTestId('user-select').selectOption('---');
+  await expect(page.getByTestId('shell-note')).toBeVisible();
+  await expect(header.getByTestId('part-header')).toHaveCount(0);
+  // Pages and other extension points were not chosen: the shell offers none
+  await expect(page.getByTestId('shell-pages')).toHaveCount(0);
+});
+
+const talk = (page: Page, area: string, action: string) => page.locator(`[data-area="${area}"] [data-action="${action}"]`);
+const talkSeed = async (page: Page) => {
+  await seed(page);
+  await page.request.post('/simulator-api/user-tasks', { data: { userTasks: [task('t6', 'talk', 'Talking task')] } });
+  await page.goto(`${shell}#/tasks/t6`);
+  await expect(talk(page, 'body', 'listen')).toBeVisible();
+};
+
+test(`DS-014 [${framework}] sendTo and receiveMessage carry messages between the areas, also those sent before the subscription`, async ({ page }) => {
+  await talkSeed(page);
+  // sent before the body listens: kept, and handed over after the subscription
+  await talk(page, 'actions', 'send').click();
+  await expect(page.locator('[data-area="actions"]').getByTestId('result')).toHaveText('send: sent');
+  await talk(page, 'body', 'listen').click();
+  await expect(page.locator('[data-area="body"]').getByTestId('result')).toHaveText('listen: subscribed');
+  await expect(page.locator('[data-area="body"]').getByTestId('received')).toHaveText('actions: hello');
+  // now the body listens: delivered at once, `from` is the area of the sender
+  await talk(page, 'actions', 'send').click();
+  await expect(page.locator('[data-area="body"]').getByTestId('received')).toHaveText('actions: hello');
+  // a target without a web component fails with NO_TARGET, as in the cockpit
+  await talk(page, 'actions', 'send-nowhere').click();
+  await expect(page.locator('[data-area="actions"]').getByTestId('result')).toHaveText('send-nowhere: failed NO_TARGET');
+});
+
+test(`DS-015 [${framework}] the drop-down asks for user tasks and for cases with the primary filter All, and offers no other`, async ({ page }) => {
+  await seed(page);
+  const bodies: Record<string, string> = {};
+  page.on('request', (request) => { const path = new URL(request.url()).pathname; if (request.method() === 'POST' && /\/(usertask|workflow)$/.test(path)) bodies[path.split('/').pop()!] = request.postData()!; });
+  await page.goto(`${shell}#/tasks/t1`);
+  await expect(page.getByTestId('part-task')).toBeVisible();
+  await page.getByTestId('kind-select').selectOption('workflows');
+  await expect(page.getByTestId('part-case')).toBeVisible();
+  expect(Object.keys(bodies).sort()).toEqual(['usertask', 'workflow']);
+  for (const body of Object.values(bodies)) expect(JSON.parse(body)).toMatchObject({ mode: 'All' });
+  // no control for another filter
+  expect(await page.getByTestId('shell-bar').locator('select').evaluateAll((selects) => selects.map((select) => select.getAttribute('data-testid')))).toEqual(['kind-select', 'entry-select', 'user-select', 'language-select']);
+});
+
+test(`DS-017 [${framework}] the dev shell asks the module's data entries and shows a note with the name for a web component without a component`, async ({ page }) => {
+  await seed(page);
+  await page.request.post('/simulator-api/user-tasks', { data: { userTasks: [task('t7', 'missing', 'No component')] } });
+  // the data entry told the shell which component to draw: the task t1 gets the page, the case its own
+  await page.goto(`${shell}#/tasks/t7`);
+  await expect(page.getByTestId('shell-note')).toContainText('dev-module-dev-missing--check--page');
+  await expect(page.getByTestId('shell-note')).toContainText('no component');
+  await page.goto(`${shell}#/workflows/c1`);
+  await expect(page.getByTestId('part-case')).toBeVisible();
+  await expect(page.getByTestId('shell-note')).toBeHidden();
+});
+
 }
+
+test('DS-016 [angular] the dev shell for Angular runs zoneless', async ({ page }) => {
+  await seed(page);
+  await page.goto('/dev-shell-app/angular.html#/tasks/t1');
+  await expect(page.getByTestId('part-task')).toBeVisible();
+  expect(await page.evaluate(() => 'Zone' in window)).toBe(false);
+  await expect(page.getByTestId('part-zone')).toHaveText('NoopNgZone');
+  // the language reaches the part by a signal-free input change, repainted without zone.js
+  await page.getByTestId('language-select').selectOption('de');
+  await expect(page.getByTestId('part-language')).toHaveText('language: de');
+});
 
 test('DS-010 the dev server forwards /official-api and /dev-shell to the simulator and /wm/<id>/ to the workflow module, and answers an unknown path with the start page', async ({ baseURL }) => {
   const seen: string[] = [];
