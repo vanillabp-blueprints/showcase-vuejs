@@ -6,7 +6,8 @@ import type { User } from './generated/official-gui-api';
 import { counts } from './counts/counts';
 import { initialsOf } from './initials';
 import { formatNumber } from './i18n/format';
-import { language, languages, text } from './i18n/messages';
+import { offered, switchTo } from './locale';
+import { language, text } from './i18n/messages';
 import { caseIdOf, pageOf, taskIdOf } from './routing';
 import { cappedNotice, isCapped } from './tasks/cappedNotice';
 import TaskList from './tasks/TaskList.vue';
@@ -48,6 +49,8 @@ const headerLook = computed(() => {
 watchEffect(() => { document.documentElement.lang = language.value; });
 const shortForm = computed(() => props.user.displayShort ?? props.user.display ?? props.user.id);
 const initials = computed(() => initialsOf(props.user.display, props.user.id));
+// the address shows the path of the language chosen
+const chosen = (code: Parameters<typeof switchTo>[0]): void => { switchTo(code); path.value = window.location.pathname; };
 const shown = (label: string, count?: number): string => (count === undefined ? label : `${label} (${formatNumber(count, language.value)})`);
 </script>
 
@@ -103,8 +106,8 @@ const shown = (label: string, count?: number): string => (count === undefined ? 
         <v-list-item data-menu-part="notifications" data-testid="menu-notifications" :href="text().routes.notifications" :title="text().notifications" />
         <v-divider />
         <v-list-item data-menu-part="language" :title="text().language">
-          <v-btn-toggle v-model="language" mandatory density="compact" variant="outlined" divided>
-            <v-btn v-for="code in languages" :key="code" :data-testid="`language-${code}`" :value="code">{{ code.toUpperCase() }}</v-btn>
+          <v-btn-toggle :model-value="language" mandatory density="compact" variant="outlined" divided @update:model-value="chosen">
+            <v-btn v-for="code in offered" :key="code" :data-testid="`language-${code}`" :value="code">{{ code.toUpperCase() }}</v-btn>
           </v-btn-toggle>
         </v-list-item>
         <v-divider />

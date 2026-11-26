@@ -1,4 +1,4 @@
-import { languages, messagesOf, text } from './i18n/messages';
+import { languages, messagesOf, text, type Language } from './i18n/messages';
 
 export type Page = 'allTasks' | 'myTasks' | 'cases' | 'case' | 'task' | 'none';
 
@@ -40,4 +40,27 @@ export function caseIdOf(pathname: string): string | undefined {
     }
   }
   return undefined;
+}
+
+const pagesOfOnePath = ['allTasks', 'myTasks', 'cases', 'notifications'] as const;
+const pagesWithAnId = ['task', 'case'] as const;
+
+/** The same screen in the path of another language; an address which is no screen of ours stays as it is. */
+export function pathInLanguage(pathname: string, to: Language): string {
+  const target = messagesOf(to).routes;
+  for (const from of languages) {
+    const routes = messagesOf(from).routes;
+    for (const page of pagesOfOnePath) if (pathname === routes[page]) return target[page];
+    for (const page of pagesWithAnId) {
+      if (pathname.startsWith(`${routes[page]}/`)) return `${target[page]}${pathname.slice(routes[page].length)}`;
+    }
+  }
+  return pathname;
+}
+
+/** Puts the path of the language into the address bar, keeping query and fragment, without a new entry in the history. */
+export function replaceAddressWithLanguage(to: Language): void {
+  const { pathname, search, hash } = window.location;
+  const replaced = pathInLanguage(pathname, to);
+  if (replaced !== pathname) window.history.replaceState(window.history.state, '', replaced + search + hash);
 }

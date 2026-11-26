@@ -40,6 +40,8 @@ test.beforeEach(async ({ request }) => {
 test('TL-001 the status line offers the primary filters from the interview, below the rows, with short translated labels', async ({ page }) => {
   await seed(page, fiveTasks);
   await page.goto('/tasks');
+  // the page starts after it read the language of the user, so wait for it
+  await expect(page.getByTestId('status-line')).toBeVisible();
   const buttons = page.getByTestId('status-line').locator('[data-testid^="primary-filter-"]');
   expect(await buttons.evaluateAll((all) => all.map((button) => button.getAttribute('data-testid')))).toEqual([
     'primary-filter-OpenTasksWithoutFollowUp', 'primary-filter-OpenTasksWithFollowUp', 'primary-filter-ClosedTasksOnly',

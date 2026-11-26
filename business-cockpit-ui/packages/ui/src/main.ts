@@ -6,6 +6,7 @@ import 'vuetify/styles';
 import App from './App.vue';
 import { configureGuiApiClients } from './api/clients';
 import { LoginApi } from './generated/cockpit-gui-api';
+import { startLanguage } from './locale';
 import { keepCountsCurrent } from './counts/counts';
 import { setCurrentUser, startModules } from './modules/modules';
 import { currentUser, sendToLoginOnUnauthorized } from './session/session';
@@ -19,6 +20,7 @@ async function start(): Promise<void> {
   if (!user) return;
   setCurrentUser(user);
   const info = await new LoginApi().appInformation();
+  await startLanguage(info.additionalProperties?.languages);
   keepCountsCurrent();
   await startModules();
   const vuetify = createVuetify({

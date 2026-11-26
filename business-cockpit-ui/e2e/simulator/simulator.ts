@@ -80,6 +80,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
   let listRequests: { path: string; body: Record<string, unknown>; initialTimestamp?: string; serverTimestamp?: string }[] = [];
   let suggestionRequests: { query: string; path?: string; at: number }[] = [];
   // the settings of each user, as the cockpit keeps them in customSettings, and the requests which touched them
+  let appLanguages = 'en,de,fr,es';
   let settingsOfUsers = new Map<string, Map<string, unknown>>();
   let settingRequests: { method: string; key: string; body?: unknown }[] = [];
   // the address a browser wanted before it was sent to the login, which the backend keeps
@@ -190,7 +191,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     const method = req.method ?? 'GET';
 
     if (path === `${guiApiPath}/app/info`) {
-      const info: AppInformation = { titleShort: 'Cockpit', titleLong: 'Business Cockpit of acme', version: 'simulator' };
+      const info: AppInformation = { titleShort: 'Cockpit', titleLong: 'Business Cockpit of acme', version: 'simulator', additionalProperties: { languages: appLanguages } };
       return send(res, 200, info);
     }
 
@@ -557,6 +558,11 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
     }
 
     if (path === '/simulator-api/state') return send(res, 200, { loginPrompts, endSessions });
+    // a test changes the languages app/info offers
+    if (path === '/simulator-api/app-languages' && method === 'POST') {
+      appLanguages = String((await readBody(req)).languages);
+      return send(res, 200);
+    }
     if (path === '/simulator-api/protect-pages' && method === 'POST') {
       protectPages = (await readBody(req)).on !== false;
       return send(res, 200);
@@ -669,6 +675,7 @@ export async function startSimulator(options: { port: number }): Promise<Simulat
       listsFail = false;
       sortRefusal = undefined;
       settingsOfUsers = new Map();
+      appLanguages = 'en,de,fr,es';
       settingRequests = [];
       savedAddress = undefined;
       return send(res, 200);

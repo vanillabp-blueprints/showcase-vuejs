@@ -66,6 +66,8 @@ test('NAV-003 there is exactly one case list, the toggle and the menu lead to it
 test('WL-001 the case list offers In progress and Done, In progress first and chosen, labels follow the language', async ({ page }) => {
   await seed(page, cases);
   await page.goto('/workflows');
+  // the page starts after it read the language of the user, so wait for it
+  await expect(page.getByTestId('status-line')).toBeVisible();
   const buttons = page.getByTestId('status-line').locator('[data-testid^="primary-filter-"]');
   expect(await buttons.evaluateAll((all) => all.map((one) => one.getAttribute('data-testid')))).toEqual(['primary-filter-InProgress', 'primary-filter-Done']);
   await expect(buttons).toHaveText(['In progress (3)', 'Done (1)']);

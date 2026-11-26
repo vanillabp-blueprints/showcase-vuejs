@@ -89,7 +89,8 @@ test('NAV-004 a deep link to the page of a case, opened in a new browser, shows 
   expect(new URL(page.url()).pathname).toBe('/workflows/c1');
   await page.goto('/vorgang/c1');
   await expect(page.getByTestId('case-page')).toBeVisible();
-  expect(new URL(page.url()).pathname).toBe('/vorgang/c1');
+  // the path of another language opens the page and is replaced by the path of the viewer's language (NAV-015)
+  await expect(page).toHaveURL(/\/workflows\/c1$/);
 });
 
 test('TF-013 the link from a task to its case opens the case page of the cockpit', async ({ page }) => {
