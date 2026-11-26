@@ -65,4 +65,5 @@ production.
 
 The backend forwards no WebSocket. The hot reload therefore connects to port 5173 directly. If
 the hot reload does not reach the browser, for example because a proxy or a container hides that
-port, reload the page by hand after a change.
+port, reload the page by hand after a change. In a dev container that publishes its ports with an
+offset, tell the browser the published port: `BC_DEV_SERVER_PUBLIC_PORT=35173 npm run dev`.

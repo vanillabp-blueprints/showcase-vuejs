@@ -3,6 +3,9 @@ import { defineConfig, type Plugin } from 'vite';
 import { describeMissing, missingKeys } from '../../scripts/check-languages.mjs';
 
 const devServerPort = 5173;
+// The port the browser reaches the dev server at, when it differs: a dev container publishes its
+// ports with an offset, for example BC_DEV_SERVER_PUBLIC_PORT=35173.
+const browserPort = Number(process.env.BC_DEV_SERVER_PUBLIC_PORT ?? devServerPort);
 
 // The build fails when a language file misses a key of the default language (I18N-006).
 const languageFilesComplete = (): Plugin => ({
@@ -27,6 +30,6 @@ export default defineConfig({
     port: devServerPort,
     strictPort: true,
     // The backend forwards no WebSocket, so the hot reload connects to the dev server directly.
-    hmr: { clientPort: devServerPort },
+    hmr: { clientPort: browserPort },
   },
 });
