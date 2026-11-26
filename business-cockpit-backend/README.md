@@ -3,6 +3,8 @@
 The cockpit application of acme: Maven, Spring Boot, Java 25. Modules: `types` (the types jar) and
 `application`.
 
+To try the cockpit with the user interface, fill it with demo data, run the tests, and for the next steps, follow [Trying it by hand](../README.md#trying-it-by-hand) in the README of the workspace.
+
 ## Start
 
 ```

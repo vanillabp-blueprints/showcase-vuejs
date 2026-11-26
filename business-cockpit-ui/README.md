@@ -3,6 +3,8 @@
 One npm workspaces repository: the user interface (`packages/ui`), the types, the module kit and
 host, the theme and the dev shells. Node.js 24 or newer is the only tool it needs.
 
+To try the cockpit with the backend, fill it with demo data, start a dev shell, run the tests, and for the next steps, follow [Trying it by hand](../README.md#trying-it-by-hand) in the README of the workspace.
+
 ## Build and test
 
 ```sh
