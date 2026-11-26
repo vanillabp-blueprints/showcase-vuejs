@@ -1,5 +1,7 @@
-// DS-002, DS-003, DS-004, DS-005: the dev shell shows a form from the GUI API of the simulator, without a cockpit.
+// DS-002 to DS-011: the dev shell shows a form from the GUI API of the simulator, without a cockpit.
+import { createServer, type Server } from 'node:http';
 import { expect, test, type Page } from '@playwright/test';
+import { createDevShellProxy } from '../../packages/bc-module-kit/dist/dev-server-proxy.js';
 
 const at = '2026-11-20T08:00:00Z';
 const task = (id: string, bpmnProcessId: string, title: string) => ({ id, bpmnProcessId, workflowModuleId: 'dev-module', createdAt: at, updatedAt: at, businessId: `B-${id}`, title: { en: title } });
@@ -97,4 +99,104 @@ test(`DS-005 [${framework}] the areas are laid out as on the task page of the co
   expect(devShell).toEqual(cockpit);
 });
 
+
+test(`DS-006 [${framework}] a toast a part asks for is shown in the look of its level, and a sticky one stays until it is clicked away`, async ({ page }) => {
+  await seed(page);
+  await page.clock.install();
+  await page.goto(`${shell}#/tasks/t1`);
+  await page.locator('[data-action="notify-info"]').click();
+  const info = page.getByTestId('toast').filter({ hasText: 'Saved' });
+  await expect(info).toHaveAttribute('data-level', 'info');
+  // the look of the cockpit's toast (Vuetify palette, Q-THEME)
+  await expect(info).toHaveCSS('background-color', 'rgb(33, 150, 243)');
+  await page.locator('[data-action="notify-sticky"]').click();
+  const sticky = page.getByTestId('toast').filter({ hasText: 'Stays here' });
+  await expect(sticky).toHaveAttribute('data-level', 'error');
+  await page.clock.fastForward(6000);
+  await expect(info).toHaveCount(0);
+  await expect(sticky).toBeVisible();
+  await sticky.click();
+  await expect(sticky).toHaveCount(0);
+});
+
+test(`DS-007 [${framework}] the developer can choose the language, and every part on the page gets it`, async ({ page }) => {
+  await seed(page);
+  await page.goto(`${shell}#/tasks/t1`);
+  const choice = page.getByTestId('language-select');
+  await expect(page.getByTestId('part-language')).toHaveText('language: en');
+  // the languages of the cockpit, from its application information
+  expect(await choice.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))).toEqual(['en', 'de', 'fr', 'es']);
+  await choice.selectOption('de');
+  await expect(page.getByTestId('part-language')).toHaveText('language: de');
+  // the part was not drawn again: the choice reached the same element
+  await expect(page.getByTestId('part-task')).toHaveText('task: Assess risk');
+});
+
+test(`DS-008 [${framework}] a function the simulator does not answer says so in a toast instead of doing nothing silently`, async ({ page }) => {
+  await seed(page);
+  await page.goto(`${shell}#/tasks/t1`);
+  await page.locator('[data-action="claim"]').click();
+  await expect(page.getByTestId('toast').filter({ hasText: 'claim' })).toContainText('does not answer');
+  // the promise of the part resolves
+  await expect(page.getByTestId('result')).toHaveText('claim: done');
+  await page.locator('[data-action="unknown-action"]').click();
+  await expect(page.getByTestId('toast').filter({ hasText: 'cockpit.makeCoffee' })).toContainText('does not know');
+  await expect(page.getByTestId('result')).toHaveText('unknown-action: failed UNKNOWN_ACTION');
+});
+
+test(`DS-009 [${framework}] getUserTasks returns the real user tasks of the case`, async ({ page }) => {
+  await seed(page);
+  await page.request.post('/simulator-api/user-tasks', { data: { userTasks: [
+    { ...task('t3', 'ride', 'Open one'), workflowId: 'c1' },
+    { ...task('t4', 'ride', 'Done one'), workflowId: 'c1', endedAt: at },
+    { ...task('t5', 'ride', 'Other case'), workflowId: 'c2' },
+  ] } });
+  await page.goto(`${shell}#/workflows/c1`);
+  await page.locator('[data-action="tasks-all"]').click();
+  await expect(page.getByTestId('result')).toHaveText('tasks-all: t3,t4');
+  await page.locator('[data-action="tasks-active"]').click();
+  await expect(page.getByTestId('result')).toHaveText('tasks-active: t3');
+});
+
+test(`DS-011 [${framework}] the dev shell has no lists, no live updates, no login and no copy of a list row`, async ({ page }) => {
+  await seed(page);
+  const requests: string[] = [];
+  page.on('request', (request) => requests.push(`${request.method()} ${new URL(request.url()).pathname}`));
+  await page.goto(`${shell}#/tasks/t1`);
+  await expect(page.getByTestId('part-task')).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(requests.filter((request) => /updates|oauth2|login|logout|current-user|\/count|notifications/.test(request))).toEqual([]);
+  // the only lists are the drop-down: the primary filter All, nothing else asks for a list
+  expect(requests.filter((request) => /\/(usertask|workflow)$/.test(request))).toEqual(['POST /official-api/gui/api/v1/usertask']);
+  expect(await page.locator('table, [role="grid"], [data-testid*="list"], [data-testid*="row"]').count()).toBe(0);
+});
+
 }
+
+test('DS-010 the dev server forwards /official-api and /dev-shell to the simulator and /wm/<id>/ to the workflow module, and answers an unknown path with the start page', async ({ baseURL }) => {
+  const seen: string[] = [];
+  const module: Server = createServer((request, response) => { seen.push(`${request.method} ${request.url}`); response.end('module says hi'); });
+  await new Promise<void>((done) => module.listen(0, '127.0.0.1', done));
+  const proxy: Server = createServer(createDevShellProxy({
+    simulator: baseURL!, workflowModules: { 'dev-module': `http://127.0.0.1:${(module.address() as { port: number }).port}` }, startPage: '<!doctype html><title>start</title>',
+  }));
+  await new Promise<void>((done) => proxy.listen(0, '127.0.0.1', done));
+  const at = `http://127.0.0.1:${(proxy.address() as { port: number }).port}`;
+  try {
+    expect((await fetch(`${at}/official-api/gui/api/v1/app/info`)).status).toBe(200);
+    expect(await (await fetch(`${at}/dev-shell/user/all/id`)).json()).toEqual(expect.arrayContaining(['anna']));
+    // the cookie travels along
+    const chosen = await fetch(`${at}/dev-shell/user/anna`, { method: 'POST' });
+    expect(chosen.headers.get('set-cookie')).toBeTruthy();
+    const forwarded = await fetch(`${at}/wm/dev-module/api/orders?x=1`, { method: 'POST', body: 'data' });
+    expect(await forwarded.text()).toBe('module says hi');
+    expect(seen).toEqual(['POST /api/orders?x=1']);
+    // an unknown path, and a module nobody registered, give the start page of the single-page application
+    for (const path of ['/tasks/t1', '/wm/other-module/api']) {
+      const answer = await fetch(`${at}${path}`);
+      expect([answer.status, await answer.text()]).toEqual([200, '<!doctype html><title>start</title>']);
+    }
+  } finally {
+    proxy.close(); module.close();
+  }
+});

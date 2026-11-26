@@ -1,11 +1,16 @@
 // What every dev shell shares, whatever the framework of the module: the client of the GUI API, the layout of the task
 // page and the case page, and the drawing of a part. A dev shell supplies only how its framework builds a web component.
-import type { BcElementDescriptor } from '@acme/bc-types';
+import { ERROR_CODES, REQUEST_EVENT, RESPONSE_EVENT, type BcElementDescriptor, type BcNotification, type BcRequestDetail, type BcResponseDetail } from '@acme/bc-types';
 import { defineBcElement, type BcProps } from './define-element.js';
+import { toast } from './toast.js';
 
 export interface DevShellEntry { id: string; title?: Record<string, string> }
 export interface DevShellUser { id: string; name: string }
 export class DevShellNotAllowed extends Error {}
+
+/** What every part gets besides its data: the user chosen and the language chosen. */
+export interface DevShellContext { user: string; language: string }
+export const DEV_SHELL_DEFAULT_LANGUAGE = 'en';
 
 export type DevShellDataFunction = (data: Record<string, unknown> | undefined, area: string) => BcElementDescriptor | undefined | Promise<BcElementDescriptor | undefined>;
 
@@ -45,10 +50,73 @@ export function createDevShellApi(guiApiBase: string) {
     workflows: () => list('workflow'),
     userTask: (id: string) => call<Record<string, unknown>>(`${guiApiBase}/usertask/${encodeURIComponent(id)}`),
     workflow: (id: string) => call<Record<string, unknown>>(`${guiApiBase}/workflow/${encodeURIComponent(id)}`),
+    /** The languages of the cockpit, as its application information names them. */
+    languages: async (): Promise<string[]> => {
+      const info = await call<{ additionalProperties?: { languages?: string } }>(`${guiApiBase}/app/info`);
+      return (info.additionalProperties?.languages ?? DEV_SHELL_DEFAULT_LANGUAGE).split(',').map((language) => language.trim()).filter(Boolean);
+    },
+    /** The user tasks of a case, like the cockpit: POST /workflow/{id}/usertasks. */
+    userTasksOfWorkflow: async (workflowId: string): Promise<Record<string, unknown>[]> =>
+      (await call<{ userTasks: Record<string, unknown>[] }>(`${guiApiBase}/workflow/${encodeURIComponent(workflowId)}/usertasks`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'All' }),
+      })).userTasks,
     users: () => call<DevShellUser[]>('/dev-shell/user/all'),
     chosenUser: async () => (await (await fetch('/dev-shell/user/')).text()) || '---',
     chooseUser: async (id: string) => { await fetch(`/dev-shell/user/${encodeURIComponent(id)}`, { method: 'POST' }); },
   };
+}
+
+const text = (args: unknown, name: string): string => {
+  const value = (args as Record<string, unknown> | undefined)?.[name];
+  if (typeof value !== 'string' || !value) throw new TypeError(`the argument ${name} is missing`);
+  return value;
+};
+const goTo = (kind: 'tasks' | 'workflows', id: string) => { window.location.hash = `#/${kind}/${id}`; };
+
+/** The functions the dev shell does not simulate: the simulator keeps no changes of a user task, so the developer is told. */
+const NOT_ANSWERED = ['userTask.claim', 'userTask.unclaim', 'userTask.assign', 'userTask.unassign'];
+
+/**
+ * What the dev shell answers a part which asks the cockpit through its host element (the event protocol). Every request gets one
+ * answer: a function which is not simulated says so in a toast and resolves, one nobody knows says so and fails.
+ */
+function answerRequests(element: HTMLElement, api: ReturnType<typeof createDevShellApi>): void {
+  const say = (level: BcNotification['level'], message: string) => toast({ level, text: `Dev shell: ${message}` });
+  const handlers: Record<string, (args: unknown) => unknown> = {
+    'cockpit.showNotification': (args) => toast(args as BcNotification),
+    'userTask.open': (args) => goTo('tasks', text(args, 'userTaskId')),
+    'workflow.navigateToWorkflow': (args) => goTo('workflows', text(args, 'workflowId')),
+    'userTask.navigateToWorkflow': async (args) => {
+      const { workflowId } = await api.userTask(text(args, 'userTaskId')) as { workflowId?: string };
+      if (workflowId) goTo('workflows', workflowId);
+    },
+    'workflow.getUserTasks': async (args) => {
+      const tasks = await api.userTasksOfWorkflow(text(args, 'workflowId'));
+      return (args as { activeOnly?: boolean }).activeOnly ?? true ? tasks.filter((task) => !task.endedAt) : tasks;
+    },
+  };
+  const respond = (detail: BcResponseDetail) => element.dispatchEvent(new CustomEvent(RESPONSE_EVENT, { detail }));
+  element.addEventListener(REQUEST_EVENT, async (event) => {
+    const { requestId, action, args } = (event as CustomEvent<BcRequestDetail>).detail;
+    if (NOT_ANSWERED.includes(action)) {
+      say('warning', `the dev shell simulator does not answer ${action}; nothing was changed.`);
+      return respond({ requestId, ok: true });
+    }
+    if (!Object.hasOwn(handlers, action)) {
+      say('error', `the dev shell does not know ${action}.`);
+      return respond({ requestId, ok: false, error: { code: ERROR_CODES.UNKNOWN_ACTION, message: `the dev shell does not know ${action}` } });
+    }
+    try {
+      respond({ requestId, ok: true, result: await handlers[action]!(args) });
+    } catch (error) {
+      respond({ requestId, ok: false, error: { code: ERROR_CODES.FAILED, message: String(error) } });
+    }
+  });
+}
+
+/** The user or the language changed: every part on the page gets it, without being drawn again. */
+export function setDevShellContext(container: HTMLElement, context: Partial<DevShellContext>): void {
+  for (const slot of container.children) Object.assign(slot.firstElementChild ?? {}, context);
 }
 
 /** The layout boxes of the task page and the case page of the cockpit: the same elements, the same CSS (TaskPage.vue). */
@@ -95,12 +163,13 @@ function define<Component>(name: string, component: Component, style: string, re
 /** Asks the data entry and draws what it names into the container: the areas of the page, or `all`, as the cockpit picks them. */
 export async function drawDevShellPart<Component>(
   container: HTMLElement, ask: DevShellDataFunction | undefined, data: Record<string, unknown>, dataName: 'userTask' | 'workflow',
-  options: DevShellCoreOptions<Component>, renderer: DevShellRenderer<Component>, user: unknown,
+  options: DevShellCoreOptions<Component>, renderer: DevShellRenderer<Component>, context: DevShellContext,
 ): Promise<string | undefined> {
   container.replaceChildren();
   const first = await ask?.(data, 'all');
   if (!first) return `the module names no part for ${dataName} ${String(data.id)}`;
   const named: Record<string, string> = typeof first.element === 'string' ? { all: first.element } : first.element;
+  const api = createDevShellApi(options.guiApiBase);
   const prefix = options.workflowModuleId.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
   const areas = PAGE_AREAS.filter((area) => Object.hasOwn(named, area));
   for (const area of areas.length ? areas : ['all']) {
@@ -113,7 +182,8 @@ export async function drawDevShellPart<Component>(
     const slot = container.appendChild(document.createElement('div'));
     if (area !== 'all') slot.dataset.area = area;
     const element = document.createElement(name);
-    Object.assign(element, { [dataName]: data, area, user });
+    answerRequests(element, api);
+    Object.assign(element, { [dataName]: data, area, ...context });
     slot.append(element);
   }
   return undefined;
@@ -144,6 +214,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
   const kindSelect = select('kind-select');
   const entrySelect = select('entry-select');
   const userSelect = select('user-select');
+  const languageSelect = select('language-select');
   const fill = (element: HTMLSelectElement, choices: [string, string][], value: string) => {
     element.replaceChildren(...choices.map(([id, label]) => Object.assign(document.createElement('option'), { value: id, textContent: label })));
     element.value = value;
@@ -154,6 +225,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
 
   const say = (text: string | undefined) => { note.textContent = text ?? ''; note.hidden = !text; };
   let user = '---';
+  let language = DEV_SHELL_DEFAULT_LANGUAGE;
   let shown = 0;
   const go = (to: 'tasks' | 'workflows', id: string) => { window.location.hash = `#/${to}/${id}`; };
 
@@ -167,7 +239,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
       const entries = await (kind === 'tasks' ? api.userTasks() : api.workflows());
       if (turn !== shown) return;
       fill(kindSelect, [['tasks', 'User tasks'], ['workflows', 'Cases']], kind);
-      fill(entrySelect, entries.map((entry) => [entry.id, entry.title?.en ?? entry.id]), route?.[1] ?? '');
+      fill(entrySelect, entries.map((entry) => [entry.id, entry.title?.[language] ?? entry.title?.en ?? entry.id]), route?.[1] ?? '');
       if (!route) {
         container.replaceChildren();
         if (entries[0]) go(kind, entries[0].id);
@@ -176,7 +248,7 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
       const data = await (kind === 'tasks' ? api.userTask(route[1]) : api.workflow(route[1]));
       if (turn !== shown) return;
       const ask = (kind === 'tasks' ? options.userTaskForm : options.workflowPage) as DevShellDataFunction | undefined;
-      say(await drawDevShellPart(container, ask, data, kind === 'tasks' ? 'userTask' : 'workflow', options, renderer, user));
+      say(await drawDevShellPart(container, ask, data, kind === 'tasks' ? 'userTask' : 'workflow', options, renderer, { user, language }));
     } catch (error) {
       if (turn !== shown) return;
       container.replaceChildren();
@@ -193,10 +265,12 @@ export function startDevShell<Component>(target: HTMLElement, options: DevShellC
     else { fill(entrySelect, [], ''); container.replaceChildren(); }
   });
   userSelect.addEventListener('change', () => { user = userSelect.value; void api.chooseUser(user).then(load); });
+  languageSelect.addEventListener('change', () => { language = languageSelect.value; setDevShellContext(container, { language }); });
   window.addEventListener('hashchange', () => void load());
   void (async () => {
-    const [users, chosen] = await Promise.all([api.users(), api.chosenUser()]);
+    const [users, chosen, languages] = await Promise.all([api.users(), api.chosenUser(), api.languages().catch(() => [DEV_SHELL_DEFAULT_LANGUAGE])]);
     user = chosen;
+    fill(languageSelect, languages.map((one) => [one, one]), language);
     fill(userSelect, [['---', 'no user'], ...users.map((one) => [one.id, one.name] as [string, string])], user);
     await load();
   })();

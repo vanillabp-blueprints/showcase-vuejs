@@ -1,5 +1,5 @@
 import { defineComponent, h, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
-import { createDevShellApi as createApi, DevShellNotAllowed as NotAllowed, DEV_SHELL_LAYOUT_CSS, type DevShellUser, type DevShellEntry as Entry } from '@acme/bc-module-kit';
+import { createDevShellApi as createApi, DEV_SHELL_DEFAULT_LANGUAGE, setDevShellContext, DevShellNotAllowed as NotAllowed, DEV_SHELL_LAYOUT_CSS, type DevShellUser, type DevShellEntry as Entry } from '@acme/bc-module-kit';
 import { drawPart, type DataFunction } from './parts.js';
 import type { BcElementDescriptor } from '@acme/bc-module-kit';
 
@@ -28,6 +28,8 @@ export function createDevShell(options: DevShellOptions) {
       const entries = ref<Entry[]>([]);
       const users = ref<DevShellUser[]>([]);
       const user = ref('---');
+      const languages = ref<string[]>([DEV_SHELL_DEFAULT_LANGUAGE]);
+      const language = ref(DEV_SHELL_DEFAULT_LANGUAGE);
       const note = ref<string>();
       const container = ref<HTMLElement>();
       const onHash = () => { route.value = routeOf(); };
@@ -45,7 +47,7 @@ export function createDevShell(options: DevShellOptions) {
           const [which, id] = route.value;
           const data = await (which === 'tasks' ? api.userTask(id) : api.workflow(id));
           const ask = (which === 'tasks' ? options.userTaskForm : options.workflowPage) as DataFunction | undefined;
-          note.value = await drawPart(container.value, ask, data, which === 'tasks' ? 'userTask' : 'workflow', options, style, user.value);
+          note.value = await drawPart(container.value, ask, data, which === 'tasks' ? 'userTask' : 'workflow', options, style, { user: user.value, language: language.value });
         } catch (error) {
           container.value?.replaceChildren();
           note.value = error instanceof NotAllowed ? 'No user is chosen: the simulator answers only for a user.' : String(error);
@@ -55,7 +57,7 @@ export function createDevShell(options: DevShellOptions) {
       onMounted(async () => {
         document.head.append(Object.assign(document.createElement('style'), { textContent: DEV_SHELL_LAYOUT_CSS }));
         window.addEventListener('hashchange', onHash);
-        [users.value, user.value] = await Promise.all([api.users(), api.chosenUser()]);
+        [users.value, user.value, languages.value] = await Promise.all([api.users(), api.chosenUser(), api.languages().catch(() => [DEV_SHELL_DEFAULT_LANGUAGE])]);
         await load();
       });
       onUnmounted(() => window.removeEventListener('hashchange', onHash));
@@ -68,8 +70,9 @@ export function createDevShell(options: DevShellOptions) {
       return () => h('div', { class: 'bc-page' }, [
         h('div', { class: 'bc-bar', 'data-testid': 'shell-bar' }, [
           select('kind-select', kind(), [['tasks', 'User tasks'], ['workflows', 'Cases']], (to) => { route.value = undefined; window.location.hash = ''; void (async () => { const next = await (to === 'tasks' ? api.userTasks() : api.workflows()).catch(() => []); if (next[0]) go(to as 'tasks', next[0].id); else { entries.value = []; container.value?.replaceChildren(); } })(); }),
-          select('entry-select', route.value?.[1] ?? '', entries.value.map((entry) => [entry.id, entry.title?.en ?? entry.id]), (id) => go(kind(), id)),
+          select('entry-select', route.value?.[1] ?? '', entries.value.map((entry) => [entry.id, entry.title?.[language.value] ?? entry.title?.en ?? entry.id]), (id) => go(kind(), id)),
           select('user-select', user.value, [['---', 'no user'], ...users.value.map((one) => [one.id, one.name] as [string, string])], (id) => { user.value = id; void api.chooseUser(id).then(load); }),
+          select('language-select', language.value, languages.value.map((one) => [one, one] as [string, string]), (one) => { language.value = one; if (container.value) setDevShellContext(container.value, { language: one }); }),
         ]),
         note.value ? h('p', { 'data-testid': 'shell-note', role: 'alert', class: 'bc-note' }, note.value) : undefined,
         h('div', { class: 'bc-stage' }, h('div', { class: 'bc-container', ref: container })),

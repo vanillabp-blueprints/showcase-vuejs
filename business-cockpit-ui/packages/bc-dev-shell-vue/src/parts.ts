@@ -1,5 +1,5 @@
 import { createApp, h, reactive, type Component } from 'vue';
-import { drawDevShellPart, type DevShellCoreOptions, type DevShellDataFunction, type DevShellRenderer } from '@acme/bc-module-kit';
+import { drawDevShellPart, type DevShellContext, type DevShellCoreOptions, type DevShellDataFunction, type DevShellRenderer } from '@acme/bc-module-kit';
 
 export type DataFunction = DevShellDataFunction;
 
@@ -15,5 +15,5 @@ const renderer: DevShellRenderer<Component> = {
 
 export const drawPart = (
   container: HTMLElement, ask: DataFunction | undefined, data: Record<string, unknown>, dataName: 'userTask' | 'workflow',
-  options: DevShellCoreOptions<Component>, style: string, user: unknown,
-) => drawDevShellPart(container, ask, data, dataName, { ...options, style }, renderer, user);
+  options: DevShellCoreOptions<Component>, style: string, context: DevShellContext,
+) => drawDevShellPart(container, ask, data, dataName, { ...options, style }, renderer, context);

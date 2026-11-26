@@ -8,7 +8,7 @@ export interface BcElementFunctions {
 }
 
 /** The properties the cockpit sets on every part. */
-const BASE_PROPERTIES = ['userTask', 'workflow', 'user', 'area'];
+const BASE_PROPERTIES = ['userTask', 'workflow', 'user', 'area', 'language', 'currentUser'];
 
 /** Builds and registers the web component of a part; throws when the name is taken. */
 export function defineBcElement(name: string, functions: BcElementFunctions, options: { properties?: readonly string[] } = {}): void {
